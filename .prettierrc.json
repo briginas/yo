@@ -1,0 +1,22 @@
+{
+    "tabWidth": 4,
+    "useTabs": false,
+    "semi": false,
+    "singleQuote": true,
+    "printWidth": 100,
+    "trailingComma": "es5",
+    "importOrderGroupNamespaceSpecifiers": true,
+    "importOrderSeparation": true,
+    "importOrderSortSpecifiers": true,
+    "arrowParens": "always",
+    "bracketSpacing": true,
+    "embeddedLanguageFormatting": "auto",
+    "endOfLine": "lf",
+    "htmlWhitespaceSensitivity": "css",
+    "insertPragma": false,
+    "jsxSingleQuote": true,
+    "proseWrap": "preserve",
+    "quoteProps": "as-needed",
+    "requirePragma": false,
+    "vueIndentScriptAndStyle": false
+}

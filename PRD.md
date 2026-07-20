@@ -23,16 +23,16 @@ The milestone succeeds when a user can run one command against a small fixture r
 
 - A TypeScript CLI command:
 
-  ```text
-  yo ask "<task>" --cwd <approved-workspace>
-  ```
+    ```text
+    yo ask "<task>" --cwd <approved-workspace>
+    ```
 
 - One OpenAI API transport using a configured tool-capable model.
 - A bounded model/tool loop with streaming model output where supported.
 - Typed, schema-validated, read-only tools:
-  - `list_files({ path, glob?, limit? })`
-  - `search_code({ query, path?, glob?, limit? })`
-  - `read_file({ path, startLine?, endLine? })`
+    - `list_files({ path, glob?, limit? })`
+    - `search_code({ query, path?, glob?, limit? })`
+    - `read_file({ path, startLine?, endLine? })`
 - Structured run events and a concise final evidence report.
 - Deterministic tests using a faux model transport.
 

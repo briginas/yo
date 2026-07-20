@@ -1,15 +1,15 @@
 {
-  "compilerOptions": {
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "target": "ES2024",
-    "rootDir": "./src",
-    "strict": true,
-    "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
-    "verbatimModuleSyntax": true,
-    "skipLibCheck": true,
-    "noEmit": true
-  },
-  "include": ["src/**/*.ts", "test/**/*.ts"]
+    "compilerOptions": {
+        "module": "ESNext",
+        "moduleResolution": "Bundler",
+        "target": "ES2024",
+        "rootDir": "./src",
+        "strict": true,
+        "noUncheckedIndexedAccess": true,
+        "exactOptionalPropertyTypes": true,
+        "verbatimModuleSyntax": true,
+        "skipLibCheck": true,
+        "noEmit": true
+    },
+    "include": ["src/**/*.ts", "test/**/*.ts"]
 }
