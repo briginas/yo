@@ -8,7 +8,7 @@ Run and review the checks for each step before moving to the next one.
   - [x] Verify that an empty CLI builds and runs.
 
 - [ ] **2. Runtime contracts**
-  - [ ] Define runtime-independent types for run state, events, tool calls, and tool results.
+  - [x] Define runtime-independent types for run state, events, tool calls, and tool results.
   - [ ] Add Zod schemas for future tool arguments.
   - [ ] Verify types and basic unit tests for the contracts.
 

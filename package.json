@@ -7,11 +7,12 @@
     "node": ">=22.18.0"
   },
   "scripts": {
-    "build": "tsc --outDir dist",
+    "build": "tsc --noEmit && esbuild src/cli.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/cli.js",
     "test": "node --test",
-    "dev": "node src/cli.ts"
+    "dev": "npm run build && node dist/cli.js"
   },
   "devDependencies": {
+    "esbuild": "^0.28.1",
     "typescript": "7.0.2"
   }
 }
