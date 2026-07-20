@@ -2,10 +2,10 @@
 
 Run and review the checks for each step before moving to the next one.
 
-- [ ] **1. Project foundation**
+- [x] **1. Project foundation**
   - [x] Initialize the local Git repository and npm/TypeScript project.
-  - [ ] Add minimal `build`, `test`, and `dev` commands.
-  - [ ] Verify that an empty CLI builds and runs.
+  - [x] Add minimal `build`, `test`, and `dev` commands.
+  - [x] Verify that an empty CLI builds and runs.
 
 - [ ] **2. Runtime contracts**
   - [ ] Define runtime-independent types for run state, events, tool calls, and tool results.
