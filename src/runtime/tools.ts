@@ -1,4 +1,37 @@
+import { z } from 'zod'
+
 export type ToolName = 'list_files' | 'search_code' | 'read_file'
+
+export const listFilesArgumentsSchema = z
+    .object({
+        path: z.string().min(1),
+        glob: z.string().min(1).optional(),
+        limit: z.number().int().positive().optional(),
+    })
+    .strict()
+
+export type ListFilesArguments = z.infer<typeof listFilesArgumentsSchema>
+
+export const searchCodeArgumentsSchema = z
+    .object({
+        query: z.string().min(1),
+        path: z.string().min(1).optional(),
+        glob: z.string().min(1).optional(),
+        limit: z.number().int().positive().optional(),
+    })
+    .strict()
+
+export type SearchCodeArguments = z.infer<typeof searchCodeArgumentsSchema>
+
+export const readFileArgumentsSchema = z
+    .object({
+        path: z.string().min(1),
+        startLine: z.number().int().positive().optional(),
+        endLine: z.number().int().positive().optional(),
+    })
+    .strict()
+
+export type ReadFileArguments = z.infer<typeof readFileArgumentsSchema>
 
 export type ToolCall = {
     id: string
