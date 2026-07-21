@@ -14,7 +14,7 @@ Run and review the checks for each step before moving to the next one.
 
 - [ ] **3. Safe read-only filesystem layer**
     - [ ] **3.1 Build the base read-only filesystem layer**
-        - [ ] Canonicalize the approved workspace root.
+        - [x] Canonicalize the approved workspace root.
         - [ ] Resolve requested paths and enforce workspace, symlink, and sensitive-path permissions.
         - [ ] Implement the `list_files` operation.
         - [ ] Implement the `search_code` operation.
