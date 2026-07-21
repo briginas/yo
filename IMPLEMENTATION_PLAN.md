@@ -7,10 +7,10 @@ Run and review the checks for each step before moving to the next one.
     - [x] Add minimal `build`, `test`, and `dev` commands.
     - [x] Verify that an empty CLI builds and runs.
 
-- [ ] **2. Runtime contracts**
+- [x] **2. Runtime contracts**
     - [x] Define runtime-independent types for run state, events, tool calls, and tool results.
     - [x] Add Zod schemas for future tool arguments.
-    - [ ] Verify types and basic unit tests for the contracts.
+    - [x] Verify types and basic unit tests for the contracts.
 
 - [ ] **3. Safe read-only filesystem layer**
     - [ ] Implement `--cwd` canonicalization, the permission policy, and list/search/read tools.
