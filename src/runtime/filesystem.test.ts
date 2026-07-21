@@ -224,6 +224,8 @@ describe('searchCode', () => {
         await Promise.all([
             mkdir(join(workspaceRoot, '.git')),
             mkdir(join(workspaceRoot, 'node_modules')),
+        ])
+        await Promise.all([
             writeFile(safeFile, 'target value\n'),
             writeFile(join(workspaceRoot, '.env'), 'target secret\n'),
             writeFile(join(workspaceRoot, '.git', 'config'), 'target secret\n'),

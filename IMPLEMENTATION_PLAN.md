@@ -13,13 +13,13 @@ Run and review the checks for each step before moving to the next one.
     - [x] Verify types and basic unit tests for the contracts.
 
 - [ ] **3. Safe read-only filesystem layer**
-    - [ ] **3.1 Build the base read-only filesystem layer**
+    - [x] **3.1 Build the base read-only filesystem layer**
         - [x] Canonicalize the approved workspace root.
         - [x] Resolve requested paths and enforce workspace, symlink, and sensitive-path permissions.
         - [x] Implement the `list_files` operation.
         - [x] Implement the `search_code` operation.
         - [x] Implement the `read_file` operation.
-        - [ ] Export the filesystem APIs and verify the basic read-only flow.
+        - [x] Export the filesystem APIs and verify the basic read-only flow.
     - [ ] Add limits for paths, output size, lines, results, and timeouts.
     - [ ] Verify traversal denial, truncation, and the absence of write/process APIs.
 
