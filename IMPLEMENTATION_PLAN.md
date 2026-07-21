@@ -16,7 +16,7 @@ Run and review the checks for each step before moving to the next one.
     - [ ] **3.1 Build the base read-only filesystem layer**
         - [x] Canonicalize the approved workspace root.
         - [x] Resolve requested paths and enforce workspace, symlink, and sensitive-path permissions.
-        - [ ] Implement the `list_files` operation.
+        - [x] Implement the `list_files` operation.
         - [ ] Implement the `search_code` operation.
         - [ ] Implement the `read_file` operation.
         - [ ] Export the filesystem APIs and verify the basic read-only flow.
