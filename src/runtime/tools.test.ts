@@ -96,6 +96,7 @@ describe('readFileArgumentsSchema', () => {
             { path: 'src/runtime/tools.ts', endLine: 0 },
             { path: 'src/runtime/tools.ts', endLine: -1 },
             { path: 'src/runtime/tools.ts', endLine: 1.5 },
+            { path: 'src/runtime/tools.ts', startLine: 20, endLine: 10 },
         ])
     })
 })

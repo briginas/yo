@@ -30,6 +30,14 @@ export const readFileArgumentsSchema = z
         endLine: z.number().int().positive().optional(),
     })
     .strict()
+    .refine(
+        ({ startLine, endLine }) =>
+            startLine === undefined || endLine === undefined || startLine <= endLine,
+        {
+            message: 'startLine must be less than or equal to endLine',
+            path: ['endLine'],
+        }
+    )
 
 export type ReadFileArguments = z.infer<typeof readFileArgumentsSchema>
 

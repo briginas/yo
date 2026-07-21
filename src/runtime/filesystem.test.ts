@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, test } from 'node:test'
 
-import { listFiles, searchCode } from './filesystem.ts'
+import { listFiles, readFile, searchCode } from './filesystem.ts'
 import { canonicalizeWorkspaceRoot } from './workspace.ts'
 
 const temporaryDirectories = new Set<string>()
@@ -261,5 +261,121 @@ describe('searchCode', () => {
             status: 'denied',
             reason: 'outside_workspace',
         })
+    })
+})
+
+describe('readFile', () => {
+    test('reads a complete UTF-8 file with normalized line endings and line numbers', async () => {
+        const { workspaceRoot } = await createWorkspaceFixture()
+
+        await writeFile(join(workspaceRoot, 'example.txt'), 'first\r\nsecond\rthird\r\n')
+
+        assert.deepEqual(await readFile(workspaceRoot, { path: 'example.txt' }), {
+            status: 'success',
+            content: '1:first\n2:second\n3:third',
+        })
+    })
+
+    test('supports inclusive start and end line ranges', async () => {
+        const { workspaceRoot } = await createWorkspaceFixture()
+
+        await writeFile(join(workspaceRoot, 'example.txt'), 'one\ntwo\nthree\nfour\n')
+
+        assert.deepEqual(await readFile(workspaceRoot, { path: 'example.txt', startLine: 3 }), {
+            status: 'success',
+            content: '3:three\n4:four',
+        })
+        assert.deepEqual(await readFile(workspaceRoot, { path: 'example.txt', endLine: 2 }), {
+            status: 'success',
+            content: '1:one\n2:two',
+        })
+        assert.deepEqual(
+            await readFile(workspaceRoot, {
+                path: 'example.txt',
+                startLine: 2,
+                endLine: 3,
+            }),
+            {
+                status: 'success',
+                content: '2:two\n3:three',
+            }
+        )
+        assert.deepEqual(await readFile(workspaceRoot, { path: 'example.txt', endLine: 20 }), {
+            status: 'success',
+            content: '1:one\n2:two\n3:three\n4:four',
+        })
+    })
+
+    test('reads an empty file as empty content', async () => {
+        const { workspaceRoot } = await createWorkspaceFixture()
+
+        await writeFile(join(workspaceRoot, 'empty.txt'), '')
+
+        assert.deepEqual(await readFile(workspaceRoot, { path: 'empty.txt' }), {
+            status: 'success',
+            content: '',
+        })
+        await assert.rejects(
+            readFile(workspaceRoot, { path: 'empty.txt', startLine: 2 }),
+            /Start line 2 is beyond end of file \(0 lines\): empty\.txt/
+        )
+    })
+
+    test('returns permission denials for sensitive and outside-workspace paths', async () => {
+        const { workspaceRoot, outside } = await createWorkspaceFixture()
+        const outsideFile = join(outside, 'outside.txt')
+
+        await Promise.all([
+            writeFile(join(workspaceRoot, '.env'), 'TOKEN=secret\n'),
+            writeFile(outsideFile, 'outside\n'),
+        ])
+        await symlink(outsideFile, join(workspaceRoot, 'outside-link.txt'))
+
+        assert.deepEqual(await readFile(workspaceRoot, { path: '.env' }), {
+            status: 'denied',
+            reason: 'sensitive_path',
+        })
+        assert.deepEqual(await readFile(workspaceRoot, { path: outsideFile }), {
+            status: 'denied',
+            reason: 'outside_workspace',
+        })
+        assert.deepEqual(await readFile(workspaceRoot, { path: 'outside-link.txt' }), {
+            status: 'denied',
+            reason: 'outside_workspace',
+        })
+    })
+
+    test('rejects directories and start lines beyond the file', async () => {
+        const { workspaceRoot } = await createWorkspaceFixture()
+
+        await mkdir(join(workspaceRoot, 'directory'))
+        await writeFile(join(workspaceRoot, 'example.txt'), 'one\ntwo\n')
+
+        await assert.rejects(
+            readFile(workspaceRoot, { path: 'directory' }),
+            /Read path must be a file: directory/
+        )
+        await assert.rejects(
+            readFile(workspaceRoot, { path: 'example.txt', startLine: 3 }),
+            /Start line 3 is beyond end of file \(2 lines\): example\.txt/
+        )
+    })
+
+    test('rejects binary files and invalid UTF-8', async () => {
+        const { workspaceRoot } = await createWorkspaceFixture()
+
+        await Promise.all([
+            writeFile(join(workspaceRoot, 'binary.bin'), Buffer.from([0, 1, 2, 3])),
+            writeFile(join(workspaceRoot, 'invalid.txt'), Buffer.from([0xc3, 0x28])),
+        ])
+
+        await assert.rejects(
+            readFile(workspaceRoot, { path: 'binary.bin' }),
+            /Cannot read binary file: binary\.bin/
+        )
+        await assert.rejects(
+            readFile(workspaceRoot, { path: 'invalid.txt' }),
+            /Cannot decode file as UTF-8: invalid\.txt/
+        )
     })
 })

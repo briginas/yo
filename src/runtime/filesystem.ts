@@ -1,8 +1,8 @@
-import { readFile, readdir, stat } from 'node:fs/promises'
+import { readFile as fsReadFile, readdir, stat } from 'node:fs/promises'
 import { basename, join, matchesGlob, relative, sep } from 'node:path'
 
 import type { PermissionDeniedReason } from './permissions.ts'
-import type { ListFilesArguments, SearchCodeArguments } from './tools.ts'
+import type { ListFilesArguments, ReadFileArguments, SearchCodeArguments } from './tools.ts'
 import { resolveWorkspacePath } from './workspace.ts'
 
 export type ListFilesResult =
@@ -19,6 +19,16 @@ export type SearchCodeResult =
     | {
           status: 'success'
           matches: string[]
+      }
+    | {
+          status: 'denied'
+          reason: Extract<PermissionDeniedReason, 'outside_workspace' | 'sensitive_path'>
+      }
+
+export type ReadFileResult =
+    | {
+          status: 'success'
+          content: string
       }
     | {
           status: 'denied'
@@ -192,7 +202,7 @@ export const searchCode = async (
     const matches: string[] = []
 
     for (const candidate of searchCandidates) {
-        const contents = await readFile(candidate.absolutePath)
+        const contents = await fsReadFile(candidate.absolutePath)
 
         if (contents.includes(0)) {
             continue
@@ -227,5 +237,78 @@ export const searchCode = async (
     return {
         status: 'success',
         matches,
+    }
+}
+
+export const readFile = async (
+    workspaceRoot: string,
+    arguments_: ReadFileArguments
+): Promise<ReadFileResult> => {
+    const fileDecision = await resolveWorkspacePath(workspaceRoot, arguments_.path)
+
+    if (fileDecision.decision === 'deny') {
+        return {
+            status: 'denied',
+            reason: fileDecision.reason,
+        }
+    }
+
+    const fileStats = await stat(fileDecision.absolutePath)
+
+    if (!fileStats.isFile()) {
+        throw new Error(`Read path must be a file: ${fileDecision.relativePath}`)
+    }
+
+    const contents = await fsReadFile(fileDecision.absolutePath)
+
+    if (contents.includes(0)) {
+        throw new Error(`Cannot read binary file: ${fileDecision.relativePath}`)
+    }
+
+    let text: string
+
+    try {
+        text = textDecoder.decode(contents)
+    } catch {
+        throw new Error(`Cannot decode file as UTF-8: ${fileDecision.relativePath}`)
+    }
+
+    const normalizedText = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n')
+
+    if (normalizedText.length === 0) {
+        if (arguments_.startLine !== undefined && arguments_.startLine > 1) {
+            throw new Error(
+                `Start line ${arguments_.startLine} is beyond end of file (0 lines): ${fileDecision.relativePath}`
+            )
+        }
+
+        return {
+            status: 'success',
+            content: '',
+        }
+    }
+
+    const lines = normalizedText.split('\n')
+
+    if (lines.at(-1) === '') {
+        lines.pop()
+    }
+
+    const startLine = arguments_.startLine ?? 1
+
+    if (startLine > lines.length) {
+        throw new Error(
+            `Start line ${startLine} is beyond end of file (${lines.length} lines): ${fileDecision.relativePath}`
+        )
+    }
+
+    const endLine = Math.min(arguments_.endLine ?? lines.length, lines.length)
+    const selectedLines = lines
+        .slice(startLine - 1, endLine)
+        .map((line, index) => `${startLine + index}:${line}`)
+
+    return {
+        status: 'success',
+        content: selectedLines.join('\n'),
     }
 }
