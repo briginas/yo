@@ -1,15 +1,27 @@
 import { readFile as fsReadFile, readdir, stat } from 'node:fs/promises'
 import { basename, join, matchesGlob, relative, sep } from 'node:path'
 
-import { LIST_FILES_DEFAULT_LIMIT, SEARCH_CODE_DEFAULT_LIMIT } from './filesystem-limits.ts'
+import {
+    FILESYSTEM_OUTPUT_MAX_BYTES,
+    FILESYSTEM_OUTPUT_MAX_LINES,
+    LIST_FILES_DEFAULT_LIMIT,
+    SEARCH_CODE_DEFAULT_LIMIT,
+} from './filesystem-limits.ts'
 import type { PermissionDeniedReason } from './permissions.ts'
-import type { ListFilesArguments, ReadFileArguments, SearchCodeArguments } from './tools.ts'
+import type {
+    ListFilesArguments,
+    ReadFileArguments,
+    SearchCodeArguments,
+    ToolResultMetadata,
+    ToolResultTruncation,
+} from './tools.ts'
 import { resolveWorkspacePath } from './workspace.ts'
 
 export type ListFilesResult =
     | {
           status: 'success'
           entries: string[]
+          metadata: ToolResultMetadata
       }
     | {
           status: 'denied'
@@ -20,6 +32,7 @@ export type SearchCodeResult =
     | {
           status: 'success'
           matches: string[]
+          metadata: ToolResultMetadata
       }
     | {
           status: 'denied'
@@ -30,6 +43,7 @@ export type ReadFileResult =
     | {
           status: 'success'
           content: string
+          metadata: ToolResultMetadata
       }
     | {
           status: 'denied'
@@ -41,9 +55,66 @@ type SearchCandidate = {
     relativePath: string
 }
 
+type OutputItemLimit = {
+    reason: Extract<ToolResultTruncation['reason'], 'line_limit' | 'result_limit'>
+    limit: number
+}
+
+type OutputAccumulator = {
+    items: string[]
+    add: (item: string) => ToolResultMetadata | null
+    complete: () => ToolResultMetadata
+}
+
 const toPosixPath = (path: string): string => path.split(sep).join('/')
 
 const textDecoder = new TextDecoder('utf-8', { fatal: true })
+
+const completeOutputMetadata = (): ToolResultMetadata => ({
+    truncated: false,
+    truncation: null,
+})
+
+const createOutputAccumulator = (itemLimit: OutputItemLimit): OutputAccumulator => {
+    const items: string[] = []
+    let outputBytes = 0
+
+    return {
+        items,
+        add: (item) => {
+            if (items.length >= itemLimit.limit) {
+                return {
+                    truncated: true,
+                    truncation: {
+                        reason: itemLimit.reason,
+                        limit: itemLimit.limit,
+                        observed: items.length + 1,
+                    },
+                }
+            }
+
+            const observedBytes =
+                outputBytes + (items.length === 0 ? 0 : 1) + Buffer.byteLength(item, 'utf8')
+
+            if (observedBytes > FILESYSTEM_OUTPUT_MAX_BYTES) {
+                return {
+                    truncated: true,
+                    truncation: {
+                        reason: 'byte_limit',
+                        limit: FILESYSTEM_OUTPUT_MAX_BYTES,
+                        observed: observedBytes,
+                    },
+                }
+            }
+
+            items.push(item)
+            outputBytes = observedBytes
+
+            return null
+        },
+        complete: completeOutputMetadata,
+    }
+}
 
 const comparePaths = (left: string, right: string): number => {
     if (left < right) {
@@ -124,10 +195,27 @@ export const listFiles = async (
 
     listedPaths.sort(comparePaths)
     const limit = arguments_.limit ?? LIST_FILES_DEFAULT_LIMIT
+    const output = createOutputAccumulator({
+        reason: 'result_limit',
+        limit,
+    })
+
+    for (const listedPath of listedPaths) {
+        const truncationMetadata = output.add(listedPath)
+
+        if (truncationMetadata !== null) {
+            return {
+                status: 'success',
+                entries: output.items,
+                metadata: truncationMetadata,
+            }
+        }
+    }
 
     return {
         status: 'success',
-        entries: listedPaths.slice(0, limit),
+        entries: output.items,
+        metadata: output.complete(),
     }
 }
 
@@ -200,8 +288,11 @@ export const searchCode = async (
 
     searchCandidates.sort((left, right) => comparePaths(left.relativePath, right.relativePath))
 
-    const matches: string[] = []
     const limit = arguments_.limit ?? SEARCH_CODE_DEFAULT_LIMIT
+    const output = createOutputAccumulator({
+        reason: 'result_limit',
+        limit,
+    })
 
     for (const candidate of searchCandidates) {
         const contents = await fsReadFile(candidate.absolutePath)
@@ -225,12 +316,15 @@ export const searchCode = async (
                 continue
             }
 
-            matches.push(`${candidate.relativePath}:${lineIndex + 1}:${line}`)
+            const truncationMetadata = output.add(
+                `${candidate.relativePath}:${lineIndex + 1}:${line}`
+            )
 
-            if (matches.length >= limit) {
+            if (truncationMetadata !== null) {
                 return {
                     status: 'success',
-                    matches,
+                    matches: output.items,
+                    metadata: truncationMetadata,
                 }
             }
         }
@@ -238,7 +332,8 @@ export const searchCode = async (
 
     return {
         status: 'success',
-        matches,
+        matches: output.items,
+        metadata: output.complete(),
     }
 }
 
@@ -287,6 +382,7 @@ export const readFile = async (
         return {
             status: 'success',
             content: '',
+            metadata: completeOutputMetadata(),
         }
     }
 
@@ -305,12 +401,27 @@ export const readFile = async (
     }
 
     const endLine = Math.min(arguments_.endLine ?? lines.length, lines.length)
-    const selectedLines = lines
-        .slice(startLine - 1, endLine)
-        .map((line, index) => `${startLine + index}:${line}`)
+    const selectedLines = lines.slice(startLine - 1, endLine)
+    const output = createOutputAccumulator({
+        reason: 'line_limit',
+        limit: FILESYSTEM_OUTPUT_MAX_LINES,
+    })
+
+    for (const [lineIndex, line] of selectedLines.entries()) {
+        const truncationMetadata = output.add(`${startLine + lineIndex}:${line}`)
+
+        if (truncationMetadata !== null) {
+            return {
+                status: 'success',
+                content: output.items.join('\n'),
+                metadata: truncationMetadata,
+            }
+        }
+    }
 
     return {
         status: 'success',
-        content: selectedLines.join('\n'),
+        content: output.items.join('\n'),
+        metadata: output.complete(),
     }
 }

@@ -10,6 +10,20 @@ import { canonicalizeWorkspaceRoot } from './workspace.ts'
 
 const temporaryDirectories = new Set<string>()
 
+const completeMetadata = {
+    truncated: false,
+    truncation: null,
+} as const
+
+const resultLimitMetadata = (limit: number) => ({
+    truncated: true,
+    truncation: {
+        reason: 'result_limit' as const,
+        limit,
+        observed: limit + 1,
+    },
+})
+
 const createWorkspaceFixture = async () => {
     const fixtureRoot = await mkdtemp(join(tmpdir(), 'yo-list-files-'))
     const workspace = join(fixtureRoot, 'workspace')
@@ -47,6 +61,7 @@ describe('listFiles', () => {
         assert.deepEqual(await listFiles(workspaceRoot, { path: '.' }), {
             status: 'success',
             entries: ['.editorconfig', 'Alpha.ts', 'beta.ts', 'src/'],
+            metadata: completeMetadata,
         })
     })
 
@@ -69,6 +84,7 @@ describe('listFiles', () => {
             {
                 status: 'success',
                 entries: ['src/nested/nested.ts'],
+                metadata: completeMetadata,
             }
         )
     })
@@ -85,6 +101,7 @@ describe('listFiles', () => {
         assert.deepEqual(await listFiles(workspaceRoot, { path: '.', limit: 2 }), {
             status: 'success',
             entries: ['alpha.ts', 'middle.ts'],
+            metadata: resultLimitMetadata(2),
         })
     })
 
@@ -106,6 +123,7 @@ describe('listFiles', () => {
         if (result.status === 'success') {
             assert.equal(result.entries.length, LIST_FILES_DEFAULT_LIMIT)
             assert.equal(result.entries.at(-1), 'entry-499.txt')
+            assert.deepEqual(result.metadata, resultLimitMetadata(LIST_FILES_DEFAULT_LIMIT))
         }
     })
 
@@ -130,6 +148,7 @@ describe('listFiles', () => {
         assert.deepEqual(await listFiles(workspaceRoot, { path: '.' }), {
             status: 'success',
             entries: ['safe.txt', 'source/'],
+            metadata: completeMetadata,
         })
     })
 
@@ -178,6 +197,7 @@ describe('searchCode', () => {
                 'src/nested/beta.ts:1:needle first',
                 'src/nested/beta.ts:2:needle second',
             ],
+            metadata: completeMetadata,
         })
     })
 
@@ -201,6 +221,7 @@ describe('searchCode', () => {
             {
                 status: 'success',
                 matches: ['src/app.ts:1:find me'],
+                metadata: completeMetadata,
             }
         )
         assert.deepEqual(
@@ -212,6 +233,7 @@ describe('searchCode', () => {
             {
                 status: 'success',
                 matches: ['src/nested/nested.ts:1:find me'],
+                metadata: completeMetadata,
             }
         )
     })
@@ -235,6 +257,7 @@ describe('searchCode', () => {
             {
                 status: 'success',
                 matches: ['alpha.ts:3:needle.* literal', 'zeta.ts:1:needle.* in zeta'],
+                metadata: resultLimitMetadata(2),
             }
         )
     })
@@ -255,6 +278,7 @@ describe('searchCode', () => {
         if (result.status === 'success') {
             assert.equal(result.matches.length, SEARCH_CODE_DEFAULT_LIMIT)
             assert.equal(result.matches.at(-1), 'matches.txt:100:needle 100')
+            assert.deepEqual(result.metadata, resultLimitMetadata(SEARCH_CODE_DEFAULT_LIMIT))
         }
     })
 
@@ -288,6 +312,7 @@ describe('searchCode', () => {
         assert.deepEqual(await searchCode(workspaceRoot, { query: 'target' }), {
             status: 'success',
             matches: ['safe.txt:1:target value'],
+            metadata: completeMetadata,
         })
     })
 
@@ -316,6 +341,7 @@ describe('readFile', () => {
         assert.deepEqual(await readFile(workspaceRoot, { path: 'example.txt' }), {
             status: 'success',
             content: '1:first\n2:second\n3:third',
+            metadata: completeMetadata,
         })
     })
 
@@ -327,10 +353,12 @@ describe('readFile', () => {
         assert.deepEqual(await readFile(workspaceRoot, { path: 'example.txt', startLine: 3 }), {
             status: 'success',
             content: '3:three\n4:four',
+            metadata: completeMetadata,
         })
         assert.deepEqual(await readFile(workspaceRoot, { path: 'example.txt', endLine: 2 }), {
             status: 'success',
             content: '1:one\n2:two',
+            metadata: completeMetadata,
         })
         assert.deepEqual(
             await readFile(workspaceRoot, {
@@ -341,11 +369,13 @@ describe('readFile', () => {
             {
                 status: 'success',
                 content: '2:two\n3:three',
+                metadata: completeMetadata,
             }
         )
         assert.deepEqual(await readFile(workspaceRoot, { path: 'example.txt', endLine: 20 }), {
             status: 'success',
             content: '1:one\n2:two\n3:three\n4:four',
+            metadata: completeMetadata,
         })
     })
 
@@ -357,6 +387,7 @@ describe('readFile', () => {
         assert.deepEqual(await readFile(workspaceRoot, { path: 'empty.txt' }), {
             status: 'success',
             content: '',
+            metadata: completeMetadata,
         })
         await assert.rejects(
             readFile(workspaceRoot, { path: 'empty.txt', startLine: 2 }),

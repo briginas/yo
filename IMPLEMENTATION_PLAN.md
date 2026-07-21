@@ -23,7 +23,7 @@ Run and review the checks for each step before moving to the next one.
     - [ ] **3.2 Bound filesystem outputs**
         - [x] Add default and hard caps: 500 list results, 100 search matches, 2,000 lines, and 50 KiB of UTF-8 text.
         - [x] Enforce safe defaults when `limit` is omitted and reject requested result limits above the hard caps.
-        - [ ] Return consistent truncation metadata compatible with `ToolResultMetadata` and `ToolResultTruncation`.
+        - [x] Return consistent truncation metadata compatible with `ToolResultMetadata` and `ToolResultTruncation`.
         - [ ] Verify result, line, and byte truncation for `list_files`, `search_code`, and `read_file`, including exact-limit and multibyte UTF-8 cases.
     - [ ] **3.3 Verify the complete filesystem boundary**
         - [ ] Verify traversal, external symlink, and sensitive-path denial.

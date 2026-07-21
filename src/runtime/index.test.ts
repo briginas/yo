@@ -6,6 +6,11 @@ import { test } from 'node:test'
 
 import { canonicalizeWorkspaceRoot, listFiles, readFile, searchCode } from './index.ts'
 
+const completeMetadata = {
+    truncated: false,
+    truncation: null,
+} as const
+
 test('exports and runs the basic read-only filesystem flow', async () => {
     const fixtureRoot = await mkdtemp(join(tmpdir(), 'yo-runtime-flow-'))
     const workspace = join(fixtureRoot, 'workspace')
@@ -23,10 +28,12 @@ test('exports and runs the basic read-only filesystem flow', async () => {
         assert.deepEqual(await listFiles(workspaceRoot, { path: '.' }), {
             status: 'success',
             entries: ['src/'],
+            metadata: completeMetadata,
         })
         assert.deepEqual(await searchCode(workspaceRoot, { query: 'needle', path: 'src' }), {
             status: 'success',
             matches: ['src/agent.ts:2:export const needle = task'],
+            metadata: completeMetadata,
         })
         assert.deepEqual(
             await readFile(workspaceRoot, {
@@ -37,6 +44,7 @@ test('exports and runs the basic read-only filesystem flow', async () => {
             {
                 status: 'success',
                 content: '2:export const needle = task',
+                metadata: completeMetadata,
             }
         )
     } finally {
