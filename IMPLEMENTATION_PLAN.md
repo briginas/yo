@@ -20,11 +20,19 @@ Run and review the checks for each step before moving to the next one.
         - [x] Implement the `search_code` operation.
         - [x] Implement the `read_file` operation.
         - [x] Export the filesystem APIs and verify the basic read-only flow.
-    - [ ] Add limits for paths, output size, lines, results, and timeouts.
-    - [ ] Verify traversal denial, truncation, and the absence of write/process APIs.
+    - [ ] **3.2 Bound filesystem outputs**
+        - [ ] Add default and hard caps: 500 list results, 100 search matches, 2,000 lines, and 50 KiB of UTF-8 text.
+        - [ ] Enforce safe defaults when `limit` is omitted and reject requested result limits above the hard caps.
+        - [ ] Return consistent truncation metadata compatible with `ToolResultMetadata` and `ToolResultTruncation`.
+        - [ ] Verify result, line, and byte truncation for `list_files`, `search_code`, and `read_file`, including exact-limit and multibyte UTF-8 cases.
+    - [ ] **3.3 Verify the complete filesystem boundary**
+        - [ ] Verify traversal, external symlink, and sensitive-path denial.
+        - [ ] Verify that the public runtime exports no write or process API.
+        - [ ] Run the full build and test suite, review the diff, and check it for whitespace errors.
 
 - [ ] **4. Agent loop with faux transport**
     - [ ] Implement the bounded model-to-tool-to-result loop.
+    - [ ] Apply `RunBudget.perToolTimeoutMs` at the tool-execution boundary and return exactly one `timeout` result when it expires.
     - [ ] Record `RunEvent` values and guarantee one `ToolResult` per request.
     - [ ] Cover the PRD scenarios without real API credentials.
 
