@@ -1,5 +1,22 @@
 import { realpath, stat } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { isAbsolute, relative, resolve, sep } from 'node:path'
+
+import { isSensitivePath, type WorkspacePathPermissionDecision } from './permissions.ts'
+
+const isPathInsideWorkspace = (workspaceRoot: string, absolutePath: string): boolean => {
+    const relativePath = relative(workspaceRoot, absolutePath)
+
+    return (
+        relativePath === '' ||
+        (!isAbsolute(relativePath) && relativePath !== '..' && !relativePath.startsWith(`..${sep}`))
+    )
+}
+
+const toWorkspaceRelativePath = (workspaceRoot: string, absolutePath: string): string => {
+    const relativePath = relative(workspaceRoot, absolutePath)
+
+    return relativePath === '' ? '.' : relativePath.split(sep).join('/')
+}
 
 export const canonicalizeWorkspaceRoot = async (cwd: string): Promise<string> => {
     if (cwd.length === 0) {
@@ -14,4 +31,51 @@ export const canonicalizeWorkspaceRoot = async (cwd: string): Promise<string> =>
     }
 
     return workspaceRoot
+}
+
+export const resolveWorkspacePath = async (
+    workspaceRoot: string,
+    requestedPath: string
+): Promise<WorkspacePathPermissionDecision> => {
+    const absolutePath = resolve(workspaceRoot, requestedPath)
+
+    if (!isPathInsideWorkspace(workspaceRoot, absolutePath)) {
+        return {
+            decision: 'deny',
+            reason: 'outside_workspace',
+        }
+    }
+
+    const requestedRelativePath = toWorkspaceRelativePath(workspaceRoot, absolutePath)
+
+    if (isSensitivePath(requestedRelativePath)) {
+        return {
+            decision: 'deny',
+            reason: 'sensitive_path',
+        }
+    }
+
+    const canonicalPath = await realpath(absolutePath)
+
+    if (!isPathInsideWorkspace(workspaceRoot, canonicalPath)) {
+        return {
+            decision: 'deny',
+            reason: 'outside_workspace',
+        }
+    }
+
+    const canonicalRelativePath = toWorkspaceRelativePath(workspaceRoot, canonicalPath)
+
+    if (isSensitivePath(canonicalRelativePath)) {
+        return {
+            decision: 'deny',
+            reason: 'sensitive_path',
+        }
+    }
+
+    return {
+        decision: 'allow',
+        absolutePath: canonicalPath,
+        relativePath: canonicalRelativePath,
+    }
 }
