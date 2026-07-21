@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, test } from 'node:test'
 
+import { LIST_FILES_DEFAULT_LIMIT, SEARCH_CODE_DEFAULT_LIMIT } from './filesystem-limits.ts'
 import { listFiles, readFile, searchCode } from './filesystem.ts'
 import { canonicalizeWorkspaceRoot } from './workspace.ts'
 
@@ -85,6 +86,27 @@ describe('listFiles', () => {
             status: 'success',
             entries: ['alpha.ts', 'middle.ts'],
         })
+    })
+
+    test('applies the default limit when limit is omitted', async () => {
+        const { workspaceRoot } = await createWorkspaceFixture()
+        const fileNames = Array.from(
+            { length: LIST_FILES_DEFAULT_LIMIT + 1 },
+            (_, index) => `entry-${index.toString().padStart(3, '0')}.txt`
+        )
+
+        await Promise.all(
+            fileNames.map((fileName) => writeFile(join(workspaceRoot, fileName), 'content\n'))
+        )
+
+        const result = await listFiles(workspaceRoot, { path: '.' })
+
+        assert.equal(result.status, 'success')
+
+        if (result.status === 'success') {
+            assert.equal(result.entries.length, LIST_FILES_DEFAULT_LIMIT)
+            assert.equal(result.entries.at(-1), 'entry-499.txt')
+        }
     })
 
     test('omits sensitive paths, node_modules, and symlink entries', async () => {
@@ -215,6 +237,25 @@ describe('searchCode', () => {
                 matches: ['alpha.ts:3:needle.* literal', 'zeta.ts:1:needle.* in zeta'],
             }
         )
+    })
+
+    test('applies the default limit when limit is omitted', async () => {
+        const { workspaceRoot } = await createWorkspaceFixture()
+        const lines = Array.from(
+            { length: SEARCH_CODE_DEFAULT_LIMIT + 1 },
+            (_, index) => `needle ${index + 1}`
+        )
+
+        await writeFile(join(workspaceRoot, 'matches.txt'), `${lines.join('\n')}\n`)
+
+        const result = await searchCode(workspaceRoot, { query: 'needle' })
+
+        assert.equal(result.status, 'success')
+
+        if (result.status === 'success') {
+            assert.equal(result.matches.length, SEARCH_CODE_DEFAULT_LIMIT)
+            assert.equal(result.matches.at(-1), 'matches.txt:100:needle 100')
+        }
     })
 
     test('skips sensitive paths, node_modules, symlinks, and non-text files', async () => {

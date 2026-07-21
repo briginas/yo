@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 
+import { LIST_FILES_MAX_LIMIT, SEARCH_CODE_MAX_LIMIT } from './filesystem-limits.ts'
 import {
     listFilesArgumentsSchema,
     readFileArgumentsSchema,
@@ -25,8 +26,12 @@ describe('listFilesArgumentsSchema', () => {
     test('accepts minimal and complete arguments', () => {
         assert.deepEqual(listFilesArgumentsSchema.parse({ path: '.' }), { path: '.' })
         assert.deepEqual(
-            listFilesArgumentsSchema.parse({ path: 'src', glob: '**/*.ts', limit: 25 }),
-            { path: 'src', glob: '**/*.ts', limit: 25 }
+            listFilesArgumentsSchema.parse({
+                path: 'src',
+                glob: '**/*.ts',
+                limit: LIST_FILES_MAX_LIMIT,
+            }),
+            { path: 'src', glob: '**/*.ts', limit: LIST_FILES_MAX_LIMIT }
         )
     })
 
@@ -38,6 +43,7 @@ describe('listFilesArgumentsSchema', () => {
             { path: '.', limit: 0 },
             { path: '.', limit: -1 },
             { path: '.', limit: 1.5 },
+            { path: '.', limit: LIST_FILES_MAX_LIMIT + 1 },
         ])
     })
 })
@@ -52,9 +58,14 @@ describe('searchCodeArgumentsSchema', () => {
                 query: 'ToolCall',
                 path: 'src',
                 glob: '**/*.ts',
-                limit: 10,
+                limit: SEARCH_CODE_MAX_LIMIT,
             }),
-            { query: 'ToolCall', path: 'src', glob: '**/*.ts', limit: 10 }
+            {
+                query: 'ToolCall',
+                path: 'src',
+                glob: '**/*.ts',
+                limit: SEARCH_CODE_MAX_LIMIT,
+            }
         )
     })
 
@@ -67,6 +78,7 @@ describe('searchCodeArgumentsSchema', () => {
             { query: 'ToolCall', limit: 0 },
             { query: 'ToolCall', limit: -1 },
             { query: 'ToolCall', limit: 1.5 },
+            { query: 'ToolCall', limit: SEARCH_CODE_MAX_LIMIT + 1 },
         ])
     })
 })

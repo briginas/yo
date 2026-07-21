@@ -1,12 +1,14 @@
 import { z } from 'zod'
 
+import { LIST_FILES_MAX_LIMIT, SEARCH_CODE_MAX_LIMIT } from './filesystem-limits.ts'
+
 export type ToolName = 'list_files' | 'search_code' | 'read_file'
 
 export const listFilesArgumentsSchema = z
     .object({
         path: z.string().min(1),
         glob: z.string().min(1).optional(),
-        limit: z.number().int().positive().optional(),
+        limit: z.number().int().positive().max(LIST_FILES_MAX_LIMIT).optional(),
     })
     .strict()
 
@@ -17,7 +19,7 @@ export const searchCodeArgumentsSchema = z
         query: z.string().min(1),
         path: z.string().min(1).optional(),
         glob: z.string().min(1).optional(),
-        limit: z.number().int().positive().optional(),
+        limit: z.number().int().positive().max(SEARCH_CODE_MAX_LIMIT).optional(),
     })
     .strict()
 

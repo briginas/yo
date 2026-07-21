@@ -1,6 +1,7 @@
 import { readFile as fsReadFile, readdir, stat } from 'node:fs/promises'
 import { basename, join, matchesGlob, relative, sep } from 'node:path'
 
+import { LIST_FILES_DEFAULT_LIMIT, SEARCH_CODE_DEFAULT_LIMIT } from './filesystem-limits.ts'
 import type { PermissionDeniedReason } from './permissions.ts'
 import type { ListFilesArguments, ReadFileArguments, SearchCodeArguments } from './tools.ts'
 import { resolveWorkspacePath } from './workspace.ts'
@@ -122,11 +123,11 @@ export const listFiles = async (
     await visitDirectory(directoryDecision.absolutePath)
 
     listedPaths.sort(comparePaths)
+    const limit = arguments_.limit ?? LIST_FILES_DEFAULT_LIMIT
 
     return {
         status: 'success',
-        entries:
-            arguments_.limit === undefined ? listedPaths : listedPaths.slice(0, arguments_.limit),
+        entries: listedPaths.slice(0, limit),
     }
 }
 
@@ -200,6 +201,7 @@ export const searchCode = async (
     searchCandidates.sort((left, right) => comparePaths(left.relativePath, right.relativePath))
 
     const matches: string[] = []
+    const limit = arguments_.limit ?? SEARCH_CODE_DEFAULT_LIMIT
 
     for (const candidate of searchCandidates) {
         const contents = await fsReadFile(candidate.absolutePath)
@@ -225,7 +227,7 @@ export const searchCode = async (
 
             matches.push(`${candidate.relativePath}:${lineIndex + 1}:${line}`)
 
-            if (arguments_.limit !== undefined && matches.length >= arguments_.limit) {
+            if (matches.length >= limit) {
                 return {
                     status: 'success',
                     matches,
