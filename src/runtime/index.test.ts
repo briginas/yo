@@ -4,12 +4,28 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
-import { canonicalizeWorkspaceRoot, listFiles, readFile, searchCode } from './index.ts'
+import * as runtime from './index.ts'
+
+const { canonicalizeWorkspaceRoot, listFiles, readFile, searchCode } = runtime
 
 const completeMetadata = {
     truncated: false,
     truncation: null,
 } as const
+
+test('exports only the approved read-only runtime capabilities', () => {
+    assert.deepEqual(Object.keys(runtime).sort(), [
+        'canonicalizeWorkspaceRoot',
+        'isSensitivePath',
+        'listFiles',
+        'listFilesArgumentsSchema',
+        'readFile',
+        'readFileArgumentsSchema',
+        'resolveWorkspacePath',
+        'searchCode',
+        'searchCodeArgumentsSchema',
+    ])
+})
 
 test('exports and runs the basic read-only filesystem flow', async () => {
     const fixtureRoot = await mkdtemp(join(tmpdir(), 'yo-runtime-flow-'))

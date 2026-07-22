@@ -12,7 +12,7 @@ Run and review the checks for each step before moving to the next one.
     - [x] Add Zod schemas for future tool arguments.
     - [x] Verify types and basic unit tests for the contracts.
 
-- [ ] **3. Safe read-only filesystem layer**
+- [x] **3. Safe read-only filesystem layer**
     - [x] **3.1 Build the base read-only filesystem layer**
         - [x] Canonicalize the approved workspace root.
         - [x] Resolve requested paths and enforce workspace, symlink, and sensitive-path permissions.
@@ -25,10 +25,10 @@ Run and review the checks for each step before moving to the next one.
         - [x] Enforce safe defaults when `limit` is omitted and reject requested result limits above the hard caps.
         - [x] Return consistent truncation metadata compatible with `ToolResultMetadata` and `ToolResultTruncation`.
         - [x] Verify result, line, and byte truncation for `list_files`, `search_code`, and `read_file`, including exact-limit and multibyte UTF-8 cases.
-    - [ ] **3.3 Verify the complete filesystem boundary**
-        - [ ] Verify traversal, external symlink, and sensitive-path denial.
-        - [ ] Verify that the public runtime exports no write or process API.
-        - [ ] Run the full build and test suite, review the diff, and check it for whitespace errors.
+    - [x] **3.3 Verify the complete filesystem boundary**
+        - [x] Verify traversal, external symlink, and sensitive-path denial.
+        - [x] Verify that the public runtime exports no write or process API.
+        - [x] Run the full build and test suite, review the diff, and check it for whitespace errors.
 
 - [ ] **4. Agent loop with faux transport**
     - [ ] Implement the bounded model-to-tool-to-result loop.
