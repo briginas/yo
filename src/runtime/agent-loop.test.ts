@@ -274,6 +274,154 @@ test('returns a read-only tool result to the model on the next step', async () =
     }
 })
 
+test('completes the PRD search-then-read scenario with a faux transport', async () => {
+    const fixtureRoot = await mkdtemp(join(tmpdir(), 'yo-agent-loop-prd-'))
+    const workspace = join(fixtureRoot, 'workspace')
+    const sourceDirectory = join(workspace, 'src')
+
+    try {
+        await mkdir(sourceDirectory, { recursive: true })
+        await writeFile(join(sourceDirectory, 'agent.ts'), "export const answer = 'found'\n")
+
+        const workspaceRoot = await canonicalizeWorkspaceRoot(workspace)
+        const requests: ModelRequest[] = []
+        const searchCall = {
+            id: 'search-call',
+            name: 'search_code' as const,
+            arguments: { query: 'answer', path: 'src' },
+        }
+        const readCall = {
+            id: 'read-call',
+            name: 'read_file' as const,
+            arguments: { path: 'src/agent.ts' },
+        }
+        const searchResult = {
+            status: 'success' as const,
+            callId: searchCall.id,
+            content: "src/agent.ts:1:export const answer = 'found'",
+            metadata: {
+                truncated: false,
+                truncation: null,
+            },
+        }
+        const readResult = {
+            status: 'success' as const,
+            callId: readCall.id,
+            content: "1:export const answer = 'found'",
+            metadata: {
+                truncated: false,
+                truncation: null,
+            },
+        }
+        const transport: ModelTransport = async (request) => {
+            requests.push(request)
+
+            if (requests.length === 1) {
+                return {
+                    type: 'tool_calls',
+                    model: 'faux-model',
+                    content: 'I will search for the relevant definition.',
+                    toolCalls: [searchCall],
+                }
+            }
+
+            if (requests.length === 2) {
+                return {
+                    type: 'tool_calls',
+                    model: 'faux-model',
+                    content: 'The search found a candidate, so I will read it.',
+                    toolCalls: [readCall],
+                }
+            }
+
+            return {
+                type: 'final_answer',
+                model: 'faux-model',
+                content: 'The answer is defined in src/agent.ts:1.',
+            }
+        }
+
+        const session = await runAgent({
+            task: 'Find the answer and inspect its definition.',
+            workspaceRoot,
+            budget,
+            model: 'faux-model',
+            transport,
+        })
+
+        assert.equal(requests.length, 3)
+        assert.deepEqual(requests[1]!.messages.slice(2), [
+            {
+                role: 'assistant',
+                content: 'I will search for the relevant definition.',
+                toolCalls: [searchCall],
+            },
+            {
+                role: 'tool',
+                result: searchResult,
+            },
+        ])
+        assert.deepEqual(requests[2]!.messages.slice(2), [
+            ...requests[1]!.messages.slice(2),
+            {
+                role: 'assistant',
+                content: 'The search found a candidate, so I will read it.',
+                toolCalls: [readCall],
+            },
+            {
+                role: 'tool',
+                result: readResult,
+            },
+        ])
+        assert.equal(session.status, 'completed')
+        assert.equal(session.stepCount, 3)
+        assert.equal(session.finalAnswer, 'The answer is defined in src/agent.ts:1.')
+        assert.equal(session.stopReason, 'final_answer')
+        assert.deepEqual(
+            session.messages
+                .filter((message) => message.role === 'tool')
+                .map((message) =>
+                    message.role === 'tool'
+                        ? [message.result.callId, message.result.status]
+                        : assert.fail('Expected a tool message')
+                ),
+            [
+                ['search-call', 'success'],
+                ['read-call', 'success'],
+            ]
+        )
+        assert.deepEqual(
+            session.events
+                .filter(
+                    (event) => event.type === 'tool_requested' || event.type === 'tool_completed'
+                )
+                .map((event) => {
+                    if (event.type === 'tool_requested') {
+                        return [event.type, event.call.id]
+                    }
+
+                    if (event.type === 'tool_completed') {
+                        return [event.type, event.result.callId, event.result.status]
+                    }
+
+                    return assert.fail('Unexpected tool event')
+                }),
+            [
+                ['tool_requested', 'search-call'],
+                ['tool_completed', 'search-call', 'success'],
+                ['tool_requested', 'read-call'],
+                ['tool_completed', 'read-call', 'success'],
+            ]
+        )
+        for (const callId of ['search-call', 'read-call']) {
+            assert.equal(toolResultCount(session, callId), 1)
+            assert.equal(toolCompletedCount(session, callId), 1)
+        }
+    } finally {
+        await rm(fixtureRoot, { recursive: true, force: true })
+    }
+})
+
 test('preserves multiple tool-call ordering in the completed session', async () => {
     const fixtureRoot = await mkdtemp(join(tmpdir(), 'yo-agent-loop-multiple-'))
     const workspace = join(fixtureRoot, 'workspace')

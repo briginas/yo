@@ -30,7 +30,7 @@ Run and review the checks for each step before moving to the next one.
         - [x] Verify that the public runtime exports no write or process API.
         - [x] Run the full build and test suite, review the diff, and check it for whitespace errors.
 
-- [ ] **4. Agent loop with faux transport**
+- [x] **4. Agent loop with faux transport**
     - [x] **4.1 Build the base bounded agent loop**
         - [x] **4.1.1 Define the model transport boundary**
             - [x] Add provider-neutral `ModelTransport`, `ModelRequest`, and discriminated `ModelResponse` types.
@@ -53,7 +53,7 @@ Run and review the checks for each step before moving to the next one.
             - [x] Run the full build and test suite, formatting check, and whitespace check.
     - [x] **4.2 Apply `RunBudget.perToolTimeoutMs` at the tool-execution boundary and return exactly one `timeout` result when it expires.**
     - [x] **4.3 Record `RunEvent` values and guarantee one `ToolResult` per request.**
-    - [ ] **4.4 Cover the PRD scenarios without real API credentials.**
+    - [x] **4.4 Cover the PRD scenarios without real API credentials.**
 
 - [ ] **5. CLI and evidence report**
     - [ ] Implement `yo ask "<task>" --cwd <workspace> [--model <name>]`.
