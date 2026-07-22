@@ -37,6 +37,8 @@ export const resolveWorkspacePath = async (
     workspaceRoot: string,
     requestedPath: string
 ): Promise<WorkspacePathPermissionDecision> => {
+    // Validate the lexical path first and its real target below. Together the checks block
+    // traversal, symlink escapes, and safe-looking aliases to sensitive targets.
     const absolutePath = resolve(workspaceRoot, requestedPath)
 
     if (!isPathInsideWorkspace(workspaceRoot, absolutePath)) {

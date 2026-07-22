@@ -5,6 +5,7 @@
 - Before every change, explain briefly what will be created or modified, why it is needed in the agent harness, and how it relates to the `pi` reference project.
 - Build the project in small, independently verifiable steps. Complete and verify one milestone before starting the next.
 - Keep explanations in plain language. Introduce a concept before relying on it in code.
+- Add comments only for non-obvious rationale, invariants, safety boundaries, or edge cases. Do not restate the code, and update comments when behavior changes.
 - Use `type` declarations rather than `interface` declarations.
 
 ## Resuming work

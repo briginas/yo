@@ -75,6 +75,8 @@ const completeOutputMetadata = (): ToolResultMetadata => ({
     truncation: null,
 })
 
+// Rejecting only the next complete item distinguishes exact-limit output from truncation.
+// Byte accounting includes the newlines used when the retained items are serialized.
 const createOutputAccumulator = (itemLimit: OutputItemLimit): OutputAccumulator => {
     const items: string[] = []
     let outputBytes = 0
@@ -153,6 +155,8 @@ export const listFiles = async (
         const entries = await readdir(absoluteDirectoryPath, { withFileTypes: true })
 
         for (const entry of entries) {
+            // Discovery avoids vendor-tree expansion and symlink cycles or aliases. Explicit
+            // symlink paths are still canonicalized safely by resolveWorkspacePath.
             if (entry.name === 'node_modules' || entry.isSymbolicLink()) {
                 continue
             }
@@ -185,6 +189,7 @@ export const listFiles = async (
                 )
             }
 
+            // A glob opts into recursive matching; without one, list only immediate entries.
             if (arguments_.glob !== undefined && isDirectory) {
                 await visitDirectory(entryDecision.absolutePath)
             }
@@ -252,6 +257,8 @@ export const searchCode = async (
         const entries = await readdir(absoluteDirectoryPath, { withFileTypes: true })
 
         for (const entry of entries) {
+            // Discovery avoids vendor-tree expansion and symlink cycles or aliases. Explicit
+            // symlink paths are still canonicalized safely by resolveWorkspacePath.
             if (entry.name === 'node_modules' || entry.isSymbolicLink()) {
                 continue
             }
@@ -295,6 +302,8 @@ export const searchCode = async (
     })
 
     for (const candidate of searchCandidates) {
+        // Search is a best-effort text scan, so non-text candidates are skipped. readFile
+        // reports the same conditions when the caller explicitly requests that file.
         const contents = await fsReadFile(candidate.absolutePath)
 
         if (contents.includes(0)) {

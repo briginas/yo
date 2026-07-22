@@ -43,6 +43,7 @@ export const readFileArgumentsSchema = z
 
 export type ReadFileArguments = z.infer<typeof readFileArgumentsSchema>
 
+// Model-provided arguments remain untrusted until the matching strict schema validates them.
 export type ToolCall = {
     id: string
     name: ToolName
