@@ -6,7 +6,7 @@ import { test } from 'node:test'
 
 import * as runtime from './index.ts'
 
-const { canonicalizeWorkspaceRoot, listFiles, readFile, searchCode } = runtime
+const { canonicalizeWorkspaceRoot, dispatchToolCall, listFiles, readFile, searchCode } = runtime
 
 const completeMetadata = {
     truncated: false,
@@ -16,6 +16,7 @@ const completeMetadata = {
 test('exports only the approved read-only runtime capabilities', () => {
     assert.deepEqual(Object.keys(runtime).sort(), [
         'canonicalizeWorkspaceRoot',
+        'dispatchToolCall',
         'isSensitivePath',
         'listFiles',
         'listFilesArgumentsSchema',
@@ -66,4 +67,8 @@ test('exports and runs the basic read-only filesystem flow', async () => {
     } finally {
         await rm(fixtureRoot, { recursive: true, force: true })
     }
+})
+
+test('exports the read-only tool dispatcher', () => {
+    assert.equal(typeof dispatchToolCall, 'function')
 })

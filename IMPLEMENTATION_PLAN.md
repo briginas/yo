@@ -37,11 +37,11 @@ Run and review the checks for each step before moving to the next one.
             - [x] Represent assistant tool calls in the session transcript.
             - [x] Keep model-provided arguments unknown and accept unknown tool names at the transport boundary.
             - [x] Verify the contracts with focused tests and a build.
-        - [ ] **4.1.2 Dispatch read-only tool calls**
-            - [ ] Register only `list_files`, `search_code`, and `read_file`.
-            - [ ] Apply tool lookup, schema validation, filesystem permissions, execution, and result normalization in order.
-            - [ ] Normalize success, invalid arguments, unknown tool, denial, and execution error results.
-            - [ ] Verify each dispatcher outcome and the absence of write, process, and network tools.
+        - [x] **4.1.2 Dispatch read-only tool calls**
+            - [x] Register only `list_files`, `search_code`, and `read_file`.
+            - [x] Apply tool lookup, schema validation, filesystem permissions, execution, and result normalization in order.
+            - [x] Normalize success, invalid arguments, unknown tool, denial, and execution error results.
+            - [x] Verify each dispatcher outcome and the absence of write, process, and network tools.
         - [ ] **4.1.3 Implement the bounded model/tool loop**
             - [ ] Create the in-memory session and stable system and user messages.
             - [ ] Execute tool calls sequentially, append their results, and continue with the updated transcript.

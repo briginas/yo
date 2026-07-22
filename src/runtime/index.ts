@@ -1,5 +1,6 @@
 export * from './filesystem.ts'
 export * from './permissions.ts'
 export * from './run.ts'
+export * from './tool-dispatcher.ts'
 export * from './tools.ts'
 export * from './workspace.ts'
