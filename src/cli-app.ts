@@ -1,0 +1,194 @@
+import {
+    canonicalizeWorkspaceRoot,
+    runAgent,
+    type ModelTransport,
+    type SessionState,
+} from './runtime/index.ts'
+
+const RUN_BUDGET = {
+    maxSteps: 10,
+    perToolTimeoutMs: 5_000,
+} as const
+
+const USAGE = 'Usage: yo ask "<task>" --cwd <workspace> [--model <name>]'
+
+type AskCommand = {
+    task: string
+    cwd: string
+    model: string | null
+}
+
+type ParseResult =
+    | {
+          status: 'success'
+          command: AskCommand
+      }
+    | {
+          status: 'error'
+          message: string
+      }
+
+export type CliDependencies = {
+    transport: ModelTransport | null
+    writeError: (message: string) => void
+}
+
+export type CliResult = {
+    exitCode: 0 | 1 | 2
+    session: SessionState | null
+}
+
+const parseAskCommand = (argv: readonly string[]): ParseResult => {
+    if (argv[0] !== 'ask') {
+        return {
+            status: 'error',
+            message: 'Expected the ask command',
+        }
+    }
+
+    let task: string | undefined
+    let cwd: string | undefined
+    let model: string | undefined
+
+    for (let index = 1; index < argv.length; index += 1) {
+        const argument = argv[index]!
+
+        if (argument === '--cwd' || argument === '--model') {
+            const value = argv[index + 1]
+
+            if (value === undefined || value.startsWith('-') || value.trim().length === 0) {
+                return {
+                    status: 'error',
+                    message: `${argument} requires a non-empty value`,
+                }
+            }
+
+            if (argument === '--cwd') {
+                if (cwd !== undefined) {
+                    return {
+                        status: 'error',
+                        message: '--cwd may be specified only once',
+                    }
+                }
+
+                cwd = value
+            } else {
+                if (model !== undefined) {
+                    return {
+                        status: 'error',
+                        message: '--model may be specified only once',
+                    }
+                }
+
+                model = value
+            }
+
+            index += 1
+            continue
+        }
+
+        if (argument.startsWith('-')) {
+            return {
+                status: 'error',
+                message: `Unknown option: ${argument}`,
+            }
+        }
+
+        if (task !== undefined) {
+            return {
+                status: 'error',
+                message: 'Expected exactly one task',
+            }
+        }
+
+        task = argument
+    }
+
+    if (task === undefined || task.trim().length === 0) {
+        return {
+            status: 'error',
+            message: 'Task must not be empty',
+        }
+    }
+
+    if (cwd === undefined) {
+        return {
+            status: 'error',
+            message: '--cwd is required',
+        }
+    }
+
+    return {
+        status: 'success',
+        command: {
+            task,
+            cwd,
+            model: model ?? null,
+        },
+    }
+}
+
+const usageError = (message: string, writeError: CliDependencies['writeError']): CliResult => {
+    writeError(`${message}\n${USAGE}`)
+
+    return {
+        exitCode: 2,
+        session: null,
+    }
+}
+
+const runtimeError = (message: string, writeError: CliDependencies['writeError']): CliResult => {
+    writeError(message)
+
+    return {
+        exitCode: 1,
+        session: null,
+    }
+}
+
+export const runCli = async (
+    argv: readonly string[],
+    { transport, writeError }: CliDependencies
+): Promise<CliResult> => {
+    const parsed = parseAskCommand(argv)
+
+    if (parsed.status === 'error') {
+        return usageError(parsed.message, writeError)
+    }
+
+    if (transport === null) {
+        return runtimeError(
+            'OpenAI transport is not available yet; complete milestone 6 first.',
+            writeError
+        )
+    }
+
+    let workspaceRoot: string
+
+    try {
+        workspaceRoot = await canonicalizeWorkspaceRoot(parsed.command.cwd)
+    } catch (error) {
+        const cause = error instanceof Error ? error.message : 'Unknown workspace error'
+
+        return runtimeError(`Cannot use workspace: ${cause}`, writeError)
+    }
+
+    try {
+        const session = await runAgent({
+            task: parsed.command.task,
+            workspaceRoot,
+            budget: RUN_BUDGET,
+            model: parsed.command.model,
+            transport,
+        })
+
+        return {
+            exitCode: session.status === 'completed' ? 0 : 1,
+            session,
+        }
+    } catch (error) {
+        const cause = error instanceof Error ? error.message : 'Unknown runtime error'
+
+        return runtimeError(`Agent run failed: ${cause}`, writeError)
+    }
+}
