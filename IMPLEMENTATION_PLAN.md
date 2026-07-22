@@ -31,10 +31,29 @@ Run and review the checks for each step before moving to the next one.
         - [x] Run the full build and test suite, review the diff, and check it for whitespace errors.
 
 - [ ] **4. Agent loop with faux transport**
-    - [ ] Implement the bounded model-to-tool-to-result loop.
-    - [ ] Apply `RunBudget.perToolTimeoutMs` at the tool-execution boundary and return exactly one `timeout` result when it expires.
-    - [ ] Record `RunEvent` values and guarantee one `ToolResult` per request.
-    - [ ] Cover the PRD scenarios without real API credentials.
+    - [ ] **4.1 Build the base bounded agent loop**
+        - [ ] **4.1.1 Define the model transport boundary**
+            - [ ] Add provider-neutral `ModelTransport`, `ModelRequest`, and discriminated `ModelResponse` types.
+            - [ ] Represent assistant tool calls in the session transcript.
+            - [ ] Keep model-provided arguments unknown and accept unknown tool names at the transport boundary.
+            - [ ] Verify the contracts with focused tests and a build.
+        - [ ] **4.1.2 Dispatch read-only tool calls**
+            - [ ] Register only `list_files`, `search_code`, and `read_file`.
+            - [ ] Apply tool lookup, schema validation, filesystem permissions, execution, and result normalization in order.
+            - [ ] Normalize success, invalid arguments, unknown tool, denial, and execution error results.
+            - [ ] Verify each dispatcher outcome and the absence of write, process, and network tools.
+        - [ ] **4.1.3 Implement the bounded model/tool loop**
+            - [ ] Create the in-memory session and stable system and user messages.
+            - [ ] Execute tool calls sequentially, append their results, and continue with the updated transcript.
+            - [ ] Count each model request as one step and stop with `step_budget_exhausted` at `RunBudget.maxSteps`.
+            - [ ] Verify final-answer, tool-result-follow-up, and step-budget flows with a faux transport.
+        - [ ] **4.1.4 Verify and expose the base loop**
+            - [ ] Export only the approved read-only runtime APIs.
+            - [ ] Verify multiple tool-call ordering and final session state.
+            - [ ] Run the full build and test suite, formatting check, and whitespace check.
+    - [ ] **4.2 Apply `RunBudget.perToolTimeoutMs` at the tool-execution boundary and return exactly one `timeout` result when it expires.**
+    - [ ] **4.3 Record `RunEvent` values and guarantee one `ToolResult` per request.**
+    - [ ] **4.4 Cover the PRD scenarios without real API credentials.**
 
 - [ ] **5. CLI and evidence report**
     - [ ] Implement `yo ask "<task>" --cwd <workspace> [--model <name>]`.
