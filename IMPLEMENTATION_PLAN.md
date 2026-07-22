@@ -42,11 +42,11 @@ Run and review the checks for each step before moving to the next one.
             - [x] Apply tool lookup, schema validation, filesystem permissions, execution, and result normalization in order.
             - [x] Normalize success, invalid arguments, unknown tool, denial, and execution error results.
             - [x] Verify each dispatcher outcome and the absence of write, process, and network tools.
-        - [ ] **4.1.3 Implement the bounded model/tool loop**
-            - [ ] Create the in-memory session and stable system and user messages.
-            - [ ] Execute tool calls sequentially, append their results, and continue with the updated transcript.
-            - [ ] Count each model request as one step and stop with `step_budget_exhausted` at `RunBudget.maxSteps`.
-            - [ ] Verify final-answer, tool-result-follow-up, and step-budget flows with a faux transport.
+        - [x] **4.1.3 Implement the bounded model/tool loop**
+            - [x] Create the in-memory session and stable system and user messages.
+            - [x] Execute tool calls sequentially, append their results, and continue with the updated transcript.
+            - [x] Count each model request as one step and stop with `step_budget_exhausted` at `RunBudget.maxSteps`.
+            - [x] Verify final-answer, tool-result-follow-up, and step-budget flows with a faux transport.
         - [ ] **4.1.4 Verify and expose the base loop**
             - [ ] Export only the approved read-only runtime APIs.
             - [ ] Verify multiple tool-call ordering and final session state.
