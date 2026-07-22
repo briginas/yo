@@ -20,11 +20,11 @@ Run and review the checks for each step before moving to the next one.
         - [x] Implement the `search_code` operation.
         - [x] Implement the `read_file` operation.
         - [x] Export the filesystem APIs and verify the basic read-only flow.
-    - [ ] **3.2 Bound filesystem outputs**
+    - [x] **3.2 Bound filesystem outputs**
         - [x] Add default and hard caps: 500 list results, 100 search matches, 2,000 lines, and 50 KiB of UTF-8 text.
         - [x] Enforce safe defaults when `limit` is omitted and reject requested result limits above the hard caps.
         - [x] Return consistent truncation metadata compatible with `ToolResultMetadata` and `ToolResultTruncation`.
-        - [ ] Verify result, line, and byte truncation for `list_files`, `search_code`, and `read_file`, including exact-limit and multibyte UTF-8 cases.
+        - [x] Verify result, line, and byte truncation for `list_files`, `search_code`, and `read_file`, including exact-limit and multibyte UTF-8 cases.
     - [ ] **3.3 Verify the complete filesystem boundary**
         - [ ] Verify traversal, external symlink, and sensitive-path denial.
         - [ ] Verify that the public runtime exports no write or process API.

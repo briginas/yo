@@ -4,7 +4,13 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, test } from 'node:test'
 
-import { LIST_FILES_DEFAULT_LIMIT, SEARCH_CODE_DEFAULT_LIMIT } from './filesystem-limits.ts'
+import {
+    FILESYSTEM_OUTPUT_MAX_BYTES,
+    FILESYSTEM_OUTPUT_MAX_LINES,
+    LIST_FILES_DEFAULT_LIMIT,
+    LIST_FILES_MAX_LIMIT,
+    SEARCH_CODE_DEFAULT_LIMIT,
+} from './filesystem-limits.ts'
 import { listFiles, readFile, searchCode } from './filesystem.ts'
 import { canonicalizeWorkspaceRoot } from './workspace.ts'
 
@@ -23,6 +29,32 @@ const resultLimitMetadata = (limit: number) => ({
         observed: limit + 1,
     },
 })
+
+const lineLimitMetadata = {
+    truncated: true,
+    truncation: {
+        reason: 'line_limit' as const,
+        limit: FILESYSTEM_OUTPUT_MAX_LINES,
+        observed: FILESYSTEM_OUTPUT_MAX_LINES + 1,
+    },
+}
+
+const byteLimitMetadata = (observed: number) => ({
+    truncated: true,
+    truncation: {
+        reason: 'byte_limit' as const,
+        limit: FILESYSTEM_OUTPUT_MAX_BYTES,
+        observed,
+    },
+})
+
+const createUtf8TextWithByteLength = (byteLength: number, prefix = ''): string => {
+    const remainingBytes = byteLength - Buffer.byteLength(prefix, 'utf8')
+
+    assert.ok(remainingBytes >= 0)
+
+    return `${prefix}${'a'.repeat(remainingBytes % 2)}${'é'.repeat(Math.floor(remainingBytes / 2))}`
+}
 
 const createWorkspaceFixture = async () => {
     const fixtureRoot = await mkdtemp(join(tmpdir(), 'yo-list-files-'))
@@ -105,6 +137,21 @@ describe('listFiles', () => {
         })
     })
 
+    test('does not truncate when the result count exactly matches the requested limit', async () => {
+        const { workspaceRoot } = await createWorkspaceFixture()
+
+        await Promise.all([
+            writeFile(join(workspaceRoot, 'alpha.ts'), 'export {}\n'),
+            writeFile(join(workspaceRoot, 'beta.ts'), 'export {}\n'),
+        ])
+
+        assert.deepEqual(await listFiles(workspaceRoot, { path: '.', limit: 2 }), {
+            status: 'success',
+            entries: ['alpha.ts', 'beta.ts'],
+            metadata: completeMetadata,
+        })
+    })
+
     test('applies the default limit when limit is omitted', async () => {
         const { workspaceRoot } = await createWorkspaceFixture()
         const fileNames = Array.from(
@@ -125,6 +172,54 @@ describe('listFiles', () => {
             assert.equal(result.entries.at(-1), 'entry-499.txt')
             assert.deepEqual(result.metadata, resultLimitMetadata(LIST_FILES_DEFAULT_LIMIT))
         }
+    })
+
+    test('allows exactly 50 KiB and reports a multibyte UTF-8 byte overflow', async () => {
+        const { workspaceRoot } = await createWorkspaceFixture()
+        const fileNames = Array.from({ length: 256 }, (_, index) => {
+            const prefix = `entry-${index.toString().padStart(3, '0')}-`
+            const suffix = '.txt'
+            const targetByteLength = index === 255 ? 200 : 199
+            const fillerByteLength =
+                targetByteLength -
+                Buffer.byteLength(prefix, 'utf8') -
+                Buffer.byteLength(suffix, 'utf8')
+
+            return `${prefix}${createUtf8TextWithByteLength(fillerByteLength)}${suffix}`
+        })
+
+        await Promise.all(
+            fileNames.map((fileName) => writeFile(join(workspaceRoot, fileName), 'content\n'))
+        )
+
+        const exactLimitResult = await listFiles(workspaceRoot, {
+            path: '.',
+            limit: LIST_FILES_MAX_LIMIT,
+        })
+
+        assert.equal(Buffer.byteLength(fileNames.join('\n'), 'utf8'), FILESYSTEM_OUTPUT_MAX_BYTES)
+        assert.deepEqual(exactLimitResult, {
+            status: 'success',
+            entries: fileNames,
+            metadata: completeMetadata,
+        })
+
+        const overflowingFileName = 'entry-256-é.txt'
+        await writeFile(join(workspaceRoot, overflowingFileName), 'content\n')
+
+        assert.deepEqual(
+            await listFiles(workspaceRoot, {
+                path: '.',
+                limit: LIST_FILES_MAX_LIMIT,
+            }),
+            {
+                status: 'success',
+                entries: fileNames,
+                metadata: byteLimitMetadata(
+                    FILESYSTEM_OUTPUT_MAX_BYTES + 1 + Buffer.byteLength(overflowingFileName, 'utf8')
+                ),
+            }
+        )
     })
 
     test('omits sensitive paths, node_modules, and symlink entries', async () => {
@@ -262,6 +357,18 @@ describe('searchCode', () => {
         )
     })
 
+    test('does not truncate when the match count exactly matches the requested limit', async () => {
+        const { workspaceRoot } = await createWorkspaceFixture()
+
+        await writeFile(join(workspaceRoot, 'matches.txt'), 'needle one\nneedle two\n')
+
+        assert.deepEqual(await searchCode(workspaceRoot, { query: 'needle', limit: 2 }), {
+            status: 'success',
+            matches: ['matches.txt:1:needle one', 'matches.txt:2:needle two'],
+            metadata: completeMetadata,
+        })
+    })
+
     test('applies the default limit when limit is omitted', async () => {
         const { workspaceRoot } = await createWorkspaceFixture()
         const lines = Array.from(
@@ -280,6 +387,39 @@ describe('searchCode', () => {
             assert.equal(result.matches.at(-1), 'matches.txt:100:needle 100')
             assert.deepEqual(result.metadata, resultLimitMetadata(SEARCH_CODE_DEFAULT_LIMIT))
         }
+    })
+
+    test('allows exactly 50 KiB and reports a multibyte UTF-8 byte overflow', async () => {
+        const { workspaceRoot } = await createWorkspaceFixture()
+        const fileName = 'matches.txt'
+        const resultPrefix = `${fileName}:1:`
+        const exactLimitLine = createUtf8TextWithByteLength(
+            FILESYSTEM_OUTPUT_MAX_BYTES - Buffer.byteLength(resultPrefix, 'utf8'),
+            'needle'
+        )
+
+        await writeFile(join(workspaceRoot, fileName), exactLimitLine)
+
+        const exactLimitResult = await searchCode(workspaceRoot, { query: 'needle' })
+
+        assert.equal(exactLimitResult.status, 'success')
+
+        if (exactLimitResult.status === 'success') {
+            assert.equal(
+                Buffer.byteLength(exactLimitResult.matches.join('\n'), 'utf8'),
+                FILESYSTEM_OUTPUT_MAX_BYTES
+            )
+            assert.deepEqual(exactLimitResult.metadata, completeMetadata)
+        }
+
+        const overflowingLine = `${exactLimitLine}é`
+        await writeFile(join(workspaceRoot, fileName), overflowingLine)
+
+        assert.deepEqual(await searchCode(workspaceRoot, { query: 'needle' }), {
+            status: 'success',
+            matches: [],
+            metadata: byteLimitMetadata(FILESYSTEM_OUTPUT_MAX_BYTES + 2),
+        })
     })
 
     test('skips sensitive paths, node_modules, symlinks, and non-text files', async () => {
@@ -376,6 +516,68 @@ describe('readFile', () => {
             status: 'success',
             content: '1:one\n2:two\n3:three\n4:four',
             metadata: completeMetadata,
+        })
+    })
+
+    test('allows exactly 2,000 lines and reports the next line as truncated', async () => {
+        const { workspaceRoot } = await createWorkspaceFixture()
+        const fileName = 'lines.txt'
+        const exactLimitLines = Array.from(
+            { length: FILESYSTEM_OUTPUT_MAX_LINES },
+            (_, index) => `line ${index + 1}`
+        )
+
+        await writeFile(join(workspaceRoot, fileName), exactLimitLines.join('\n'))
+
+        const exactLimitResult = await readFile(workspaceRoot, { path: fileName })
+
+        assert.equal(exactLimitResult.status, 'success')
+
+        if (exactLimitResult.status === 'success') {
+            assert.equal(exactLimitResult.content.split('\n').length, FILESYSTEM_OUTPUT_MAX_LINES)
+            assert.deepEqual(exactLimitResult.metadata, completeMetadata)
+        }
+
+        await writeFile(join(workspaceRoot, fileName), `${exactLimitLines.join('\n')}\noverflow`)
+
+        const overflowingResult = await readFile(workspaceRoot, { path: fileName })
+
+        assert.equal(overflowingResult.status, 'success')
+
+        if (overflowingResult.status === 'success') {
+            assert.equal(overflowingResult.content.split('\n').length, FILESYSTEM_OUTPUT_MAX_LINES)
+            assert.deepEqual(overflowingResult.metadata, lineLimitMetadata)
+        }
+    })
+
+    test('allows exactly 50 KiB and reports a multibyte UTF-8 byte overflow', async () => {
+        const { workspaceRoot } = await createWorkspaceFixture()
+        const fileName = 'large.txt'
+        const resultPrefix = '1:'
+        const exactLimitLine = createUtf8TextWithByteLength(
+            FILESYSTEM_OUTPUT_MAX_BYTES - Buffer.byteLength(resultPrefix, 'utf8')
+        )
+
+        await writeFile(join(workspaceRoot, fileName), exactLimitLine)
+
+        const exactLimitResult = await readFile(workspaceRoot, { path: fileName })
+
+        assert.equal(exactLimitResult.status, 'success')
+
+        if (exactLimitResult.status === 'success') {
+            assert.equal(
+                Buffer.byteLength(exactLimitResult.content, 'utf8'),
+                FILESYSTEM_OUTPUT_MAX_BYTES
+            )
+            assert.deepEqual(exactLimitResult.metadata, completeMetadata)
+        }
+
+        await writeFile(join(workspaceRoot, fileName), `${exactLimitLine}é`)
+
+        assert.deepEqual(await readFile(workspaceRoot, { path: fileName }), {
+            status: 'success',
+            content: '',
+            metadata: byteLimitMetadata(FILESYSTEM_OUTPUT_MAX_BYTES + 2),
         })
     })
 
