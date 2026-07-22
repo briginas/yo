@@ -7,6 +7,14 @@
 - Keep explanations in plain language. Introduce a concept before relying on it in code.
 - Use `type` declarations rather than `interface` declarations.
 
+## Resuming work
+
+- Before proposing or making changes, read `PRD.md` and `IMPLEMENTATION_PLAN.md`.
+- Inspect `git status --short` and recent commits to confirm the current repository state.
+- Treat the first incomplete leaf item in `IMPLEMENTATION_PLAN.md` as the next candidate milestone.
+- Confirm the bounded milestone with the user before implementation.
+- Mark a plan item complete only after its scoped checks pass and the result is reviewed.
+
 ## Scope Discipline
 
 - Do not add code, dependencies, API keys, runtime configuration, or broader capabilities unless the current milestone explicitly requires them.
