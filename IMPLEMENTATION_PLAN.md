@@ -32,11 +32,11 @@ Run and review the checks for each step before moving to the next one.
 
 - [ ] **4. Agent loop with faux transport**
     - [ ] **4.1 Build the base bounded agent loop**
-        - [ ] **4.1.1 Define the model transport boundary**
-            - [ ] Add provider-neutral `ModelTransport`, `ModelRequest`, and discriminated `ModelResponse` types.
-            - [ ] Represent assistant tool calls in the session transcript.
-            - [ ] Keep model-provided arguments unknown and accept unknown tool names at the transport boundary.
-            - [ ] Verify the contracts with focused tests and a build.
+        - [x] **4.1.1 Define the model transport boundary**
+            - [x] Add provider-neutral `ModelTransport`, `ModelRequest`, and discriminated `ModelResponse` types.
+            - [x] Represent assistant tool calls in the session transcript.
+            - [x] Keep model-provided arguments unknown and accept unknown tool names at the transport boundary.
+            - [x] Verify the contracts with focused tests and a build.
         - [ ] **4.1.2 Dispatch read-only tool calls**
             - [ ] Register only `list_files`, `search_code`, and `read_file`.
             - [ ] Apply tool lookup, schema validation, filesystem permissions, execution, and result normalization in order.
