@@ -27,7 +27,8 @@ The milestone succeeds when a user can run one command against a small fixture r
     yo ask "<task>" --cwd <approved-workspace>
     ```
 
-- One OpenAI API transport using a configured tool-capable model.
+- One OpenAI Codex transport using a configured tool-capable model and ChatGPT Plus OAuth.
+- Trusted CLI authentication commands that sign in through the OpenAI website and persist only the resulting OAuth credential outside the approved workspace.
 - A bounded model/tool loop with streaming model output where supported.
 - Typed, schema-validated, read-only tools:
     - `list_files({ path, glob?, limit? })`
@@ -38,8 +39,9 @@ The milestone succeeds when a user can run one command against a small fixture r
 
 ### Out of scope
 
-- File writes, patch application, shell execution, dependency installation, network tools, and environment-variable reads.
-- Interactive REPL or TUI, persistent sessions, branching, compaction, skills, extensions, MCP, multi-provider support, and subagents.
+- Model-invoked file writes, patch application, shell or process execution, dependency installation, network tools, credential access, and environment-variable reads.
+- API-key authentication and fallback from ChatGPT OAuth to separately billed OpenAI API usage.
+- Interactive REPL or TUI, persistent agent sessions, branching, compaction, skills, extensions, MCP, multi-provider support, and subagents.
 - Automatic retries beyond returning a structured failure to the model or caller.
 
 ## 4. Harness behavior
@@ -59,6 +61,8 @@ Every requested tool call receives a result: success, invalid arguments, unknown
 
 - All tool paths must resolve inside `--cwd`; attempts to escape it are denied.
 - Tools are read-only. The registry exposes no write, process, shell, network, credential, or connector capability.
+- OAuth and model requests run only in trusted CLI infrastructure outside the model tool registry.
+- The CLI may write only its OAuth credential store at `~/.yo/auth.json`; it must not write inside the approved workspace.
 - Tool outputs have line/result/byte caps and expose truncation metadata.
 - Runs have a fixed step budget and per-tool timeout.
 - Secrets must not be printed in traces or included in model context.
@@ -85,7 +89,13 @@ Keep the runtime independent of the CLI and OpenAI transport through these core 
 - `RunEvent`: an auditable lifecycle event emitted by the loop.
 - `SessionState`: in-memory task, messages/observations, workspace root, budgets, and current run status.
 
-The first provider adapter converts between these interfaces and OpenAI tool calling. A faux adapter implements the same boundary for tests.
+The first provider adapter converts between these interfaces and OpenAI Codex tool calling authenticated through ChatGPT OAuth. A faux adapter implements the same boundary for tests.
+
+The public CLI also exposes:
+
+- `yo login` to complete browser OAuth through the OpenAI website;
+- `yo auth status` to report non-secret authentication state;
+- `yo logout` to remove the stored OAuth credential.
 
 ## 6. Test plan
 
@@ -99,12 +109,16 @@ Use fixture directories and a scripted faux model to test:
 - the invariant that each requested call yields exactly one `ToolResult`;
 - result truncation metadata and an evidence report that names the used files/tools.
 
+Use injected HTTP and temporary credential stores to test OAuth and the Codex adapter without real credentials or network requests. Cover PKCE and state validation, credential permissions and refresh, login status and logout, secret redaction, final-answer streaming, and tool-call normalization.
+
 ## 7. Acceptance criteria
 
 - The CLI completes a read-only research task against a fixture repository.
-- No code path can write files or start a shell command in this milestone.
+- No model-invoked code path can write files, start a process, access credentials, or make arbitrary network requests in this milestone.
+- The trusted CLI writes only `~/.yo/auth.json`, with restrictive permissions, for ChatGPT OAuth login and token refresh.
 - All tool input is schema-validated and all filesystem access remains inside `--cwd`.
 - The faux-model test suite passes without real provider credentials or paid API calls.
+- A user with ChatGPT Plus can run `yo login` and complete one real read-only task without configuring an OpenAI API key.
 - The final output gives enough evidence for a human to check the answer.
 
 ## 8. Follow-up milestones

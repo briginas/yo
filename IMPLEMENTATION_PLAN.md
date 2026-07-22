@@ -60,11 +60,30 @@ Run and review the checks for each step before moving to the next one.
     - [ ] Print the final answer and evidence report: stop reason, files, and tools used.
     - [ ] Verify a fixture-repository run with the faux transport.
 
-- [ ] **6. OpenAI adapter**
-    - [ ] Connect the Responses API using `OPENAI_API_KEY`.
-    - [ ] Default to `gpt-5.6-terra` with `reasoning.effort: medium`; allow `--model` to override it.
-    - [ ] Stream final answer text only; exclude keys and hidden reasoning from logs.
-    - [ ] Manually verify one real read-only run.
+- [ ] **6. ChatGPT OAuth and OpenAI Codex adapter**
+    - [ ] **6.1 Store ChatGPT OAuth credentials safely**
+        - [ ] Define internal OAuth credential and credential-store contracts without changing the provider-neutral runtime boundary.
+        - [ ] Store the `openai-codex` credential in `~/.yo/auth.json`, with directory mode `0700`, file mode `0600`, atomic updates, and refresh locking.
+        - [ ] Verify create, read, update, delete, malformed-file, permission, and concurrent-refresh behavior using temporary paths.
+    - [ ] **6.2 Implement browser login through OpenAI**
+        - [ ] Add `yo login` using PKCE S256, a random state value, and a callback bound to `127.0.0.1:1455`.
+        - [ ] Print a clickable authorization URL without starting a browser process; reject callback state mismatches and report an occupied callback port clearly.
+        - [ ] Exchange the authorization code for an OAuth credential and persist it without logging token values or token responses.
+        - [ ] Verify the complete login flow with injected HTTP and a temporary credential store; do not add device-code login.
+    - [ ] **6.3 Implement the credential lifecycle**
+        - [ ] Add `yo auth status` with non-secret account and expiry information and `yo logout` that removes the stored credential.
+        - [ ] Refresh an expiring access token under the credential-store lock and persist a rotated refresh token before a model request.
+        - [ ] Preserve the last stored credential on refresh failure, require a new `yo login`, and never fall back to an API key.
+        - [ ] Verify status, logout, refresh success and failure, rotation, missing credentials, and secret redaction.
+    - [ ] **6.4 Connect the OpenAI Codex Responses transport**
+        - [ ] Send authenticated requests to the ChatGPT Codex Responses endpoint using the stored access token and account ID.
+        - [ ] Convert provider-neutral messages, visible tool definitions, assistant tool calls, and tool results to and from the Codex Responses wire format.
+        - [ ] Default to `gpt-5.6-terra` with `reasoning.effort: medium`; allow `--model` to override it.
+        - [ ] Parse SSE deterministically, stream final answer text only, and exclude credentials and hidden reasoning from logs and run events.
+        - [ ] Verify final answers, single and multiple tool calls, malformed events, authentication failures, usage limits, and transport failures without real network requests.
+    - [ ] **6.5 Verify one real read-only ChatGPT Plus run**
+        - [ ] Run `yo login`, confirm `yo auth status`, and complete one `yo ask` task without `OPENAI_API_KEY`.
+        - [ ] Confirm that logout removes the credential and that the approved workspace remains unchanged.
 
 - [ ] **7. Milestone 1 verification**
     - [ ] Run the full build and test suite.
@@ -73,6 +92,8 @@ Run and review the checks for each step before moving to the next one.
 
 ## Permanent constraints
 
-- No write, shell, process, network, credential, or connector tools.
-- No persistent sessions, TUI, REPL, or configuration file in milestone 1.
+- No model-visible write, shell, process, network, credential, or connector tools.
+- Trusted network access is limited to ChatGPT OAuth and the OpenAI Codex model transport.
+- The only trusted filesystem write is the OAuth credential store at `~/.yo/auth.json`; no writes are allowed inside the approved workspace.
+- No API-key fallback, persistent agent sessions, TUI, REPL, project configuration file, device-code login, or multi-provider support in milestone 1.
 - Do not mark a step complete until its scoped checks have passed and its result has been reviewed.
