@@ -10,6 +10,27 @@ export type RunBudget = {
     perToolTimeoutMs: number
 }
 
+export type ModelRequest = {
+    model: string | null
+    messages: readonly SessionMessage[]
+    visibleTools: readonly ToolName[]
+}
+
+export type ModelResponse =
+    | {
+          type: 'final_answer'
+          model: string | null
+          content: string
+      }
+    | {
+          type: 'tool_calls'
+          model: string | null
+          content?: string
+          toolCalls: readonly [ToolCall, ...ToolCall[]]
+      }
+
+export type ModelTransport = (request: ModelRequest) => Promise<ModelResponse>
+
 export type ModelRequestMetadata = {
     model: string | null
     visibleTools: ToolName[]
@@ -66,8 +87,13 @@ export type RunEvent =
 
 export type SessionMessage =
     | {
-          role: 'system' | 'user' | 'assistant'
+          role: 'system' | 'user'
           content: string
+      }
+    | {
+          role: 'assistant'
+          content: string
+          toolCalls: ToolCall[]
       }
     | {
           role: 'tool'
