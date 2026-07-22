@@ -1,7 +1,7 @@
 import type { ZodType } from 'zod'
 
 import { listFiles, readFile, searchCode } from './filesystem.ts'
-import type { WorkspacePathPermissionDecision } from './permissions.ts'
+import type { PermissionDecision, WorkspacePathPermissionDecision } from './permissions.ts'
 import {
     listFilesArgumentsSchema,
     readFileArgumentsSchema,
@@ -30,7 +30,8 @@ type ToolExecutionResult =
 type RegisteredTool = (
     workspaceRoot: string,
     call: ToolCall,
-    perToolTimeoutMs: number
+    perToolTimeoutMs: number,
+    onPermissionDecision?: (decision: PermissionDecision) => void
 ) => Promise<ToolResult>
 
 type ToolExecutionOutcome =
@@ -106,7 +107,7 @@ export const registerTool = <TArguments>(
     ) => Promise<WorkspacePathPermissionDecision>,
     execute: (workspaceRoot: string, arguments_: TArguments) => Promise<ToolExecutionResult>
 ): RegisteredTool => {
-    return async (workspaceRoot, call, perToolTimeoutMs) => {
+    return async (workspaceRoot, call, perToolTimeoutMs, onPermissionDecision) => {
         const parsedArguments = schema.safeParse(call.arguments)
 
         if (!parsedArguments.success) {
@@ -117,6 +118,9 @@ export const registerTool = <TArguments>(
 
         try {
             const permissionDecision = await authorize(workspaceRoot, parsedArguments.data)
+            onPermissionDecision?.(
+                permissionDecision.decision === 'allow' ? { decision: 'allow' } : permissionDecision
+            )
 
             if (permissionDecision.decision === 'deny') {
                 const message = `Tool access denied: ${permissionDecision.reason}`
@@ -216,13 +220,15 @@ const isRegisteredToolName = (name: string): name is ToolName =>
 export const dispatchToolCall = async (
     workspaceRoot: string,
     call: ToolCall,
-    perToolTimeoutMs: number
+    perToolTimeoutMs: number,
+    onPermissionDecision?: (decision: PermissionDecision) => void
 ): Promise<ToolResult> => {
     if (!isRegisteredToolName(call.name)) {
         const message = `Unknown tool: ${call.name}`
+        onPermissionDecision?.({ decision: 'deny', reason: 'unknown_tool' })
 
         return createErrorResult(call.id, 'unknown_tool', 'unknown_tool', message)
     }
 
-    return registeredTools[call.name](workspaceRoot, call, perToolTimeoutMs)
+    return registeredTools[call.name](workspaceRoot, call, perToolTimeoutMs, onPermissionDecision)
 }

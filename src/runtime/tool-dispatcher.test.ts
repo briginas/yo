@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, test } from 'node:test'
 import { z } from 'zod'
 
+import type { PermissionDecision } from './permissions.ts'
 import { dispatchToolCall, registerTool } from './tool-dispatcher.ts'
 import { canonicalizeWorkspaceRoot } from './workspace.ts'
 
@@ -102,6 +103,7 @@ describe('dispatchToolCall', () => {
     })
 
     test('rejects invalid arguments before filesystem execution', async () => {
+        const permissionDecisions: PermissionDecision[] = []
         const result = await dispatchToolCall(
             workspaceRoot,
             {
@@ -113,7 +115,8 @@ describe('dispatchToolCall', () => {
                     unexpected: true,
                 },
             },
-            0
+            0,
+            (decision) => permissionDecisions.push(decision)
         )
 
         assert.equal(result.status, 'invalid_arguments')
@@ -122,6 +125,7 @@ describe('dispatchToolCall', () => {
         assert.match(result.content, /^Invalid arguments for read_file:/)
         assert.match(result.content, /startLine:/)
         assert.match(result.content, /arguments:/)
+        assert.deepEqual(permissionDecisions, [])
 
         if (result.status === 'invalid_arguments') {
             assert.deepEqual(result.error, {
@@ -158,6 +162,7 @@ describe('dispatchToolCall', () => {
     })
 
     test('normalizes workspace and sensitive-path permission denials', async () => {
+        const permissionDecisions: PermissionDecision[] = []
         assert.deepEqual(
             await dispatchToolCall(
                 workspaceRoot,
@@ -166,7 +171,8 @@ describe('dispatchToolCall', () => {
                     name: 'read_file',
                     arguments: { path: '../outside.txt' },
                 },
-                0
+                0,
+                (decision) => permissionDecisions.push(decision)
             ),
             {
                 status: 'denied',
@@ -188,7 +194,8 @@ describe('dispatchToolCall', () => {
                     name: 'search_code',
                     arguments: { query: 'TOKEN', path: '.env' },
                 },
-                perToolTimeoutMs
+                perToolTimeoutMs,
+                (decision) => permissionDecisions.push(decision)
             ),
             {
                 status: 'denied',
@@ -201,6 +208,40 @@ describe('dispatchToolCall', () => {
                 },
             }
         )
+        assert.deepEqual(permissionDecisions, [
+            { decision: 'deny', reason: 'outside_workspace' },
+            { decision: 'deny', reason: 'sensitive_path' },
+        ])
+    })
+
+    test('reports allow and unknown-tool permission decisions', async () => {
+        const permissionDecisions: PermissionDecision[] = []
+
+        await dispatchToolCall(
+            workspaceRoot,
+            {
+                id: 'allowed-call',
+                name: 'read_file',
+                arguments: { path: 'src/agent.ts' },
+            },
+            perToolTimeoutMs,
+            (decision) => permissionDecisions.push(decision)
+        )
+        await dispatchToolCall(
+            workspaceRoot,
+            {
+                id: 'unknown-call',
+                name: 'unknown_tool',
+                arguments: null,
+            },
+            perToolTimeoutMs,
+            (decision) => permissionDecisions.push(decision)
+        )
+
+        assert.deepEqual(permissionDecisions, [
+            { decision: 'allow' },
+            { decision: 'deny', reason: 'unknown_tool' },
+        ])
     })
 
     test('normalizes executor failures without throwing', async () => {
