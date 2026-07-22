@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
-import { runAgent } from './agent-loop.ts'
+import { runAgent, runAgentWithDispatcher } from './agent-loop.ts'
 import type { ModelRequest, ModelTransport } from './run.ts'
 import { canonicalizeWorkspaceRoot } from './workspace.ts'
 
@@ -264,6 +264,95 @@ test('preserves multiple tool-call ordering in the completed session', async () 
     } finally {
         await rm(fixtureRoot, { recursive: true, force: true })
     }
+})
+
+test('returns exactly one timeout result to the model and continues the loop', async () => {
+    const requests: ModelRequest[] = []
+    const transport: ModelTransport = async (request) => {
+        requests.push(request)
+
+        if (requests.length === 1) {
+            return {
+                type: 'tool_calls',
+                model: 'faux-model',
+                toolCalls: [
+                    {
+                        id: 'slow-read',
+                        name: 'read_file',
+                        arguments: { path: 'src/slow.ts' },
+                    },
+                ],
+            }
+        }
+
+        return {
+            type: 'final_answer',
+            model: 'faux-model',
+            content: 'The read timed out before producing evidence.',
+        }
+    }
+    const dispatchedCalls: Array<{ callId: string; timeoutMs: number }> = []
+
+    const session = await runAgentWithDispatcher(
+        {
+            task: 'Inspect the slow file.',
+            workspaceRoot: '/approved/workspace',
+            budget: {
+                maxSteps: 2,
+                perToolTimeoutMs: 25,
+            },
+            model: 'faux-model',
+            transport,
+        },
+        async (_workspaceRoot, call, timeoutMs) => {
+            dispatchedCalls.push({ callId: call.id, timeoutMs })
+            const message = `Tool execution timed out after ${timeoutMs} ms`
+
+            return {
+                status: 'timeout',
+                callId: call.id,
+                content: message,
+                metadata: {
+                    truncated: false,
+                    truncation: null,
+                },
+                error: {
+                    code: 'timeout',
+                    message,
+                },
+            }
+        }
+    )
+
+    assert.deepEqual(dispatchedCalls, [{ callId: 'slow-read', timeoutMs: 25 }])
+    assert.equal(requests.length, 2)
+    assert.deepEqual(requests[1]!.messages.slice(-1), [
+        {
+            role: 'tool',
+            result: {
+                status: 'timeout',
+                callId: 'slow-read',
+                content: 'Tool execution timed out after 25 ms',
+                metadata: {
+                    truncated: false,
+                    truncation: null,
+                },
+                error: {
+                    code: 'timeout',
+                    message: 'Tool execution timed out after 25 ms',
+                },
+            },
+        },
+    ])
+    assert.equal(
+        session.messages.filter(
+            (message) => message.role === 'tool' && message.result.callId === 'slow-read'
+        ).length,
+        1
+    )
+    assert.equal(session.status, 'completed')
+    assert.equal(session.finalAnswer, 'The read timed out before producing evidence.')
+    assert.equal(session.stopReason, 'final_answer')
 })
 
 test('stops after the model-request budget without dropping the last tool result', async () => {

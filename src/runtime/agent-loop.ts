@@ -1,6 +1,6 @@
 import type { ModelTransport, RunBudget, SessionState } from './run.ts'
 import { dispatchToolCall } from './tool-dispatcher.ts'
-import type { ToolName } from './tools.ts'
+import type { ToolCall, ToolName, ToolResult } from './tools.ts'
 
 const SYSTEM_PROMPT =
     'You are a read-only coding agent. Inspect only the approved workspace through the available read-only tools and base your final answer on tool results.'
@@ -19,13 +19,18 @@ export type RunAgentOptions = {
     transport: ModelTransport
 }
 
-export const runAgent = async ({
-    task,
-    workspaceRoot,
-    budget,
-    model,
-    transport,
-}: RunAgentOptions): Promise<SessionState> => {
+type ToolDispatcher = (
+    workspaceRoot: string,
+    call: ToolCall,
+    perToolTimeoutMs: number
+) => Promise<ToolResult>
+
+// Exported only from this internal module so the loop can be tested with a controlled dispatcher.
+// The public runtime barrel exposes runAgent with the closed read-only registry.
+export const runAgentWithDispatcher = async (
+    { task, workspaceRoot, budget, model, transport }: RunAgentOptions,
+    dispatch: ToolDispatcher
+): Promise<SessionState> => {
     const session: SessionState = {
         task,
         workspaceRoot,
@@ -76,7 +81,7 @@ export const runAgent = async ({
         })
 
         for (const call of response.toolCalls) {
-            const result = await dispatchToolCall(workspaceRoot, call)
+            const result = await dispatch(workspaceRoot, call, budget.perToolTimeoutMs)
 
             session.messages.push({
                 role: 'tool',
@@ -90,3 +95,6 @@ export const runAgent = async ({
 
     return session
 }
+
+export const runAgent = (options: RunAgentOptions): Promise<SessionState> =>
+    runAgentWithDispatcher(options, dispatchToolCall)

@@ -51,7 +51,7 @@ Run and review the checks for each step before moving to the next one.
             - [x] Export only the approved read-only runtime APIs.
             - [x] Verify multiple tool-call ordering and final session state.
             - [x] Run the full build and test suite, formatting check, and whitespace check.
-    - [ ] **4.2 Apply `RunBudget.perToolTimeoutMs` at the tool-execution boundary and return exactly one `timeout` result when it expires.**
+    - [x] **4.2 Apply `RunBudget.perToolTimeoutMs` at the tool-execution boundary and return exactly one `timeout` result when it expires.**
     - [ ] **4.3 Record `RunEvent` values and guarantee one `ToolResult` per request.**
     - [ ] **4.4 Cover the PRD scenarios without real API credentials.**
 
