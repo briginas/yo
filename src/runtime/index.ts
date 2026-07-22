@@ -1,3 +1,4 @@
+export * from './agent-loop.ts'
 export * from './filesystem.ts'
 export * from './permissions.ts'
 export * from './run.ts'

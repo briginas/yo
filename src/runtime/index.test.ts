@@ -6,7 +6,8 @@ import { test } from 'node:test'
 
 import * as runtime from './index.ts'
 
-const { canonicalizeWorkspaceRoot, dispatchToolCall, listFiles, readFile, searchCode } = runtime
+const { canonicalizeWorkspaceRoot, dispatchToolCall, listFiles, readFile, runAgent, searchCode } =
+    runtime
 
 const completeMetadata = {
     truncated: false,
@@ -23,6 +24,7 @@ test('exports only the approved read-only runtime capabilities', () => {
         'readFile',
         'readFileArgumentsSchema',
         'resolveWorkspacePath',
+        'runAgent',
         'searchCode',
         'searchCodeArgumentsSchema',
     ])
@@ -71,4 +73,8 @@ test('exports and runs the basic read-only filesystem flow', async () => {
 
 test('exports the read-only tool dispatcher', () => {
     assert.equal(typeof dispatchToolCall, 'function')
+})
+
+test('exports the bounded read-only agent loop', () => {
+    assert.equal(typeof runAgent, 'function')
 })

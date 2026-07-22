@@ -31,7 +31,7 @@ Run and review the checks for each step before moving to the next one.
         - [x] Run the full build and test suite, review the diff, and check it for whitespace errors.
 
 - [ ] **4. Agent loop with faux transport**
-    - [ ] **4.1 Build the base bounded agent loop**
+    - [x] **4.1 Build the base bounded agent loop**
         - [x] **4.1.1 Define the model transport boundary**
             - [x] Add provider-neutral `ModelTransport`, `ModelRequest`, and discriminated `ModelResponse` types.
             - [x] Represent assistant tool calls in the session transcript.
@@ -47,10 +47,10 @@ Run and review the checks for each step before moving to the next one.
             - [x] Execute tool calls sequentially, append their results, and continue with the updated transcript.
             - [x] Count each model request as one step and stop with `step_budget_exhausted` at `RunBudget.maxSteps`.
             - [x] Verify final-answer, tool-result-follow-up, and step-budget flows with a faux transport.
-        - [ ] **4.1.4 Verify and expose the base loop**
-            - [ ] Export only the approved read-only runtime APIs.
-            - [ ] Verify multiple tool-call ordering and final session state.
-            - [ ] Run the full build and test suite, formatting check, and whitespace check.
+        - [x] **4.1.4 Verify and expose the base loop**
+            - [x] Export only the approved read-only runtime APIs.
+            - [x] Verify multiple tool-call ordering and final session state.
+            - [x] Run the full build and test suite, formatting check, and whitespace check.
     - [ ] **4.2 Apply `RunBudget.perToolTimeoutMs` at the tool-execution boundary and return exactly one `timeout` result when it expires.**
     - [ ] **4.3 Record `RunEvent` values and guarantee one `ToolResult` per request.**
     - [ ] **4.4 Cover the PRD scenarios without real API credentials.**

@@ -151,6 +151,121 @@ test('returns a read-only tool result to the model on the next step', async () =
     }
 })
 
+test('preserves multiple tool-call ordering in the completed session', async () => {
+    const fixtureRoot = await mkdtemp(join(tmpdir(), 'yo-agent-loop-multiple-'))
+    const workspace = join(fixtureRoot, 'workspace')
+    const sourceDirectory = join(workspace, 'src')
+
+    try {
+        await mkdir(sourceDirectory, { recursive: true })
+        await writeFile(join(sourceDirectory, 'agent.ts'), "export const answer = 'found'\n")
+
+        const workspaceRoot = await canonicalizeWorkspaceRoot(workspace)
+        const requests: ModelRequest[] = []
+        const transport: ModelTransport = async (request) => {
+            requests.push(request)
+
+            if (requests.length === 1) {
+                return {
+                    type: 'tool_calls',
+                    model: 'faux-model',
+                    content: 'I will search for the answer and then read its source file.',
+                    toolCalls: [
+                        {
+                            id: 'search-call',
+                            name: 'search_code',
+                            arguments: { query: 'answer', path: 'src' },
+                        },
+                        {
+                            id: 'read-call',
+                            name: 'read_file',
+                            arguments: { path: 'src/agent.ts' },
+                        },
+                    ],
+                }
+            }
+
+            return {
+                type: 'final_answer',
+                model: 'faux-model',
+                content: 'The answer is defined in src/agent.ts:1.',
+            }
+        }
+
+        const session = await runAgent({
+            task: 'Find the answer and inspect its definition.',
+            workspaceRoot,
+            budget,
+            model: 'faux-model',
+            transport,
+        })
+
+        assert.equal(requests.length, 2)
+        assert.deepEqual(requests[1]!.messages.slice(2), [
+            {
+                role: 'assistant',
+                content: 'I will search for the answer and then read its source file.',
+                toolCalls: [
+                    {
+                        id: 'search-call',
+                        name: 'search_code',
+                        arguments: { query: 'answer', path: 'src' },
+                    },
+                    {
+                        id: 'read-call',
+                        name: 'read_file',
+                        arguments: { path: 'src/agent.ts' },
+                    },
+                ],
+            },
+            {
+                role: 'tool',
+                result: {
+                    status: 'success',
+                    callId: 'search-call',
+                    content: "src/agent.ts:1:export const answer = 'found'",
+                    metadata: {
+                        truncated: false,
+                        truncation: null,
+                    },
+                },
+            },
+            {
+                role: 'tool',
+                result: {
+                    status: 'success',
+                    callId: 'read-call',
+                    content: "1:export const answer = 'found'",
+                    metadata: {
+                        truncated: false,
+                        truncation: null,
+                    },
+                },
+            },
+        ])
+        assert.deepEqual(session, {
+            task: 'Find the answer and inspect its definition.',
+            workspaceRoot,
+            budget,
+            status: 'completed',
+            stepCount: 2,
+            messages: [
+                ...requests[1]!.messages,
+                {
+                    role: 'assistant',
+                    content: 'The answer is defined in src/agent.ts:1.',
+                    toolCalls: [],
+                },
+            ],
+            events: [],
+            finalAnswer: 'The answer is defined in src/agent.ts:1.',
+            stopReason: 'final_answer',
+        })
+    } finally {
+        await rm(fixtureRoot, { recursive: true, force: true })
+    }
+})
+
 test('stops after the model-request budget without dropping the last tool result', async () => {
     let requestCount = 0
     const transport: ModelTransport = async () => {
