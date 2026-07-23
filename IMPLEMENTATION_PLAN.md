@@ -57,7 +57,7 @@ Run and review the checks for each step before moving to the next one.
 
 - [ ] **5. CLI and evidence report**
     - [x] Implement `yo ask "<task>" --cwd <workspace> [--model <name>]`.
-    - [ ] Print the final answer and evidence report: stop reason, files, and tools used.
+    - [x] Print the final answer and evidence report: stop reason, files, and tools used.
     - [ ] Verify a fixture-repository run with the faux transport.
 
 - [ ] **6. ChatGPT OAuth and OpenAI Codex adapter**
