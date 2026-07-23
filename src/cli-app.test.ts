@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { relative } from 'node:path'
 import { test } from 'node:test'
@@ -244,6 +244,109 @@ test('prints ordered, deduplicated tool and file evidence from successful observ
         ])
     } finally {
         await rm(workspace, { recursive: true, force: true })
+    }
+})
+
+test('completes a fixture-repository research task with a faux transport', async () => {
+    const fixtureRoot = await mkdtemp(`${tmpdir()}/yo-cli-fixture-`)
+    const workspace = `${fixtureRoot}/workspace`
+    const sourceDirectory = `${workspace}/src`
+    const sourcePath = `${sourceDirectory}/settings.ts`
+    const source = 'export const defaultTimeoutMs = 5_000\n'
+    const requests: ModelRequest[] = []
+    const searchCall = {
+        id: 'search-call',
+        name: 'search_code' as const,
+        arguments: { query: 'defaultTimeoutMs', path: 'src' },
+    }
+    const readCall = {
+        id: 'read-call',
+        name: 'read_file' as const,
+        arguments: { path: 'src/settings.ts' },
+    }
+    const transport: ModelTransport = async (request) => {
+        requests.push(request)
+
+        if (requests.length === 1) {
+            return {
+                type: 'tool_calls',
+                model: 'faux-model',
+                content: 'I will locate the timeout setting.',
+                toolCalls: [searchCall],
+            }
+        }
+
+        if (requests.length === 2) {
+            return {
+                type: 'tool_calls',
+                model: 'faux-model',
+                content: 'I found the setting and will read its definition.',
+                toolCalls: [readCall],
+            }
+        }
+
+        return {
+            type: 'final_answer',
+            model: 'faux-model',
+            content: 'The default timeout is 5,000 ms in src/settings.ts:1.',
+        }
+    }
+
+    try {
+        await mkdir(sourceDirectory, { recursive: true })
+        await writeFile(sourcePath, source)
+
+        const { errors, outputs, result } = await invokeCli({
+            argv: ['ask', 'Find the default timeout and cite its definition.', '--cwd', workspace],
+            transport,
+        })
+
+        assert.deepEqual(errors, [])
+        assert.deepEqual(outputs, [
+            [
+                'The default timeout is 5,000 ms in src/settings.ts:1.',
+                '',
+                'Evidence:',
+                'Stop reason: final_answer',
+                'Tools: search_code, read_file',
+                'Files:',
+                '- src/settings.ts',
+            ].join('\n'),
+        ])
+        assert.equal(result.exitCode, 0)
+        assert.equal(result.session?.status, 'completed')
+        assert.equal(result.session?.stopReason, 'final_answer')
+        assert.equal(result.session?.stepCount, 3)
+        assert.equal(requests.length, 3)
+        assert.deepEqual(requests[1]?.messages.at(-1), {
+            role: 'tool',
+            result: {
+                status: 'success',
+                callId: searchCall.id,
+                content: 'src/settings.ts:1:export const defaultTimeoutMs = 5_000',
+                metadata: {
+                    truncated: false,
+                    truncation: null,
+                },
+            },
+        })
+        assert.deepEqual(requests[2]?.messages.at(-1), {
+            role: 'tool',
+            result: {
+                status: 'success',
+                callId: readCall.id,
+                content: '1:export const defaultTimeoutMs = 5_000',
+                metadata: {
+                    truncated: false,
+                    truncation: null,
+                },
+            },
+        })
+        assert.equal(await readFile(sourcePath, 'utf8'), source)
+        assert.deepEqual(await readdir(workspace), ['src'])
+        assert.deepEqual(await readdir(sourceDirectory), ['settings.ts'])
+    } finally {
+        await rm(fixtureRoot, { recursive: true, force: true })
     }
 })
 

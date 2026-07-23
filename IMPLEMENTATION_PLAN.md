@@ -55,10 +55,10 @@ Run and review the checks for each step before moving to the next one.
     - [x] **4.3 Record `RunEvent` values and guarantee one `ToolResult` per request.**
     - [x] **4.4 Cover the PRD scenarios without real API credentials.**
 
-- [ ] **5. CLI and evidence report**
+- [x] **5. CLI and evidence report**
     - [x] Implement `yo ask "<task>" --cwd <workspace> [--model <name>]`.
     - [x] Print the final answer and evidence report: stop reason, files, and tools used.
-    - [ ] Verify a fixture-repository run with the faux transport.
+    - [x] Verify a fixture-repository run with the faux transport.
 
 - [ ] **6. ChatGPT OAuth and OpenAI Codex adapter**
     - [ ] **6.1 Store ChatGPT OAuth credentials safely**
