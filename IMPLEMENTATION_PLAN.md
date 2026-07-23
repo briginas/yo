@@ -63,7 +63,7 @@ Run and review the checks for each step before moving to the next one.
 - [ ] **6. ChatGPT OAuth and OpenAI Codex adapter**
     - [ ] **6.1 Store ChatGPT OAuth credentials safely**
         - [x] Define internal OAuth credential and credential-store contracts without changing the provider-neutral runtime boundary.
-        - [ ] Store the `openai-codex` credential in `~/.yo/auth.json`, with directory mode `0700`, file mode `0600`, atomic updates, and refresh locking.
+        - [x] Store the `openai-codex` credential in `~/.yo/auth.json`, with directory mode `0700`, file mode `0600`, atomic updates, and refresh locking.
         - [ ] Verify create, read, update, delete, malformed-file, permission, and concurrent-refresh behavior using temporary paths.
     - [ ] **6.2 Implement browser login through OpenAI**
         - [ ] Add `yo login` using PKCE S256, a random state value, and a callback bound to `127.0.0.1:1455`.
