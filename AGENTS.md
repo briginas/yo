@@ -5,6 +5,9 @@
 - Before every change, explain briefly what will be created or modified, why it is needed in the agent harness, and how it relates to the `pi` reference project.
 - Build the project in small, independently verifiable steps. Complete and verify one milestone before starting the next.
 - Keep explanations in plain language. Introduce a concept before relying on it in code.
+- When proposing an implementation plan, first provide a detailed plain-language walkthrough: explain the current behavior, the target behavior, the role of each affected component, the execution or data flow, scope boundaries, risks, validation, and what remains deferred.
+- Include a Mermaid diagram when control flow, data flow, component interaction, or a before/after comparison becomes materially easier to understand visually. Do not force a diagram for a simple single-step change.
+- Relate the proposed design to the corresponding `pi` implementation where relevant, while preserving the smaller approved scope of this project.
 - Add comments only for non-obvious rationale, invariants, safety boundaries, or edge cases. Do not restate the code, and update comments when behavior changes.
 - Use `type` declarations rather than `interface` declarations.
 
