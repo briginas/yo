@@ -344,18 +344,22 @@ export const sendOpenAICodexResponsesRequest = async ({
         throw new Error('OpenAI Codex authentication is required. Run yo login.')
     }
 
-    return sendRequest(CODEX_RESPONSES_URL, {
-        method: 'POST',
-        headers: {
-            Authorization: `Bearer ${credential.accessToken}`,
-            'chatgpt-account-id': credential.accountId,
-            originator: 'yo',
-            'OpenAI-Beta': 'responses=experimental',
-            accept: 'text/event-stream',
-            'content-type': 'application/json',
-        },
-        body: JSON.stringify(body),
-    })
+    try {
+        return await sendRequest(CODEX_RESPONSES_URL, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${credential.accessToken}`,
+                'chatgpt-account-id': credential.accountId,
+                originator: 'yo',
+                'OpenAI-Beta': 'responses=experimental',
+                accept: 'text/event-stream',
+                'content-type': 'application/json',
+            },
+            body: JSON.stringify(body),
+        })
+    } catch {
+        throw new Error('OpenAI Codex network request failed.')
+    }
 }
 
 export type OpenAICodexFinalAnswerTextSink = (delta: string) => void
@@ -425,7 +429,7 @@ const processOpenAICodexSseEvent = (
         return null
     }
 
-    if (envelope.data.type === 'error') {
+    if (envelope.data.type === 'error' || envelope.data.type === 'response.failed') {
         throw new Error('OpenAI Codex streaming request failed.')
     }
 
@@ -555,6 +559,18 @@ export type OpenAICodexResponsesTransportOptions = {
     onFinalAnswerTextDelta?: OpenAICodexFinalAnswerTextSink
 }
 
+const createOpenAICodexHttpError = (status: number): Error => {
+    if (status === 401 || status === 403) {
+        return new Error('OpenAI Codex authentication failed. Run yo login.')
+    }
+
+    if (status === 429) {
+        return new Error('OpenAI Codex usage limit reached. Try again later.')
+    }
+
+    return new Error(`OpenAI Codex request failed with status ${status}.`)
+}
+
 export const createOpenAICodexResponsesTransport = ({
     credentialStore,
     fetch,
@@ -570,7 +586,7 @@ export const createOpenAICodexResponsesTransport = ({
         })
 
         if (!response.ok) {
-            throw new Error(`OpenAI Codex request failed with status ${response.status}.`)
+            throw createOpenAICodexHttpError(response.status)
         }
 
         return parseOpenAICodexResponsesSse(response, onFinalAnswerTextDelta)

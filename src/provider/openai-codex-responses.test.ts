@@ -624,6 +624,60 @@ describe('parseOpenAICodexResponsesSse', () => {
                 }
             )
         })
+
+        await t.test('malformed final-answer delta', async () => {
+            const privatePayload = 'private-delta-payload'
+
+            await assert.rejects(
+                parseOpenAICodexResponsesSse(
+                    createChunkedSseResponse({
+                        payload: serializeSseEvent({
+                            type: 'response.output_text.delta',
+                            delta: { text: privatePayload },
+                        }),
+                        chunkSize: 6,
+                    })
+                ),
+                (error: unknown) => {
+                    assert.equal(
+                        error instanceof Error ? error.message : undefined,
+                        'OpenAI Codex SSE protocol error.'
+                    )
+                    assert.equal(String(error).includes(privatePayload), false)
+                    return true
+                }
+            )
+        })
+    })
+
+    test('sanitizes terminal provider failure events', async (t) => {
+        for (const type of ['error', 'response.failed'] as const) {
+            await t.test(type, async () => {
+                const privatePayload = `private-${type}-payload`
+
+                await assert.rejects(
+                    parseOpenAICodexResponsesSse(
+                        createChunkedSseResponse({
+                            payload: serializeSseEvent({
+                                type,
+                                error: {
+                                    message: privatePayload,
+                                },
+                            }),
+                            chunkSize: 5,
+                        })
+                    ),
+                    (error: unknown) => {
+                        assert.equal(
+                            error instanceof Error ? error.message : undefined,
+                            'OpenAI Codex streaming request failed.'
+                        )
+                        assert.equal(String(error).includes(privatePayload), false)
+                        return true
+                    }
+                )
+            })
+        }
     })
 })
 
@@ -687,6 +741,212 @@ describe('createOpenAICodexResponsesTransport', () => {
         assert.equal(
             JSON.stringify({ response, sentBody }).includes(credential.refreshToken),
             false
+        )
+    })
+
+    test('normalizes single and multiple tool calls in provider order', async (t) => {
+        const credential = {
+            type: 'oauth',
+            accessToken: 'private-access-token',
+            refreshToken: 'private-refresh-token',
+            expiresAt: 1_700_003_600_000,
+            accountId: 'account-id',
+        } as const satisfies Credential
+        const cases = [
+            {
+                name: 'single tool call',
+                output: [
+                    {
+                        type: 'function_call',
+                        call_id: 'call-list',
+                        name: 'list_files',
+                        arguments: '{"path":"src"}',
+                    },
+                ],
+                expectedToolCalls: [
+                    {
+                        id: 'call-list',
+                        name: 'list_files',
+                        arguments: { path: 'src' },
+                    },
+                ],
+            },
+            {
+                name: 'multiple tool calls',
+                output: [
+                    {
+                        type: 'function_call',
+                        call_id: 'call-search',
+                        name: 'search_code',
+                        arguments: '{"query":"transport","path":"src"}',
+                    },
+                    {
+                        type: 'function_call',
+                        call_id: 'call-read',
+                        name: 'read_file',
+                        arguments: '{"path":"src/provider/openai-codex-responses.ts"}',
+                    },
+                ],
+                expectedToolCalls: [
+                    {
+                        id: 'call-search',
+                        name: 'search_code',
+                        arguments: { query: 'transport', path: 'src' },
+                    },
+                    {
+                        id: 'call-read',
+                        name: 'read_file',
+                        arguments: {
+                            path: 'src/provider/openai-codex-responses.ts',
+                        },
+                    },
+                ],
+            },
+        ] as const
+
+        for (const testCase of cases) {
+            await t.test(testCase.name, async () => {
+                const transport = createOpenAICodexResponsesTransport({
+                    credentialStore: unusedCredentialStore,
+                    resolveCredential: async () => credential,
+                    fetch: async () =>
+                        createChunkedSseResponse({
+                            payload: serializeSseEvent({
+                                type: 'response.completed',
+                                response: {
+                                    model: 'test-model',
+                                    output: testCase.output,
+                                },
+                            }),
+                            chunkSize: 4,
+                        }),
+                })
+
+                const response = await transport({
+                    model: 'test-model',
+                    messages: [{ role: 'user', content: 'Inspect the workspace.' }],
+                    visibleTools: ['list_files', 'search_code', 'read_file'],
+                })
+
+                assert.deepEqual(response, {
+                    type: 'tool_calls',
+                    model: 'test-model',
+                    toolCalls: testCase.expectedToolCalls,
+                })
+                assert.equal(JSON.stringify(response).includes(credential.accessToken), false)
+                assert.equal(JSON.stringify(response).includes(credential.refreshToken), false)
+            })
+        }
+    })
+
+    test('classifies authentication, usage-limit, and generic HTTP failures', async (t) => {
+        const credential = {
+            type: 'oauth',
+            accessToken: 'private-access-token',
+            refreshToken: 'private-refresh-token',
+            expiresAt: 1_700_003_600_000,
+            accountId: 'account-id',
+        } as const satisfies Credential
+        const cases = [
+            {
+                name: 'unauthorized',
+                status: 401,
+                expectedMessage: 'OpenAI Codex authentication failed. Run yo login.',
+            },
+            {
+                name: 'forbidden',
+                status: 403,
+                expectedMessage: 'OpenAI Codex authentication failed. Run yo login.',
+            },
+            {
+                name: 'usage limit',
+                status: 429,
+                expectedMessage: 'OpenAI Codex usage limit reached. Try again later.',
+            },
+            {
+                name: 'provider failure',
+                status: 500,
+                expectedMessage: 'OpenAI Codex request failed with status 500.',
+            },
+        ] as const
+
+        for (const testCase of cases) {
+            await t.test(testCase.name, async () => {
+                const privatePayload = `private-${testCase.name}-provider-payload`
+                const providerResponse = new Response(
+                    JSON.stringify({
+                        error: {
+                            message: privatePayload,
+                        },
+                    }),
+                    { status: testCase.status }
+                )
+                const transport = createOpenAICodexResponsesTransport({
+                    credentialStore: unusedCredentialStore,
+                    resolveCredential: async () => credential,
+                    fetch: async () => providerResponse,
+                })
+
+                await assert.rejects(
+                    transport({
+                        model: null,
+                        messages: [{ role: 'user', content: 'Inspect the workspace.' }],
+                        visibleTools: ['read_file'],
+                    }),
+                    (error: unknown) => {
+                        assert.equal(
+                            error instanceof Error ? error.message : undefined,
+                            testCase.expectedMessage
+                        )
+                        const visibleError = String(error)
+
+                        assert.equal(visibleError.includes(privatePayload), false)
+                        assert.equal(visibleError.includes(credential.accessToken), false)
+                        assert.equal(visibleError.includes(credential.refreshToken), false)
+                        return true
+                    }
+                )
+
+                assert.equal(providerResponse.bodyUsed, false)
+            })
+        }
+    })
+
+    test('sanitizes rejected network requests', async () => {
+        const credential = {
+            type: 'oauth',
+            accessToken: 'private-access-token',
+            refreshToken: 'private-refresh-token',
+            expiresAt: 1_700_003_600_000,
+            accountId: 'account-id',
+        } as const satisfies Credential
+        const privateFailure = 'private-network-failure'
+        const transport = createOpenAICodexResponsesTransport({
+            credentialStore: unusedCredentialStore,
+            resolveCredential: async () => credential,
+            fetch: async () => {
+                throw new Error(privateFailure)
+            },
+        })
+
+        await assert.rejects(
+            transport({
+                model: null,
+                messages: [{ role: 'user', content: 'Inspect the workspace.' }],
+                visibleTools: ['read_file'],
+            }),
+            (error: unknown) => {
+                assert.equal(
+                    error instanceof Error ? error.message : undefined,
+                    'OpenAI Codex network request failed.'
+                )
+                const visibleError = String(error)
+
+                assert.equal(visibleError.includes(privateFailure), false)
+                assert.equal(visibleError.includes(credential.accessToken), false)
+                assert.equal(visibleError.includes(credential.refreshToken), false)
+                return true
+            }
         )
     })
 })

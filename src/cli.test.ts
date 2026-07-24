@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
-import { readFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { promisify } from 'node:util'
 import { test } from 'node:test'
 
@@ -18,15 +19,22 @@ test('exposes the bundled entrypoint as the yo executable', async () => {
     assert.ok(source.startsWith('#!/usr/bin/env node\n'))
 })
 
-test('production entrypoint validates arguments before reporting the missing transport', async () => {
+test('production entrypoint reaches the Codex transport without a real credential or request', async (t) => {
+    const temporaryHome = await mkdtemp(`${tmpdir()}/yo-cli-home-`)
+
+    t.after(() => rm(temporaryHome, { recursive: true, force: true }))
+
     await assert.rejects(
-        execFileAsync(process.execPath, [
-            'src/cli.ts',
-            'ask',
-            'Inspect the workspace.',
-            '--cwd',
-            '.',
-        ]),
+        execFileAsync(
+            process.execPath,
+            ['src/cli.ts', 'ask', 'Inspect the workspace.', '--cwd', '.'],
+            {
+                env: {
+                    ...process.env,
+                    HOME: temporaryHome,
+                },
+            }
+        ),
         (error: unknown) => {
             assert.ok(error instanceof Error)
             const processError = error as Error & {
@@ -36,11 +44,20 @@ test('production entrypoint validates arguments before reporting the missing tra
             }
 
             assert.equal(processError.code, 1)
-            assert.equal(processError.stdout, '')
             assert.equal(
-                processError.stderr,
-                'OpenAI transport is not available yet; complete milestone 6 first.\n'
+                processError.stdout,
+                [
+                    'No final answer.',
+                    '',
+                    'Evidence:',
+                    'Stop reason: transport_error',
+                    'Tools: (none)',
+                    'Files:',
+                    '- (none)',
+                    '',
+                ].join('\n')
             )
+            assert.equal(processError.stderr, '')
 
             return true
         }
