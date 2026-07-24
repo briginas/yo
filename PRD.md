@@ -4,9 +4,9 @@
 
 Build a small TypeScript command-line coding agent for learning how an agent harness works. Given a task and an approved workspace, the agent may inspect repository files and return an evidence-backed answer or plan.
 
-The project takes architectural inspiration from [`pi`](../pi): a model invokes typed tools through a controlled loop, and the harness validates, executes, records, and returns observations. This milestone deliberately implements only the smallest safe slice of that design.
+The project takes architectural inspiration from [`pi`](../pi): a model invokes typed tools through a controlled loop, and the harness validates, executes, records, and returns observations. Milestone 1 deliberately implements only the smallest safe slice of that design.
 
-## 2. Users and success criteria
+## 2. User and Milestone 1 success definition
 
 The primary user is a developer learning agent-harness design.
 
@@ -17,7 +17,7 @@ The milestone succeeds when a user can run one command against a small fixture r
 - records which tools ran and why the run stopped;
 - never writes files or executes shell commands.
 
-## 3. Scope
+## 3. Milestone 1 scope
 
 ### In scope
 
@@ -121,7 +121,7 @@ Use injected HTTP and temporary credential stores to test OAuth and the Codex ad
 - A user with ChatGPT Plus can run `yo login` and complete one real read-only task without configuring an OpenAI API key.
 - The final output gives enough evidence for a human to check the answer.
 
-## 8. Next milestone boundary
+## 8. Milestone 2 requirements
 
 Milestone 2 adds an in-memory multi-turn CLI command:
 
@@ -137,10 +137,12 @@ The terminal provides live, event-backed feedback during each turn:
 - show that the harness is waiting while a model request is in flight;
 - show each tool request and its lifecycle outcome: running, completed, denied, timed out, or failed;
 - include only a safe summary of tool arguments, truncation, and completion status rather than dumping unrestricted tool results;
-- stream final-answer text and clearly mark the end and stop reason of each turn;
+- stream provider-labeled final-answer text as it arrives and clearly mark the end and stop reason of each turn;
 - use stable line-oriented output without terminal control sequences when output is not an interactive TTY.
 
-Interactive status output is derived from harness lifecycle events and must not expose hidden reasoning, OAuth credentials, authorization headers, raw provider payloads, or unsanitized errors. Terminal rendering remains outside the provider adapter and read-only tool dispatcher.
+Interactive status output is derived from harness lifecycle events and must not expose hidden reasoning, OAuth credentials, authorization headers, raw provider payloads, unsanitized errors, assistant commentary, or text that the provider has not identified as a final answer. A transport that cannot safely identify final-answer deltas before completion returns the complete answer without live text streaming. Terminal rendering remains outside the provider adapter and read-only tool dispatcher.
+
+Whitespace-only input is a local no-op: it is not sent to the model or appended to the transcript, and the CLI prompts again. A transport failure or step-budget exhaustion ends only the current turn; after reporting its sanitized status and evidence, the chat prompts for another turn. Workspace setup failure, input failure, EOF, and the exact `/exit` command end the chat process.
 
 Milestone 2 does not add persistent sessions, JSONL history, compaction, branching, a TUI, model-visible write or process tools, patch application, validation commands, skills, extensions, MCP, subagents, API-key fallback, or provider portability. Exiting the process discards the chat transcript and must not write inside the approved workspace.
 
@@ -151,9 +153,10 @@ Milestone 2 does not add persistent sessions, JSONL history, compaction, branchi
 - Each user turn has a fresh bounded step count and tool timeout, plus its own ordered events, final status, stop reason, and evidence.
 - While a turn is active, the terminal clearly shows when the harness is waiting for the model and when each tool is running, completed, denied, timed out, or failed.
 - Tool status displays contain only bounded, safe summaries of known arguments, result status, and truncation; they never dump unrestricted tool results or unknown argument objects.
-- Final-answer text streams when the transport supports it and appears exactly once; transports without text deltas still produce the complete final answer.
+- Provider-labeled final-answer text streams as it arrives and appears exactly once; commentary and unlabeled text never enter the answer stream, while transports without safe text deltas still produce the complete final answer.
 - Interactive TTY progress is cleaned up on every completion and failure path, while non-TTY output remains deterministic and contains no terminal control sequences.
 - EOF and the exact `/exit` command end the chat cleanly; `/exit` is not sent to the model or appended to the conversation transcript.
+- Whitespace-only input is ignored locally, and transport failure or step-budget exhaustion reports the turn outcome before returning to the prompt.
 - Exiting the process discards all chat state, leaves the approved workspace unchanged, and creates no persistent transcript or chat-state file.
 - Live output and retained context never expose hidden reasoning, OAuth credentials, authorization headers, raw provider payloads, or unsanitized errors.
 - The model-visible registry remains limited to `list_files`, `search_code`, and `read_file`, with the existing schema validation, permission checks, output bounds, and one-`ToolResult`-per-call invariant.
