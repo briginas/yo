@@ -72,7 +72,7 @@ Run and review the checks for each step before moving to the next one.
         - [x] Verify the complete login flow with injected HTTP and a temporary credential store; do not add device-code login.
     - [ ] **6.3 Implement the credential lifecycle**
         - [x] Add `yo auth status` with non-secret account and expiry information and `yo logout` that removes the stored credential.
-        - [ ] Refresh an expiring access token under the credential-store lock and persist a rotated refresh token before a model request.
+        - [x] Refresh an expiring access token under the credential-store lock and persist a rotated refresh token before a model request.
         - [ ] Preserve the last stored credential on refresh failure, require a new `yo login`, and never fall back to an API key.
         - [ ] Verify status, logout, refresh success and failure, rotation, missing credentials, and secret redaction.
     - [ ] **6.4 Connect the OpenAI Codex Responses transport**

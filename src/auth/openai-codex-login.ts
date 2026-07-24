@@ -3,7 +3,7 @@ import { createServer } from 'node:http'
 
 import { z } from 'zod'
 
-import { credentialSchema, type Credential } from './credential.ts'
+import { credentialSchema, type Credential, type CredentialStore } from './credential.ts'
 
 const AUTHORIZE_URL = 'https://auth.openai.com/oauth/authorize'
 const TOKEN_URL = 'https://auth.openai.com/oauth/token'
@@ -40,6 +40,22 @@ export type OpenAICodexCredentialExchangeOptions = {
     code: string
     codeVerifier: string
     fetch?: typeof globalThis.fetch
+    now?: () => number
+}
+
+export type OpenAICodexCredentialRefresh = (options: {
+    refreshToken: string
+}) => Promise<Credential>
+
+export type OpenAICodexCredentialRefreshOptions = {
+    refreshToken: string
+    fetch?: typeof globalThis.fetch
+    now?: () => number
+}
+
+export type OpenAICodexCredentialResolverOptions = {
+    credentialStore: CredentialStore
+    refreshCredential?: OpenAICodexCredentialRefresh
     now?: () => number
 }
 
@@ -118,6 +134,7 @@ export const createOpenAICodexAuthorization = (): OpenAICodexAuthorization => {
 }
 
 const credentialExchangeError = (): Error => new Error('OAuth credential exchange failed')
+const credentialRefreshError = (): Error => new Error('OAuth credential refresh failed')
 
 const extractAccountId = (accessToken: string): string | undefined => {
     const parts = accessToken.split('.')
@@ -189,6 +206,75 @@ export const exchangeOpenAICodexAuthorizationCode = async ({
         refreshToken: tokenResponse.refresh_token,
         expiresAt: now() + tokenResponse.expires_in * 1_000,
         accountId,
+    })
+}
+
+export const refreshOpenAICodexCredential = async ({
+    refreshToken,
+    fetch: sendRequest = globalThis.fetch,
+    now = Date.now,
+}: OpenAICodexCredentialRefreshOptions): Promise<Credential> => {
+    let response: Response
+
+    try {
+        response = await sendRequest(TOKEN_URL, {
+            method: 'POST',
+            headers: { 'content-type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                grant_type: 'refresh_token',
+                refresh_token: refreshToken,
+                client_id: CLIENT_ID,
+            }),
+        })
+    } catch {
+        throw credentialRefreshError()
+    }
+
+    if (!response.ok) {
+        throw credentialRefreshError()
+    }
+
+    let tokenResponse: z.infer<typeof tokenResponseSchema>
+
+    try {
+        tokenResponse = tokenResponseSchema.parse(await response.json())
+    } catch {
+        throw credentialRefreshError()
+    }
+
+    const accountId = extractAccountId(tokenResponse.access_token)
+
+    if (accountId === undefined) {
+        throw credentialRefreshError()
+    }
+
+    return credentialSchema.parse({
+        type: 'oauth',
+        accessToken: tokenResponse.access_token,
+        refreshToken: tokenResponse.refresh_token,
+        expiresAt: now() + tokenResponse.expires_in * 1_000,
+        accountId,
+    })
+}
+
+export const resolveOpenAICodexCredential = async ({
+    credentialStore,
+    refreshCredential = refreshOpenAICodexCredential,
+    now = Date.now,
+}: OpenAICodexCredentialResolverOptions): Promise<Credential | undefined> => {
+    const stored = await credentialStore.read('openai-codex')
+
+    if (stored === undefined || now() < stored.expiresAt) {
+        return stored
+    }
+
+    return credentialStore.modify('openai-codex', async (current) => {
+        // Another process may have refreshed or removed the credential before this lock was acquired.
+        if (current === undefined || now() < current.expiresAt) {
+            return
+        }
+
+        return refreshCredential({ refreshToken: current.refreshToken })
     })
 }
 

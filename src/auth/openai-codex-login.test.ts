@@ -1,11 +1,18 @@
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, test } from 'node:test'
 
+import type { Credential, CredentialStore } from './credential.ts'
+import { createFileCredentialStore } from './file-credential-store.ts'
 import {
     createOpenAICodexAuthorization,
     exchangeOpenAICodexAuthorizationCode,
     OPENAI_CODEX_AUTH_CLAIM,
+    refreshOpenAICodexCredential,
+    resolveOpenAICodexCredential,
     startOpenAICodexCallbackListener,
     type CallbackServerListenOptions,
 } from './openai-codex-login.ts'
@@ -261,6 +268,175 @@ describe('exchangeOpenAICodexAuthorizationCode', () => {
                     new Error('OAuth credential exchange failed')
                 )
             })
+        }
+    })
+})
+
+describe('refreshOpenAICodexCredential', () => {
+    test('posts the refresh-token grant and returns the rotated credential', async () => {
+        let request: { input: string; init: RequestInit | undefined } | undefined
+
+        const credential = await refreshOpenAICodexCredential({
+            refreshToken: 'private-current-refresh-token',
+            now: () => 1_700_000_000_000,
+            fetch: async (input, init) => {
+                request = { input: input.toString(), init }
+                return new Response(
+                    JSON.stringify({
+                        access_token: createAccessToken('refreshed-account-id'),
+                        refresh_token: 'private-rotated-refresh-token',
+                        expires_in: 3_600,
+                    }),
+                    { status: 200 }
+                )
+            },
+        })
+
+        assert.equal(request?.input, 'https://auth.openai.com/oauth/token')
+        assert.equal(request?.init?.method, 'POST')
+        assert.deepEqual(request?.init?.headers, {
+            'content-type': 'application/x-www-form-urlencoded',
+        })
+        assert.deepEqual(Object.fromEntries(new URLSearchParams(request?.init?.body?.toString())), {
+            grant_type: 'refresh_token',
+            refresh_token: 'private-current-refresh-token',
+            client_id: 'app_EMoamEEZ73f0CkXaXp7hrann',
+        })
+        assert.deepEqual(credential, {
+            type: 'oauth',
+            accessToken: createAccessToken('refreshed-account-id'),
+            refreshToken: 'private-rotated-refresh-token',
+            expiresAt: 1_700_003_600_000,
+            accountId: 'refreshed-account-id',
+        })
+    })
+})
+
+describe('resolveOpenAICodexCredential', () => {
+    test('returns a valid credential without locking or refreshing', async () => {
+        const credential = {
+            type: 'oauth',
+            accessToken: 'private-access-token',
+            refreshToken: 'private-refresh-token',
+            expiresAt: 1_001,
+            accountId: 'account-id',
+        } as const satisfies Credential
+        const credentialStore: CredentialStore = {
+            read: async () => credential,
+            modify: async () => {
+                throw new Error('modify must not run')
+            },
+            delete: async () => {},
+        }
+
+        const resolved = await resolveOpenAICodexCredential({
+            credentialStore,
+            refreshCredential: async () => {
+                throw new Error('refresh must not run')
+            },
+            now: () => 1_000,
+        })
+
+        assert.equal(resolved, credential)
+    })
+
+    test('refreshes at expiry and persists the rotated credential before returning', async () => {
+        const fixtureRoot = await mkdtemp(join(tmpdir(), 'yo-refresh-'))
+        const authPath = join(fixtureRoot, '.yo', 'auth.json')
+        const credentialStore = createFileCredentialStore({ authPath })
+        const expiredCredential = {
+            type: 'oauth',
+            accessToken: 'private-expired-access-token',
+            refreshToken: 'private-current-refresh-token',
+            expiresAt: 1_000,
+            accountId: 'old-account-id',
+        } as const satisfies Credential
+        const refreshedCredential = {
+            type: 'oauth',
+            accessToken: createAccessToken('refreshed-account-id'),
+            refreshToken: 'private-rotated-refresh-token',
+            expiresAt: 3_601_000,
+            accountId: 'refreshed-account-id',
+        } as const satisfies Credential
+
+        try {
+            await credentialStore.modify('openai-codex', async () => expiredCredential)
+
+            const resolved = await resolveOpenAICodexCredential({
+                credentialStore,
+                now: () => 1_000,
+                refreshCredential: async ({ refreshToken }) => {
+                    assert.equal(refreshToken, expiredCredential.refreshToken)
+                    return refreshedCredential
+                },
+            })
+
+            assert.deepEqual(resolved, refreshedCredential)
+            assert.deepEqual(await credentialStore.read('openai-codex'), refreshedCredential)
+        } finally {
+            await rm(fixtureRoot, { recursive: true, force: true })
+        }
+    })
+
+    test('serializes concurrent refreshes and reuses the credential persisted by the winner', async () => {
+        const fixtureRoot = await mkdtemp(join(tmpdir(), 'yo-concurrent-refresh-'))
+        const authPath = join(fixtureRoot, '.yo', 'auth.json')
+        const fileCredentialStore = createFileCredentialStore({ authPath })
+        const expiredCredential = {
+            type: 'oauth',
+            accessToken: 'private-expired-access-token',
+            refreshToken: 'private-current-refresh-token',
+            expiresAt: 1_000,
+            accountId: 'account-id',
+        } as const satisfies Credential
+        const refreshedCredential = {
+            type: 'oauth',
+            accessToken: 'private-refreshed-access-token',
+            refreshToken: 'private-rotated-refresh-token',
+            expiresAt: 3_601_000,
+            accountId: 'account-id',
+        } as const satisfies Credential
+        let initialReadCount = 0
+        let releaseInitialReads: (() => void) | undefined
+        const initialReadsComplete = new Promise<void>((resolve) => {
+            releaseInitialReads = resolve
+        })
+        const credentialStore: CredentialStore = {
+            read: async (providerId) => {
+                const credential = await fileCredentialStore.read(providerId)
+
+                initialReadCount += 1
+                if (initialReadCount === 2) {
+                    releaseInitialReads?.()
+                }
+                await initialReadsComplete
+
+                return credential
+            },
+            modify: fileCredentialStore.modify,
+            delete: fileCredentialStore.delete,
+        }
+        let refreshCount = 0
+
+        try {
+            await fileCredentialStore.modify('openai-codex', async () => expiredCredential)
+
+            const resolveCredential = () =>
+                resolveOpenAICodexCredential({
+                    credentialStore,
+                    now: () => 1_000,
+                    refreshCredential: async () => {
+                        refreshCount += 1
+                        return refreshedCredential
+                    },
+                })
+            const resolved = await Promise.all([resolveCredential(), resolveCredential()])
+
+            assert.deepEqual(resolved, [refreshedCredential, refreshedCredential])
+            assert.equal(refreshCount, 1)
+            assert.deepEqual(await fileCredentialStore.read('openai-codex'), refreshedCredential)
+        } finally {
+            await rm(fixtureRoot, { recursive: true, force: true })
         }
     })
 })
