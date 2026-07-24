@@ -13,14 +13,23 @@
 
 ## Resuming work
 
-- Before proposing or making changes, read `PRD.md` and `IMPLEMENTATION_PLAN.md`.
+- Before proposing or making changes, read `PRD.md` and
+  `IMPLEMENTATION_PLAN.md`. Treat them as maps to the detailed source-of-truth
+  documents, not as complete specifications.
+- For work on the active milestone, follow the links in those maps and read its
+  requirements and active implementation plan before proposing or making
+  changes.
+- Read completed milestone documents only when the task concerns historical
+  behavior, regression, or compatibility with that milestone.
 - Inspect `git status --short` and recent commits to confirm the current repository state.
-- Treat the first incomplete leaf item in `IMPLEMENTATION_PLAN.md` as the next candidate milestone.
+- Treat the first incomplete leaf item in the linked active implementation plan
+  as the next candidate milestone.
 - Confirm the bounded milestone with the user before implementation.
 - Mark a plan item complete only after its scoped checks pass and the result is reviewed.
 
 ## Scope Discipline
 
 - Do not add code, dependencies, API keys, runtime configuration, or broader capabilities unless the current milestone explicitly requires them.
-- Prefer the smallest safe implementation that satisfies the current PRD acceptance criteria.
+- Prefer the smallest safe implementation that satisfies the acceptance
+  criteria in the linked active milestone requirements.
 - Treat all filesystem, process, network, credential, and external-service actions as permissioned capabilities of the harness, not as implicit model privileges.

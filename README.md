@@ -73,8 +73,10 @@ The model cannot invoke writes, patches, shell commands, processes, arbitrary ne
 ## Documentation map
 
 - [`AGENTS.md`](AGENTS.md) — collaboration rules and the required workflow for changing the repository.
-- [`PRD.md`](PRD.md) — product requirements, safety boundaries, and acceptance criteria.
-- [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) — completed baseline, active milestone, implementation leaves, and verification state.
+- [`PRD.md`](PRD.md) — stable product boundaries and links to milestone-specific requirements.
+- [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) — current milestone state, permanent constraints, and links to detailed plans.
+- [`docs/requirements/`](docs/requirements/) — milestone-specific scope and acceptance criteria, read when that milestone is relevant.
+- [`docs/plans/`](docs/plans/) — active implementation details and completed milestone summaries.
 
 These files have separate roles. Requirements and milestone state should not be copied into this README beyond a short orientation because duplicated details become stale.
 
