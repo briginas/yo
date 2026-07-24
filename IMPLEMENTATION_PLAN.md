@@ -77,7 +77,7 @@ Run and review the checks for each step before moving to the next one.
         - [x] Verify status, logout, refresh success and failure, rotation, missing credentials, and secret redaction.
     - [ ] **6.4 Connect the OpenAI Codex Responses transport**
         - [x] Send authenticated requests to the ChatGPT Codex Responses endpoint using the stored access token and account ID.
-        - [ ] Convert provider-neutral messages, visible tool definitions, assistant tool calls, and tool results to and from the Codex Responses wire format.
+        - [x] Convert provider-neutral messages, visible tool definitions, assistant tool calls, and tool results to and from the Codex Responses wire format.
         - [ ] Default to `gpt-5.6-terra` with `reasoning.effort: medium`; allow `--model` to override it.
         - [ ] Parse SSE deterministically, stream final answer text only, and exclude credentials and hidden reasoning from logs and run events.
         - [ ] Verify final answers, single and multiple tool calls, malformed events, authentication failures, usage limits, and transport failures without real network requests.
