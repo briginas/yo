@@ -378,6 +378,37 @@ describe('resolveOpenAICodexCredential', () => {
         }
     })
 
+    test('preserves the stored credential and requires login when refresh fails', async () => {
+        const fixtureRoot = await mkdtemp(join(tmpdir(), 'yo-refresh-failure-'))
+        const authPath = join(fixtureRoot, '.yo', 'auth.json')
+        const credentialStore = createFileCredentialStore({ authPath })
+        const expiredCredential = {
+            type: 'oauth',
+            accessToken: 'private-expired-access-token',
+            refreshToken: 'private-current-refresh-token',
+            expiresAt: 1_000,
+            accountId: 'account-id',
+        } as const satisfies Credential
+
+        try {
+            await credentialStore.modify('openai-codex', async () => expiredCredential)
+
+            await assert.rejects(
+                resolveOpenAICodexCredential({
+                    credentialStore,
+                    now: () => 1_000,
+                    refreshCredential: async () => {
+                        throw new Error('invalid_grant with private-current-refresh-token')
+                    },
+                }),
+                new Error('OAuth credential refresh failed. Run yo login again.')
+            )
+            assert.deepEqual(await credentialStore.read('openai-codex'), expiredCredential)
+        } finally {
+            await rm(fixtureRoot, { recursive: true, force: true })
+        }
+    })
+
     test('serializes concurrent refreshes and reuses the credential persisted by the winner', async () => {
         const fixtureRoot = await mkdtemp(join(tmpdir(), 'yo-concurrent-refresh-'))
         const authPath = join(fixtureRoot, '.yo', 'auth.json')

@@ -134,7 +134,8 @@ export const createOpenAICodexAuthorization = (): OpenAICodexAuthorization => {
 }
 
 const credentialExchangeError = (): Error => new Error('OAuth credential exchange failed')
-const credentialRefreshError = (): Error => new Error('OAuth credential refresh failed')
+const credentialRefreshError = (): Error =>
+    new Error('OAuth credential refresh failed. Run yo login again.')
 
 const extractAccountId = (accessToken: string): string | undefined => {
     const parts = accessToken.split('.')
@@ -274,7 +275,11 @@ export const resolveOpenAICodexCredential = async ({
             return
         }
 
-        return refreshCredential({ refreshToken: current.refreshToken })
+        try {
+            return await refreshCredential({ refreshToken: current.refreshToken })
+        } catch {
+            throw credentialRefreshError()
+        }
     })
 }
 
