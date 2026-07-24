@@ -1,14 +1,22 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { relative } from 'node:path'
+import { join, relative } from 'node:path'
 import { test } from 'node:test'
 
 import { runCli } from './cli-app.ts'
+import { createFileCredentialStore } from './auth/file-credential-store.ts'
 import type {
+    CallbackServerListenOptions,
     OpenAICodexAuthorization,
     OpenAICodexCallbackListener,
     OpenAICodexCallbackListenerOptions,
+} from './auth/openai-codex-login.ts'
+import {
+    exchangeOpenAICodexAuthorizationCode,
+    OPENAI_CODEX_AUTH_CLAIM,
+    startOpenAICodexCallbackListener,
 } from './auth/openai-codex-login.ts'
 import type { Credential, CredentialStore } from './auth/credential.ts'
 import type { ModelRequest, ModelTransport } from './runtime/run.ts'
@@ -253,6 +261,118 @@ test('prints an authorization URL only after the callback listener is ready', as
         /private-verifier|authorization-code|private-access-token|private-refresh-token/
     )
     assert.deepEqual(storedCredential, credential)
+})
+
+test('completes browser login through injected HTTP and a temporary credential store', async () => {
+    const fixtureRoot = await mkdtemp(join(tmpdir(), 'yo-login-flow-'))
+    const authPath = join(fixtureRoot, '.yo', 'auth.json')
+    const credentialStore = createFileCredentialStore({ authPath })
+    const authorizationCode = 'private-authorization-code'
+    const accessToken = [
+        Buffer.from(JSON.stringify({ alg: 'none' })).toString('base64url'),
+        Buffer.from(
+            JSON.stringify({
+                [OPENAI_CODEX_AUTH_CLAIM]: {
+                    chatgpt_account_id: 'account-id',
+                },
+            })
+        ).toString('base64url'),
+        'signature',
+    ].join('.')
+    const refreshToken = 'private-refresh-token'
+    const now = 1_700_000_000_000
+    const outputs: string[] = []
+    const errors: string[] = []
+    let listenOptions: CallbackServerListenOptions | undefined
+    let callbackStatusCode: number | undefined
+    let closeCount = 0
+    let tokenRequest: { input: string; init: RequestInit | undefined } | undefined
+
+    try {
+        const result = await runCli(['login'], {
+            transport: null,
+            startCallbackListener: (options) =>
+                startOpenAICodexCallbackListener({
+                    ...options,
+                    listen: async (options) => {
+                        listenOptions = options
+                        return {
+                            close: async () => {
+                                closeCount += 1
+                            },
+                        }
+                    },
+                }),
+            exchangeCredential: ({ code, codeVerifier }) =>
+                exchangeOpenAICodexAuthorizationCode({
+                    code,
+                    codeVerifier,
+                    now: () => now,
+                    fetch: async (input, init) => {
+                        tokenRequest = { input: input.toString(), init }
+                        return new Response(
+                            JSON.stringify({
+                                access_token: accessToken,
+                                refresh_token: refreshToken,
+                                expires_in: 3_600,
+                            }),
+                            { status: 200 }
+                        )
+                    },
+                }),
+            credentialStore,
+            writeOutput: (message) => {
+                outputs.push(message)
+
+                if (message.startsWith('Open this URL in your browser:\n')) {
+                    const authorizationUrl = new URL(message.split('\n')[1]!)
+                    callbackStatusCode = listenOptions?.onRequest({
+                        requestUrl: `/auth/callback?code=${authorizationCode}&state=${authorizationUrl.searchParams.get('state')}`,
+                    }).statusCode
+                }
+            },
+            writeError: (message) => errors.push(message),
+        })
+        const authorizationUrl = new URL(outputs[0]!.split('\n')[1]!)
+        const requestBody = new URLSearchParams(tokenRequest?.init?.body?.toString())
+        const codeVerifier = requestBody.get('code_verifier')
+        const expectedCredential = {
+            type: 'oauth',
+            accessToken,
+            refreshToken,
+            expiresAt: now + 3_600_000,
+            accountId: 'account-id',
+        } as const satisfies Credential
+
+        assert.deepEqual(result, { exitCode: 0, session: null })
+        assert.deepEqual(errors, [])
+        assert.deepEqual(outputs, [
+            `Open this URL in your browser:\n${authorizationUrl.toString()}`,
+            'Signed in successfully.',
+        ])
+        assert.equal(callbackStatusCode, 204)
+        assert.equal(closeCount, 1)
+        assert.equal(tokenRequest?.input, 'https://auth.openai.com/oauth/token')
+        assert.equal(tokenRequest?.init?.method, 'POST')
+        assert.equal(requestBody.get('code'), authorizationCode)
+        assert.notEqual(codeVerifier, null)
+        assert.equal(
+            createHash('sha256').update(codeVerifier!, 'utf8').digest('base64url'),
+            authorizationUrl.searchParams.get('code_challenge')
+        )
+        assert.deepEqual(await credentialStore.read('openai-codex'), expectedCredential)
+        assert.deepEqual(JSON.parse(await readFile(authPath, 'utf8')), {
+            'openai-codex': expectedCredential,
+        })
+
+        const cliMessages = `${outputs.join('\n')}\n${errors.join('\n')}`
+
+        for (const secret of [authorizationCode, codeVerifier!, accessToken, refreshToken]) {
+            assert.equal(cliMessages.includes(secret), false)
+        }
+    } finally {
+        await rm(fixtureRoot, { recursive: true, force: true })
+    }
 })
 
 test('does not persist a credential when its exchange fails', async () => {
