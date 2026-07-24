@@ -81,9 +81,9 @@ Run and review the checks for each step before moving to the next one.
         - [x] Default to `gpt-5.6-terra` with `reasoning.effort: medium`; allow `--model` to override it.
         - [x] Parse SSE deterministically, stream final answer text only, and exclude credentials and hidden reasoning from logs and run events.
         - [x] Verify final answers, single and multiple tool calls, malformed events, authentication failures, usage limits, and transport failures without real network requests.
-    - [ ] **6.5 Verify one real read-only ChatGPT Plus run**
-        - [ ] Run `yo login`, confirm `yo auth status`, and complete one `yo ask` task without `OPENAI_API_KEY`.
-        - [ ] Confirm that logout removes the credential and that the approved workspace remains unchanged.
+    - [x] **6.5 Verify one real read-only ChatGPT Plus run**
+        - [x] Run `yo login`, confirm `yo auth status`, and complete one `yo ask` task without `OPENAI_API_KEY`.
+        - [x] Confirm that logout removes the credential and that the approved workspace remains unchanged.
 
 - [ ] **7. Milestone 1 verification**
     - [ ] Run the full build and test suite.
