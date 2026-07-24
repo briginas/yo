@@ -53,7 +53,6 @@ export type OpenAICodexFunctionTool = {
     name: ToolName
     description: string
     parameters: Readonly<Record<string, unknown>>
-    strict: null
 }
 
 export type OpenAICodexRequestConversion = {
@@ -68,6 +67,7 @@ export type OpenAICodexResponsesRequestBody = OpenAICodexRequestConversion & {
         effort: 'medium'
     }
     stream: true
+    store: false
 }
 
 export type OpenAICodexResponseOutputItem =
@@ -143,6 +143,12 @@ const openAICodexOutputTextDeltaEventSchema = z.object({
     delta: z.string(),
 })
 
+const openAICodexOutputItemDoneEventSchema = z.object({
+    type: z.literal('response.output_item.done'),
+    output_index: z.number().int().nonnegative(),
+    item: openAICodexResponseOutputItemSchema,
+})
+
 type ModelToolDefinition = {
     description: string
     schema: ZodType
@@ -184,7 +190,6 @@ const convertVisibleTools = (
             name,
             description: definition.description,
             parameters: convertToolParameters(definition.schema),
-            strict: null,
         }
     })
 
@@ -265,6 +270,7 @@ export const buildOpenAICodexResponsesRequestBody = (
         effort: 'medium',
     },
     stream: true,
+    store: false,
     ...convertModelRequestToOpenAICodex(request),
 })
 
@@ -421,6 +427,7 @@ const findSseRecordBoundary = (
 const processOpenAICodexSseEvent = (
     event: unknown,
     bufferedTextDeltas: string[],
+    bufferedOutputItems: Map<number, OpenAICodexResponseOutputItem>,
     onFinalAnswerTextDelta: OpenAICodexFinalAnswerTextSink | undefined
 ): ModelResponse | null => {
     const envelope = openAICodexSseEventEnvelopeSchema.safeParse(event)
@@ -444,6 +451,17 @@ const processOpenAICodexSseEvent = (
         return null
     }
 
+    if (envelope.data.type === 'response.output_item.done') {
+        const parsed = openAICodexOutputItemDoneEventSchema.safeParse(event)
+
+        if (!parsed.success) {
+            throw new Error('OpenAI Codex SSE protocol error.')
+        }
+
+        bufferedOutputItems.set(parsed.data.output_index, parsed.data.item)
+        return null
+    }
+
     if (envelope.data.type !== 'response.completed') {
         return null
     }
@@ -454,10 +472,14 @@ const processOpenAICodexSseEvent = (
         throw new Error('OpenAI Codex SSE protocol error.')
     }
 
-    const response = convertOpenAICodexOutputToModelResponse(
-        parsed.data.response.output,
-        parsed.data.response.model
-    )
+    const completedOutput = parsed.data.response.output
+    const output =
+        completedOutput.length > 0
+            ? completedOutput
+            : [...bufferedOutputItems.entries()]
+                  .sort(([leftIndex], [rightIndex]) => leftIndex - rightIndex)
+                  .map(([, item]) => item)
+    const response = convertOpenAICodexOutputToModelResponse(output, parsed.data.response.model)
 
     if (response.type === 'final_answer') {
         const streamedText = bufferedTextDeltas.join('')
@@ -483,6 +505,7 @@ export const parseOpenAICodexResponsesSse = async (
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     const bufferedTextDeltas: string[] = []
+    const bufferedOutputItems = new Map<number, OpenAICodexResponseOutputItem>()
     let buffer = ''
 
     const processRecord = (record: string): ModelResponse | null => {
@@ -499,6 +522,7 @@ export const parseOpenAICodexResponsesSse = async (
         return processOpenAICodexSseEvent(
             parsedRecord.event,
             bufferedTextDeltas,
+            bufferedOutputItems,
             onFinalAnswerTextDelta
         )
     }

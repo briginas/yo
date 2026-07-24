@@ -188,8 +188,8 @@ describe('convertModelRequestToOpenAICodex', () => {
             ['function', 'function', 'function']
         )
         assert.deepEqual(
-            converted.tools.map((tool) => tool.strict),
-            [null, null, null]
+            converted.tools.map((tool) => 'strict' in tool),
+            [false, false, false]
         )
 
         const definitions = Object.fromEntries(converted.tools.map((tool) => [tool.name, tool]))
@@ -283,11 +283,12 @@ describe('buildOpenAICodexResponsesRequestBody', () => {
         } as const satisfies ModelRequest
 
         const body = buildOpenAICodexResponsesRequestBody(request)
-        const { model, reasoning, stream, ...conversion } = body
+        const { model, reasoning, stream, store, ...conversion } = body
 
         assert.equal(model, 'gpt-5.6-terra')
         assert.deepEqual(reasoning, { effort: 'medium' })
         assert.equal(stream, true)
+        assert.equal(store, false)
         assert.deepEqual(conversion, convertModelRequestToOpenAICodex(request))
     })
 
@@ -301,6 +302,7 @@ describe('buildOpenAICodexResponsesRequestBody', () => {
         assert.equal(body.model, 'chosen-model')
         assert.deepEqual(body.reasoning, { effort: 'medium' })
         assert.equal(body.stream, true)
+        assert.equal(body.store, false)
     })
 })
 
@@ -550,6 +552,91 @@ describe('parseOpenAICodexResponsesSse', () => {
             ],
         })
         assert.deepEqual(deltas, [])
+    })
+
+    test('uses completed output items when the terminal response output is empty', async (t) => {
+        await t.test('tool call', async () => {
+            const payload = [
+                serializeSseEvent({
+                    type: 'response.output_item.done',
+                    output_index: 0,
+                    item: {
+                        type: 'reasoning',
+                        summary: [],
+                    },
+                }),
+                serializeSseEvent({
+                    type: 'response.output_item.done',
+                    output_index: 1,
+                    item: {
+                        type: 'function_call',
+                        call_id: 'call-read',
+                        name: 'read_file',
+                        arguments: '{"path":"src/cli.ts"}',
+                    },
+                }),
+                serializeSseEvent({
+                    type: 'response.completed',
+                    response: {
+                        model: 'test-model',
+                        output: [],
+                    },
+                }),
+            ].join('')
+
+            const response = await parseOpenAICodexResponsesSse(
+                createChunkedSseResponse({ payload, chunkSize: 9 })
+            )
+
+            assert.deepEqual(response, {
+                type: 'tool_calls',
+                model: 'test-model',
+                toolCalls: [
+                    {
+                        id: 'call-read',
+                        name: 'read_file',
+                        arguments: { path: 'src/cli.ts' },
+                    },
+                ],
+            })
+        })
+
+        await t.test('final answer', async () => {
+            const deltas: string[] = []
+            const payload = [
+                serializeSseEvent({
+                    type: 'response.output_text.delta',
+                    delta: 'Grounded answer.',
+                }),
+                serializeSseEvent({
+                    type: 'response.output_item.done',
+                    output_index: 0,
+                    item: {
+                        type: 'message',
+                        content: [{ type: 'output_text', text: 'Grounded answer.' }],
+                    },
+                }),
+                serializeSseEvent({
+                    type: 'response.completed',
+                    response: {
+                        model: 'test-model',
+                        output: [],
+                    },
+                }),
+            ].join('')
+
+            const response = await parseOpenAICodexResponsesSse(
+                createChunkedSseResponse({ payload, chunkSize: 8 }),
+                (delta) => deltas.push(delta)
+            )
+
+            assert.deepEqual(response, {
+                type: 'final_answer',
+                model: 'test-model',
+                content: 'Grounded answer.',
+            })
+            assert.deepEqual(deltas, ['Grounded answer.'])
+        })
     })
 
     test('sanitizes malformed events and streams that end before completion', async (t) => {
