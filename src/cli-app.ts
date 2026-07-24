@@ -26,9 +26,12 @@ const RUN_BUDGET = {
     perToolTimeoutMs: 5_000,
 } as const
 
-const USAGE = ['Usage: yo ask "<task>" --cwd <workspace> [--model <name>]', '       yo login'].join(
-    '\n'
-)
+const USAGE = [
+    'Usage: yo ask "<task>" --cwd <workspace> [--model <name>]',
+    '       yo login',
+    '       yo auth status',
+    '       yo logout',
+].join('\n')
 
 type AskCommand = {
     name: 'ask'
@@ -41,7 +44,15 @@ type LoginCommand = {
     name: 'login'
 }
 
-type CliCommand = AskCommand | LoginCommand
+type AuthStatusCommand = {
+    name: 'auth_status'
+}
+
+type LogoutCommand = {
+    name: 'logout'
+}
+
+type CliCommand = AskCommand | LoginCommand | AuthStatusCommand | LogoutCommand
 
 type ParseResult =
     | {
@@ -85,10 +96,45 @@ const parseCliCommand = (argv: readonly string[]): ParseResult => {
         }
     }
 
+    if (argv[0] === 'auth') {
+        if (argv[1] !== 'status') {
+            return {
+                status: 'error',
+                message: 'Expected the auth status command',
+            }
+        }
+
+        if (argv.length !== 2) {
+            return {
+                status: 'error',
+                message: 'auth status does not accept arguments',
+            }
+        }
+
+        return {
+            status: 'success',
+            command: { name: 'auth_status' },
+        }
+    }
+
+    if (argv[0] === 'logout') {
+        if (argv.length !== 1) {
+            return {
+                status: 'error',
+                message: 'logout does not accept arguments',
+            }
+        }
+
+        return {
+            status: 'success',
+            command: { name: 'logout' },
+        }
+    }
+
     if (argv[0] !== 'ask') {
         return {
             status: 'error',
-            message: 'Expected the ask or login command',
+            message: 'Expected the ask, login, auth status, or logout command',
         }
     }
 
@@ -273,6 +319,64 @@ const runLogin = async ({
     }
 }
 
+const runAuthStatus = async ({
+    credentialStore,
+    writeError,
+    writeOutput,
+}: Pick<
+    LoginDependencies,
+    'credentialStore' | 'writeError' | 'writeOutput'
+>): Promise<CliResult> => {
+    let credential: Awaited<ReturnType<CredentialStore['read']>>
+
+    try {
+        credential = await credentialStore.read('openai-codex')
+    } catch {
+        return runtimeError('Cannot read OAuth authentication status.', writeError)
+    }
+
+    if (credential === undefined) {
+        writeOutput('Not signed in. Run yo login.')
+    } else {
+        writeOutput(
+            [
+                'Authentication: signed in',
+                'Provider: openai-codex',
+                `Account ID: ${credential.accountId}`,
+                `Expires at: ${new Date(credential.expiresAt).toISOString()}`,
+                `Access token: ${credential.expiresAt > Date.now() ? 'valid' : 'expired'}`,
+            ].join('\n')
+        )
+    }
+
+    return {
+        exitCode: 0,
+        session: null,
+    }
+}
+
+const runLogout = async ({
+    credentialStore,
+    writeError,
+    writeOutput,
+}: Pick<
+    LoginDependencies,
+    'credentialStore' | 'writeError' | 'writeOutput'
+>): Promise<CliResult> => {
+    try {
+        await credentialStore.delete('openai-codex')
+    } catch {
+        return runtimeError('Cannot remove OAuth credential.', writeError)
+    }
+
+    writeOutput('Signed out of OpenAI Codex.')
+
+    return {
+        exitCode: 0,
+        session: null,
+    }
+}
+
 const addUnique = (values: string[], seen: Set<string>, value: string): void => {
     if (seen.has(value)) {
         return
@@ -385,6 +489,22 @@ export const runCli = async (
             createAuthorization,
             startCallbackListener,
             exchangeCredential: exchangeCredential ?? exchangeOpenAICodexAuthorizationCode,
+            credentialStore: credentialStore ?? createFileCredentialStore(),
+            writeOutput,
+            writeError,
+        })
+    }
+
+    if (parsed.command.name === 'auth_status') {
+        return runAuthStatus({
+            credentialStore: credentialStore ?? createFileCredentialStore(),
+            writeOutput,
+            writeError,
+        })
+    }
+
+    if (parsed.command.name === 'logout') {
+        return runLogout({
             credentialStore: credentialStore ?? createFileCredentialStore(),
             writeOutput,
             writeError,

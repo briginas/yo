@@ -139,6 +139,11 @@ test('passes an explicit model and returns a failed session with exit code 1', a
 test('rejects invalid command-line arguments with usage exit code 2', async (context) => {
     const cases = [
         { name: 'unknown command', argv: ['chat', 'task', '--cwd', '.'] },
+        { name: 'login arguments', argv: ['login', 'extra'] },
+        { name: 'missing auth subcommand', argv: ['auth'] },
+        { name: 'unknown auth subcommand', argv: ['auth', 'logout'] },
+        { name: 'auth status arguments', argv: ['auth', 'status', 'extra'] },
+        { name: 'logout arguments', argv: ['logout', 'extra'] },
         { name: 'missing task', argv: ['ask', '--cwd', '.'] },
         { name: 'empty task', argv: ['ask', '', '--cwd', '.'] },
         { name: 'whitespace task', argv: ['ask', '   ', '--cwd', '.'] },
@@ -187,6 +192,148 @@ test('reports unavailable production transport after argument validation', async
         session: null,
     })
     assert.deepEqual(errors, ['OpenAI transport is not available yet; complete milestone 6 first.'])
+})
+
+test('reports non-secret OAuth account and expiry status', async (context) => {
+    const privateAccessToken = 'private-access-token'
+    const privateRefreshToken = 'private-refresh-token'
+    const cases = [
+        {
+            name: 'valid access token',
+            expiresAt: 4_000_000_000_000,
+            tokenStatus: 'valid',
+        },
+        {
+            name: 'expired access token',
+            expiresAt: 0,
+            tokenStatus: 'expired',
+        },
+    ] as const
+
+    for (const testCase of cases) {
+        await context.test(testCase.name, async () => {
+            const credential = {
+                type: 'oauth',
+                accessToken: privateAccessToken,
+                refreshToken: privateRefreshToken,
+                expiresAt: testCase.expiresAt,
+                accountId: 'account-id',
+            } as const satisfies Credential
+            const { errors, outputs, result } = await invokeCli({
+                argv: ['auth', 'status'],
+                credentialStore: {
+                    read: async (providerId) => {
+                        assert.equal(providerId, 'openai-codex')
+                        return credential
+                    },
+                    modify: async () => credential,
+                    delete: async () => {},
+                },
+            })
+
+            assert.deepEqual(result, { exitCode: 0, session: null })
+            assert.deepEqual(errors, [])
+            assert.deepEqual(outputs, [
+                [
+                    'Authentication: signed in',
+                    'Provider: openai-codex',
+                    'Account ID: account-id',
+                    `Expires at: ${new Date(testCase.expiresAt).toISOString()}`,
+                    `Access token: ${testCase.tokenStatus}`,
+                ].join('\n'),
+            ])
+            assert.doesNotMatch(
+                `${outputs.join('\n')}\n${errors.join('\n')}`,
+                /private-access-token|private-refresh-token/
+            )
+        })
+    }
+})
+
+test('reports a missing OAuth credential without failing', async () => {
+    const { errors, outputs, result } = await invokeCli({
+        argv: ['auth', 'status'],
+        credentialStore: {
+            read: async () => undefined,
+            modify: async () => undefined,
+            delete: async () => {},
+        },
+    })
+
+    assert.deepEqual(result, { exitCode: 0, session: null })
+    assert.deepEqual(errors, [])
+    assert.deepEqual(outputs, ['Not signed in. Run yo login.'])
+})
+
+test('logs out idempotently through the credential store', async () => {
+    let storedCredential: Credential | undefined = {
+        type: 'oauth',
+        accessToken: 'private-access-token',
+        refreshToken: 'private-refresh-token',
+        expiresAt: 4_000_000_000_000,
+        accountId: 'account-id',
+    }
+    let deleteCount = 0
+    const credentialStore: CredentialStore = {
+        read: async () => storedCredential,
+        modify: async () => storedCredential,
+        delete: async (providerId) => {
+            assert.equal(providerId, 'openai-codex')
+            storedCredential = undefined
+            deleteCount += 1
+        },
+    }
+
+    for (let invocation = 1; invocation <= 2; invocation += 1) {
+        const { errors, outputs, result } = await invokeCli({
+            argv: ['logout'],
+            credentialStore,
+        })
+
+        assert.deepEqual(result, { exitCode: 0, session: null })
+        assert.deepEqual(errors, [])
+        assert.deepEqual(outputs, ['Signed out of OpenAI Codex.'])
+        assert.equal(storedCredential, undefined)
+        assert.equal(deleteCount, invocation)
+    }
+})
+
+test('sanitizes OAuth credential store failures', async (context) => {
+    await context.test('status read failure', async () => {
+        const { errors, outputs, result } = await invokeCli({
+            argv: ['auth', 'status'],
+            credentialStore: {
+                read: async () => {
+                    throw new Error('private-access-token in malformed auth file')
+                },
+                modify: async () => undefined,
+                delete: async () => {},
+            },
+        })
+
+        assert.deepEqual(result, { exitCode: 1, session: null })
+        assert.deepEqual(outputs, [])
+        assert.deepEqual(errors, ['Cannot read OAuth authentication status.'])
+        assert.doesNotMatch(errors.join('\n'), /private-access-token|malformed auth file/)
+    })
+
+    await context.test('logout delete failure', async () => {
+        const { errors, outputs, result } = await invokeCli({
+            argv: ['logout'],
+            credentialStore: {
+                read: async () => undefined,
+                modify: async () => undefined,
+                delete: async () => {
+                    throw new Error('private-refresh-token in locked auth file')
+                },
+            },
+        })
+
+        assert.deepEqual(result, { exitCode: 1, session: null })
+        assert.deepEqual(outputs, [])
+        assert.deepEqual(errors, ['Cannot remove OAuth credential.'])
+        assert.doesNotMatch(errors.join('\n'), /private-refresh-token|locked auth file/)
+    })
 })
 
 test('prints an authorization URL only after the callback listener is ready', async () => {
