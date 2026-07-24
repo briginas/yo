@@ -10,6 +10,7 @@ import type {
     OpenAICodexCallbackListener,
     OpenAICodexCallbackListenerOptions,
 } from './auth/openai-codex-login.ts'
+import type { Credential, CredentialStore } from './auth/credential.ts'
 import type { ModelRequest, ModelTransport } from './runtime/run.ts'
 
 type CliInvocation = {
@@ -19,6 +20,8 @@ type CliInvocation = {
     startCallbackListener?: (
         options: OpenAICodexCallbackListenerOptions
     ) => Promise<OpenAICodexCallbackListener>
+    credentialStore?: CredentialStore
+    exchangeCredential?: (options: { code: string; codeVerifier: string }) => Promise<Credential>
 }
 
 const invokeCli = async ({
@@ -26,6 +29,8 @@ const invokeCli = async ({
     transport = null,
     createAuthorization,
     startCallbackListener,
+    credentialStore,
+    exchangeCredential,
 }: CliInvocation) => {
     const outputs: string[] = []
     const errors: string[] = []
@@ -35,6 +40,8 @@ const invokeCli = async ({
         writeError: (message) => errors.push(message),
         ...(createAuthorization === undefined ? {} : { createAuthorization }),
         ...(startCallbackListener === undefined ? {} : { startCallbackListener }),
+        ...(credentialStore === undefined ? {} : { credentialStore }),
+        ...(exchangeCredential === undefined ? {} : { exchangeCredential }),
     })
 
     return { errors, outputs, result }
@@ -185,6 +192,14 @@ test('prints an authorization URL only after the callback listener is ready', as
     }
     const outputs: string[] = []
     const errors: string[] = []
+    const credential = {
+        type: 'oauth' as const,
+        accessToken: 'private-access-token',
+        refreshToken: 'private-refresh-token',
+        expiresAt: 1_800_000_000_000,
+        accountId: 'account-id',
+    }
+    let storedCredential: Credential | undefined
 
     const result = await runCli(['login'], {
         transport: null,
@@ -202,6 +217,21 @@ test('prints an authorization URL only after the callback listener is ready', as
                 },
             }
         },
+        exchangeCredential: async (options) => {
+            assert.deepEqual(options, {
+                code: 'authorization-code',
+                codeVerifier: authorization.codeVerifier,
+            })
+            return credential
+        },
+        credentialStore: {
+            read: async () => storedCredential,
+            modify: async (_providerId, update) => {
+                storedCredential = await update(storedCredential)
+                return storedCredential
+            },
+            delete: async () => {},
+        },
         writeOutput: (message) => {
             events.push('output')
             outputs.push(message)
@@ -214,13 +244,52 @@ test('prints an authorization URL only after the callback listener is ready', as
     assert.deepEqual(errors, [])
     assert.deepEqual(outputs, [
         `Open this URL in your browser:\n${authorization.authorizationUrl}`,
-        'Authorization received. Credential exchange will be implemented in milestone 6.2.3.',
+        'Signed in successfully.',
     ])
     assert.equal(result.exitCode, 0)
     assert.equal(result.session, null)
     assert.doesNotMatch(
         `${outputs.join('\n')}\n${errors.join('\n')}`,
-        /private-verifier|authorization-code/
+        /private-verifier|authorization-code|private-access-token|private-refresh-token/
+    )
+    assert.deepEqual(storedCredential, credential)
+})
+
+test('does not persist a credential when its exchange fails', async () => {
+    let modifyCalled = false
+    const { errors, outputs, result } = await invokeCli({
+        argv: ['login'],
+        createAuthorization: () => ({
+            authorizationUrl: 'https://auth.openai.com/oauth/authorize?state=public-state',
+            codeVerifier: 'private-verifier',
+            state: 'public-state',
+        }),
+        startCallbackListener: async () => ({
+            waitForCallback: async () => ({ status: 'accepted', code: 'authorization-code' }),
+            close: async () => {},
+        }),
+        exchangeCredential: async () => {
+            throw new Error('private token response')
+        },
+        credentialStore: {
+            read: async () => undefined,
+            modify: async () => {
+                modifyCalled = true
+                return undefined
+            },
+            delete: async () => {},
+        },
+    })
+
+    assert.deepEqual(outputs, [
+        'Open this URL in your browser:\nhttps://auth.openai.com/oauth/authorize?state=public-state',
+    ])
+    assert.deepEqual(errors, ['OAuth credential exchange failed. Run yo login again.'])
+    assert.deepEqual(result, { exitCode: 1, session: null })
+    assert.equal(modifyCalled, false)
+    assert.doesNotMatch(
+        `${outputs.join('\n')}\n${errors.join('\n')}`,
+        /authorization-code|private token/
     )
 })
 

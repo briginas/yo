@@ -1,18 +1,46 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { createServer } from 'node:http'
 
+import { z } from 'zod'
+
+import { credentialSchema, type Credential } from './credential.ts'
+
 const AUTHORIZE_URL = 'https://auth.openai.com/oauth/authorize'
+const TOKEN_URL = 'https://auth.openai.com/oauth/token'
 const CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann'
 const REDIRECT_URI = 'http://localhost:1455/auth/callback'
 const CALLBACK_HOST = '127.0.0.1'
 const CALLBACK_PORT = 1455
 const CALLBACK_PATH = '/auth/callback'
 const SCOPE = 'openid profile email offline_access'
+export const OPENAI_CODEX_AUTH_CLAIM = 'https://api.openai.com/auth'
+const accessTokenPayloadSchema = z.object({
+    [OPENAI_CODEX_AUTH_CLAIM]: z.object({
+        chatgpt_account_id: credentialSchema.shape.accountId,
+    }),
+})
+const tokenResponseSchema = z.object({
+    access_token: credentialSchema.shape.accessToken,
+    refresh_token: credentialSchema.shape.refreshToken,
+    expires_in: z.number().int().positive(),
+})
 
 export type OpenAICodexAuthorization = {
     authorizationUrl: string
     codeVerifier: string
     state: string
+}
+
+export type OpenAICodexCredentialExchange = (options: {
+    code: string
+    codeVerifier: string
+}) => Promise<Credential>
+
+export type OpenAICodexCredentialExchangeOptions = {
+    code: string
+    codeVerifier: string
+    fetch?: typeof globalThis.fetch
+    now?: () => number
 }
 
 type CallbackRequest = {
@@ -87,6 +115,81 @@ export const createOpenAICodexAuthorization = (): OpenAICodexAuthorization => {
         codeVerifier: verifier,
         state,
     }
+}
+
+const credentialExchangeError = (): Error => new Error('OAuth credential exchange failed')
+
+const extractAccountId = (accessToken: string): string | undefined => {
+    const parts = accessToken.split('.')
+
+    if (parts.length !== 3 || parts[1] === undefined) {
+        return
+    }
+
+    try {
+        const payload = accessTokenPayloadSchema.safeParse(
+            JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'))
+        )
+
+        if (!payload.success) {
+            return
+        }
+
+        return payload.data[OPENAI_CODEX_AUTH_CLAIM].chatgpt_account_id
+    } catch {
+        return
+    }
+}
+
+export const exchangeOpenAICodexAuthorizationCode = async ({
+    code,
+    codeVerifier,
+    fetch: sendRequest = globalThis.fetch,
+    now = Date.now,
+}: OpenAICodexCredentialExchangeOptions): Promise<Credential> => {
+    let response: Response
+
+    try {
+        response = await sendRequest(TOKEN_URL, {
+            method: 'POST',
+            headers: { 'content-type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                grant_type: 'authorization_code',
+                client_id: CLIENT_ID,
+                code,
+                code_verifier: codeVerifier,
+                redirect_uri: REDIRECT_URI,
+            }),
+        })
+    } catch {
+        throw credentialExchangeError()
+    }
+
+    if (!response.ok) {
+        throw credentialExchangeError()
+    }
+
+    let tokenResponse: z.infer<typeof tokenResponseSchema>
+
+    try {
+        tokenResponse = tokenResponseSchema.parse(await response.json())
+    } catch {
+        throw credentialExchangeError()
+    }
+
+    const accountId = extractAccountId(tokenResponse.access_token)
+
+    if (accountId === undefined) {
+        throw credentialExchangeError()
+    }
+
+    return credentialSchema.parse({
+        type: 'oauth',
+        accessToken: tokenResponse.access_token,
+        refreshToken: tokenResponse.refresh_token,
+        expiresAt: now() + tokenResponse.expires_in * 1_000,
+        accountId,
+    })
 }
 
 const listenWithNodeHttp: CallbackServerListener = ({ host, port, onRequest }) =>

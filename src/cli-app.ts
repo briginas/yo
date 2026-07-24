@@ -2,11 +2,15 @@ import { relative, resolve, sep } from 'node:path'
 
 import {
     createOpenAICodexAuthorization,
+    exchangeOpenAICodexAuthorizationCode,
     startOpenAICodexCallbackListener,
     type OpenAICodexAuthorization,
     type OpenAICodexCallbackListener,
     type OpenAICodexCallbackListenerOptions,
+    type OpenAICodexCredentialExchange,
 } from './auth/openai-codex-login.ts'
+import { createFileCredentialStore } from './auth/file-credential-store.ts'
+import type { CredentialStore } from './auth/credential.ts'
 import {
     canonicalizeWorkspaceRoot,
     readFileArgumentsSchema,
@@ -57,6 +61,8 @@ export type CliDependencies = {
     startCallbackListener?: (
         options: OpenAICodexCallbackListenerOptions
     ) => Promise<OpenAICodexCallbackListener>
+    exchangeCredential?: OpenAICodexCredentialExchange
+    credentialStore?: CredentialStore
 }
 
 export type CliResult = {
@@ -195,6 +201,8 @@ type LoginDependencies = {
     startCallbackListener:
         | ((options: OpenAICodexCallbackListenerOptions) => Promise<OpenAICodexCallbackListener>)
         | undefined
+    exchangeCredential: OpenAICodexCredentialExchange
+    credentialStore: CredentialStore
     writeError: CliDependencies['writeError']
     writeOutput: CliDependencies['writeOutput']
 }
@@ -202,6 +210,8 @@ type LoginDependencies = {
 const runLogin = async ({
     createAuthorization,
     startCallbackListener,
+    exchangeCredential,
+    credentialStore,
     writeError,
     writeOutput,
 }: LoginDependencies): Promise<CliResult> => {
@@ -241,9 +251,18 @@ const runLogin = async ({
             )
         }
 
-        writeOutput(
-            'Authorization received. Credential exchange will be implemented in milestone 6.2.3.'
-        )
+        try {
+            const credential = await exchangeCredential({
+                code: outcome.code,
+                codeVerifier: authorization.codeVerifier,
+            })
+
+            await credentialStore.modify('openai-codex', async () => credential)
+        } catch {
+            return runtimeError('OAuth credential exchange failed. Run yo login again.', writeError)
+        }
+
+        writeOutput('Signed in successfully.')
 
         return {
             exitCode: 0,
@@ -351,6 +370,8 @@ export const runCli = async (
         writeError,
         createAuthorization,
         startCallbackListener,
+        exchangeCredential,
+        credentialStore,
     }: CliDependencies
 ): Promise<CliResult> => {
     const parsed = parseCliCommand(argv)
@@ -363,6 +384,8 @@ export const runCli = async (
         return runLogin({
             createAuthorization,
             startCallbackListener,
+            exchangeCredential: exchangeCredential ?? exchangeOpenAICodexAuthorizationCode,
+            credentialStore: credentialStore ?? createFileCredentialStore(),
             writeOutput,
             writeError,
         })

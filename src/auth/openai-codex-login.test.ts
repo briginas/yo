@@ -4,11 +4,24 @@ import { describe, test } from 'node:test'
 
 import {
     createOpenAICodexAuthorization,
+    exchangeOpenAICodexAuthorizationCode,
+    OPENAI_CODEX_AUTH_CLAIM,
     startOpenAICodexCallbackListener,
     type CallbackServerListenOptions,
 } from './openai-codex-login.ts'
 
 const base64UrlPattern = /^[A-Za-z0-9_-]+$/
+
+const createAccessToken = (accountId = 'account-id'): string =>
+    [
+        'header',
+        Buffer.from(
+            JSON.stringify({
+                [OPENAI_CODEX_AUTH_CLAIM]: { chatgpt_account_id: accountId },
+            })
+        ).toString('base64url'),
+        'signature',
+    ].join('.')
 
 describe('createOpenAICodexAuthorization', () => {
     test('creates random PKCE and state values for each authorization request', () => {
@@ -136,5 +149,118 @@ describe('startOpenAICodexCallbackListener', () => {
         await listener.close()
 
         assert.equal(await listener.waitForCallback(), null)
+    })
+})
+
+describe('exchangeOpenAICodexAuthorizationCode', () => {
+    test('posts the PKCE authorization-code grant and returns a credential', async () => {
+        let request: { input: string; init: RequestInit | undefined } | undefined
+
+        const credential = await exchangeOpenAICodexAuthorizationCode({
+            code: 'private-authorization-code',
+            codeVerifier: 'private-verifier',
+            now: () => 1_700_000_000_000,
+            fetch: async (input, init) => {
+                request = { input: input.toString(), init }
+                return new Response(
+                    JSON.stringify({
+                        access_token: createAccessToken(),
+                        refresh_token: 'private-refresh-token',
+                        expires_in: 3_600,
+                    }),
+                    { status: 200 }
+                )
+            },
+        })
+
+        assert.equal(request?.input, 'https://auth.openai.com/oauth/token')
+        assert.equal(request?.init?.method, 'POST')
+        assert.deepEqual(request?.init?.headers, {
+            'content-type': 'application/x-www-form-urlencoded',
+        })
+        assert.deepEqual(Object.fromEntries(new URLSearchParams(request?.init?.body?.toString())), {
+            grant_type: 'authorization_code',
+            client_id: 'app_EMoamEEZ73f0CkXaXp7hrann',
+            code: 'private-authorization-code',
+            code_verifier: 'private-verifier',
+            redirect_uri: 'http://localhost:1455/auth/callback',
+        })
+        assert.deepEqual(credential, {
+            type: 'oauth',
+            accessToken: createAccessToken(),
+            refreshToken: 'private-refresh-token',
+            expiresAt: 1_700_003_600_000,
+            accountId: 'account-id',
+        })
+    })
+
+    test('rejects unsuccessful and malformed token responses without exposing their contents', async (context) => {
+        const cases = [
+            {
+                name: 'unsuccessful response',
+                response: new Response('private failure details', { status: 401 }),
+            },
+            {
+                name: 'missing token fields',
+                response: new Response(JSON.stringify({ expires_in: 3_600 }), { status: 200 }),
+            },
+            {
+                name: 'missing account id',
+                response: new Response(
+                    JSON.stringify({
+                        access_token: 'not-a-jwt',
+                        refresh_token: 'private-refresh-token',
+                        expires_in: 3_600,
+                    }),
+                    { status: 200 }
+                ),
+            },
+            {
+                name: 'empty account id',
+                response: new Response(
+                    JSON.stringify({
+                        access_token: createAccessToken(''),
+                        refresh_token: 'private-refresh-token',
+                        expires_in: 3_600,
+                    }),
+                    { status: 200 }
+                ),
+            },
+            {
+                name: 'invalid expiry',
+                response: new Response(
+                    JSON.stringify({
+                        access_token: createAccessToken(),
+                        refresh_token: 'private-refresh-token',
+                        expires_in: 0,
+                    }),
+                    { status: 200 }
+                ),
+            },
+            {
+                name: 'fractional expiry',
+                response: new Response(
+                    JSON.stringify({
+                        access_token: createAccessToken(),
+                        refresh_token: 'private-refresh-token',
+                        expires_in: 3_600.5,
+                    }),
+                    { status: 200 }
+                ),
+            },
+        ] as const
+
+        for (const testCase of cases) {
+            await context.test(testCase.name, async () => {
+                await assert.rejects(
+                    exchangeOpenAICodexAuthorizationCode({
+                        code: 'private-authorization-code',
+                        codeVerifier: 'private-verifier',
+                        fetch: async () => testCase.response,
+                    }),
+                    new Error('OAuth credential exchange failed')
+                )
+            })
+        }
     })
 })

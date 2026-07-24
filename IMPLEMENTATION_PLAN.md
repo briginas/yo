@@ -68,7 +68,7 @@ Run and review the checks for each step before moving to the next one.
     - [ ] **6.2 Implement browser login through OpenAI**
         - [x] Add `yo login` using PKCE S256 and a random state value; use the exact redirect URI `http://localhost:1455/auth/callback` and bind the temporary callback server only to `127.0.0.1:1455`.
         - [x] Print a clickable authorization URL without starting a browser process; reject callback state mismatches and report an occupied callback port clearly.
-        - [ ] Exchange the authorization code for an OAuth credential and persist it without logging token values or token responses.
+        - [x] Exchange the authorization code for an OAuth credential and persist it without logging token values or token responses.
         - [ ] Verify the complete login flow with injected HTTP and a temporary credential store; do not add device-code login.
     - [ ] **6.3 Implement the credential lifecycle**
         - [ ] Add `yo auth status` with non-secret account and expiry information and `yo logout` that removes the stored credential.
