@@ -66,7 +66,7 @@ Run and review the checks for each step before moving to the next one.
         - [x] Store the `openai-codex` credential in `~/.yo/auth.json`, with directory mode `0700`, file mode `0600`, atomic updates, and refresh locking.
         - [x] Verify create, read, update, delete, malformed-file, permission, and concurrent-refresh behavior using temporary paths.
     - [ ] **6.2 Implement browser login through OpenAI**
-        - [ ] Add `yo login` using PKCE S256, a random state value, and a callback bound to `127.0.0.1:1455`.
+        - [ ] Add `yo login` using PKCE S256 and a random state value; use the exact redirect URI `http://localhost:1455/auth/callback` and bind the temporary callback server only to `127.0.0.1:1455`.
         - [ ] Print a clickable authorization URL without starting a browser process; reject callback state mismatches and report an occupied callback port clearly.
         - [ ] Exchange the authorization code for an OAuth credential and persist it without logging token values or token responses.
         - [ ] Verify the complete login flow with injected HTTP and a temporary credential store; do not add device-code login.
