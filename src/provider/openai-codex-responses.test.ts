@@ -4,6 +4,7 @@ import { describe, test } from 'node:test'
 import type { Credential, CredentialStore } from '../auth/credential.ts'
 import type { ModelRequest } from '../runtime/run.ts'
 import {
+    buildOpenAICodexResponsesRequestBody,
     convertModelRequestToOpenAICodex,
     convertOpenAICodexOutputToModelResponse,
     sendOpenAICodexResponsesRequest,
@@ -227,6 +228,37 @@ describe('convertModelRequestToOpenAICodex', () => {
                 arguments: 'null',
             },
         ])
+    })
+})
+
+describe('buildOpenAICodexResponsesRequestBody', () => {
+    test('uses the default model and medium reasoning while preserving the conversion', () => {
+        const request = {
+            model: null,
+            messages: [
+                { role: 'system', content: 'Inspect only the workspace.' },
+                { role: 'user', content: 'Find the provider.' },
+            ],
+            visibleTools: ['search_code'],
+        } as const satisfies ModelRequest
+
+        const body = buildOpenAICodexResponsesRequestBody(request)
+        const { model, reasoning, ...conversion } = body
+
+        assert.equal(model, 'gpt-5.6-terra')
+        assert.deepEqual(reasoning, { effort: 'medium' })
+        assert.deepEqual(conversion, convertModelRequestToOpenAICodex(request))
+    })
+
+    test('keeps an explicit model override with medium reasoning', () => {
+        const body = buildOpenAICodexResponsesRequestBody({
+            model: 'chosen-model',
+            messages: [],
+            visibleTools: [],
+        })
+
+        assert.equal(body.model, 'chosen-model')
+        assert.deepEqual(body.reasoning, { effort: 'medium' })
     })
 })
 

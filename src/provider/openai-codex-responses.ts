@@ -11,6 +11,7 @@ import {
 } from '../runtime/tools.ts'
 
 const CODEX_RESPONSES_URL = 'https://chatgpt.com/backend-api/codex/responses'
+const DEFAULT_CODEX_MODEL = 'gpt-5.6-terra'
 
 type OpenAICodexInputText = {
     type: 'input_text'
@@ -59,6 +60,13 @@ export type OpenAICodexRequestConversion = {
     instructions: string
     input: readonly OpenAICodexInputItem[]
     tools: readonly OpenAICodexFunctionTool[]
+}
+
+export type OpenAICodexResponsesRequestBody = OpenAICodexRequestConversion & {
+    model: string
+    reasoning: {
+        effort: 'medium'
+    }
 }
 
 export type OpenAICodexResponseOutputItem =
@@ -200,6 +208,16 @@ export const convertModelRequestToOpenAICodex = ({
         tools: convertVisibleTools(visibleTools),
     }
 }
+
+export const buildOpenAICodexResponsesRequestBody = (
+    request: ModelRequest
+): OpenAICodexResponsesRequestBody => ({
+    model: request.model ?? DEFAULT_CODEX_MODEL,
+    reasoning: {
+        effort: 'medium',
+    },
+    ...convertModelRequestToOpenAICodex(request),
+})
 
 const parseToolCallArguments = (arguments_: string): unknown => {
     try {
