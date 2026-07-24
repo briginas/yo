@@ -7,6 +7,8 @@ import {
     buildOpenAICodexResponsesRequestBody,
     convertModelRequestToOpenAICodex,
     convertOpenAICodexOutputToModelResponse,
+    createOpenAICodexResponsesTransport,
+    parseOpenAICodexResponsesSse,
     sendOpenAICodexResponsesRequest,
 } from './openai-codex-responses.ts'
 
@@ -20,6 +22,44 @@ const unusedCredentialStore: CredentialStore = {
     delete: async () => {
         throw new Error('delete must not run')
     },
+}
+
+const serializeSseEvent = (event: unknown, lineEnding = '\n'): string =>
+    `data: ${JSON.stringify(event)}${lineEnding}${lineEnding}`
+
+const createChunkedSseResponse = ({
+    payload,
+    chunkSize,
+    close = true,
+    onCancel,
+}: {
+    payload: string
+    chunkSize: number
+    close?: boolean
+    onCancel?: () => void
+}): Response => {
+    const bytes = new TextEncoder().encode(payload)
+
+    return new Response(
+        new ReadableStream<Uint8Array>({
+            start(controller) {
+                for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+                    controller.enqueue(bytes.slice(offset, offset + chunkSize))
+                }
+
+                if (close) {
+                    controller.close()
+                }
+            },
+            cancel() {
+                onCancel?.()
+            },
+        }),
+        {
+            status: 200,
+            headers: { 'content-type': 'text/event-stream' },
+        }
+    )
 }
 
 describe('convertModelRequestToOpenAICodex', () => {
@@ -243,10 +283,11 @@ describe('buildOpenAICodexResponsesRequestBody', () => {
         } as const satisfies ModelRequest
 
         const body = buildOpenAICodexResponsesRequestBody(request)
-        const { model, reasoning, ...conversion } = body
+        const { model, reasoning, stream, ...conversion } = body
 
         assert.equal(model, 'gpt-5.6-terra')
         assert.deepEqual(reasoning, { effort: 'medium' })
+        assert.equal(stream, true)
         assert.deepEqual(conversion, convertModelRequestToOpenAICodex(request))
     })
 
@@ -259,6 +300,7 @@ describe('buildOpenAICodexResponsesRequestBody', () => {
 
         assert.equal(body.model, 'chosen-model')
         assert.deepEqual(body.reasoning, { effort: 'medium' })
+        assert.equal(body.stream, true)
     })
 })
 
@@ -358,6 +400,294 @@ describe('convertOpenAICodexOutputToModelResponse', () => {
                 },
             ],
         })
+    })
+})
+
+describe('parseOpenAICodexResponsesSse', () => {
+    test('parses chunked CRLF events and releases only completed final-answer text', async () => {
+        const privateReasoning = 'private-reasoning-sentinel'
+        const hiddenRefusal = 'hidden-refusal-sentinel'
+        const deltas: string[] = []
+        let cancelled = false
+        const payload = [
+            ': keep-alive\r\n\r\n',
+            'data: {"type":"response.created",\r\n',
+            'data: "sequence_number":0}\r\n\r\n',
+            serializeSseEvent(
+                {
+                    type: 'response.reasoning_summary_text.delta',
+                    delta: privateReasoning,
+                },
+                '\r\n'
+            ),
+            serializeSseEvent(
+                {
+                    type: 'response.output_text.delta',
+                    delta: 'Grounded ',
+                },
+                '\r\n'
+            ),
+            serializeSseEvent(
+                {
+                    type: 'response.output_text.delta',
+                    delta: '✅ answer.',
+                },
+                '\r\n'
+            ),
+            serializeSseEvent(
+                {
+                    type: 'response.completed',
+                    response: {
+                        model: 'test-model',
+                        output: [
+                            {
+                                type: 'reasoning',
+                                summary: [{ text: privateReasoning }],
+                            },
+                            {
+                                type: 'message',
+                                content: [
+                                    { type: 'output_text', text: 'Grounded ' },
+                                    { type: 'refusal', refusal: hiddenRefusal },
+                                    { type: 'output_text', text: '✅ answer.' },
+                                ],
+                            },
+                        ],
+                    },
+                },
+                '\r\n'
+            ),
+            'data: [DONE]\r\n\r\n',
+        ].join('')
+        const response = await parseOpenAICodexResponsesSse(
+            createChunkedSseResponse({
+                payload,
+                chunkSize: 1,
+                close: false,
+                onCancel: () => {
+                    cancelled = true
+                },
+            }),
+            (delta) => deltas.push(delta)
+        )
+
+        assert.deepEqual(response, {
+            type: 'final_answer',
+            model: 'test-model',
+            content: 'Grounded ✅ answer.',
+        })
+        assert.deepEqual(deltas, ['Grounded ', '✅ answer.'])
+        assert.equal(cancelled, true)
+
+        const visibleData = JSON.stringify({ response, deltas })
+
+        assert.equal(visibleData.includes(privateReasoning), false)
+        assert.equal(visibleData.includes(hiddenRefusal), false)
+    })
+
+    test('returns ordered tool calls without releasing assistant preamble text', async () => {
+        const deltas: string[] = []
+        const payload = [
+            serializeSseEvent({
+                type: 'response.output_text.delta',
+                delta: 'I need two files.',
+            }),
+            serializeSseEvent({
+                type: 'response.function_call_arguments.delta',
+                delta: '{"private":"tool-argument-sentinel"}',
+            }),
+            serializeSseEvent({
+                type: 'response.completed',
+                response: {
+                    model: 'test-model',
+                    output: [
+                        {
+                            type: 'message',
+                            content: [
+                                {
+                                    type: 'output_text',
+                                    text: 'I need two files.',
+                                },
+                            ],
+                        },
+                        {
+                            type: 'function_call',
+                            call_id: 'call-list',
+                            name: 'list_files',
+                            arguments: '{"path":"src"}',
+                        },
+                        {
+                            type: 'function_call',
+                            call_id: 'call-read',
+                            name: 'read_file',
+                            arguments: '{"path":"src/index.ts","startLine":1}',
+                        },
+                    ],
+                },
+            }),
+        ].join('')
+
+        const response = await parseOpenAICodexResponsesSse(
+            createChunkedSseResponse({ payload, chunkSize: 7 }),
+            (delta) => deltas.push(delta)
+        )
+
+        assert.deepEqual(response, {
+            type: 'tool_calls',
+            model: 'test-model',
+            content: 'I need two files.',
+            toolCalls: [
+                {
+                    id: 'call-list',
+                    name: 'list_files',
+                    arguments: { path: 'src' },
+                },
+                {
+                    id: 'call-read',
+                    name: 'read_file',
+                    arguments: { path: 'src/index.ts', startLine: 1 },
+                },
+            ],
+        })
+        assert.deepEqual(deltas, [])
+    })
+
+    test('sanitizes malformed events and streams that end before completion', async (t) => {
+        await t.test('malformed JSON', async () => {
+            const privatePayload = 'private-malformed-payload'
+
+            await assert.rejects(
+                parseOpenAICodexResponsesSse(
+                    createChunkedSseResponse({
+                        payload: `data: {"type":"${privatePayload}"\n\n`,
+                        chunkSize: 3,
+                    })
+                ),
+                (error: unknown) => {
+                    assert.equal(
+                        error instanceof Error ? error.message : undefined,
+                        'OpenAI Codex SSE protocol error.'
+                    )
+                    assert.equal(String(error).includes(privatePayload), false)
+                    return true
+                }
+            )
+        })
+
+        await t.test('missing terminal event', async () => {
+            const privateReasoning = 'private-unfinished-reasoning'
+
+            await assert.rejects(
+                parseOpenAICodexResponsesSse(
+                    createChunkedSseResponse({
+                        payload: serializeSseEvent({
+                            type: 'response.reasoning_summary_text.delta',
+                            delta: privateReasoning,
+                        }),
+                        chunkSize: 5,
+                    })
+                ),
+                (error: unknown) => {
+                    assert.equal(
+                        error instanceof Error ? error.message : undefined,
+                        'OpenAI Codex SSE stream ended before a completed response.'
+                    )
+                    assert.equal(String(error).includes(privateReasoning), false)
+                    return true
+                }
+            )
+        })
+
+        await t.test('malformed terminal payload', async () => {
+            const privatePayload = 'private-terminal-payload'
+
+            await assert.rejects(
+                parseOpenAICodexResponsesSse(
+                    createChunkedSseResponse({
+                        payload: serializeSseEvent({
+                            type: 'response.completed',
+                            response: {
+                                model: 'test-model',
+                                output: privatePayload,
+                            },
+                        }),
+                        chunkSize: 4,
+                    })
+                ),
+                (error: unknown) => {
+                    assert.equal(
+                        error instanceof Error ? error.message : undefined,
+                        'OpenAI Codex SSE protocol error.'
+                    )
+                    assert.equal(String(error).includes(privatePayload), false)
+                    return true
+                }
+            )
+        })
+    })
+})
+
+describe('createOpenAICodexResponsesTransport', () => {
+    test('builds, sends, and parses one provider-neutral model request', async () => {
+        const credential = {
+            type: 'oauth',
+            accessToken: 'private-access-token',
+            refreshToken: 'private-refresh-token',
+            expiresAt: 1_700_003_600_000,
+            accountId: 'account-id',
+        } as const satisfies Credential
+        let sentBody: unknown
+        const transport = createOpenAICodexResponsesTransport({
+            credentialStore: unusedCredentialStore,
+            resolveCredential: async () => credential,
+            fetch: async (_input, init) => {
+                sentBody = JSON.parse(String(init?.body))
+
+                return createChunkedSseResponse({
+                    payload: serializeSseEvent({
+                        type: 'response.completed',
+                        response: {
+                            model: 'chosen-model',
+                            output: [
+                                {
+                                    type: 'message',
+                                    content: [
+                                        {
+                                            type: 'output_text',
+                                            text: 'Final answer.',
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                    }),
+                    chunkSize: 11,
+                })
+            },
+        })
+
+        const response = await transport({
+            model: 'chosen-model',
+            messages: [{ role: 'user', content: 'Inspect the workspace.' }],
+            visibleTools: ['read_file'],
+        })
+
+        assert.deepEqual(response, {
+            type: 'final_answer',
+            model: 'chosen-model',
+            content: 'Final answer.',
+        })
+        assert.equal(
+            typeof sentBody === 'object' && sentBody !== null && 'stream' in sentBody
+                ? sentBody.stream
+                : undefined,
+            true
+        )
+        assert.equal(JSON.stringify({ response, sentBody }).includes(credential.accessToken), false)
+        assert.equal(
+            JSON.stringify({ response, sentBody }).includes(credential.refreshToken),
+            false
+        )
     })
 })
 

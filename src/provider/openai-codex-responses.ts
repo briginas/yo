@@ -2,7 +2,7 @@ import { z, type ZodType } from 'zod'
 
 import type { Credential, CredentialStore } from '../auth/credential.ts'
 import { resolveOpenAICodexCredential } from '../auth/openai-codex-login.ts'
-import type { ModelRequest, ModelResponse } from '../runtime/run.ts'
+import type { ModelRequest, ModelResponse, ModelTransport } from '../runtime/run.ts'
 import {
     listFilesArgumentsSchema,
     readFileArgumentsSchema,
@@ -67,6 +67,7 @@ export type OpenAICodexResponsesRequestBody = OpenAICodexRequestConversion & {
     reasoning: {
         effort: 'medium'
     }
+    stream: true
 }
 
 export type OpenAICodexResponseOutputItem =
@@ -91,9 +92,56 @@ export type OpenAICodexResponseOutputItem =
       }
     | {
           type: 'reasoning'
-          summary?: readonly unknown[]
-          content?: readonly unknown[]
+          summary?: readonly unknown[] | undefined
+          content?: readonly unknown[] | undefined
       }
+
+const openAICodexResponseOutputItemSchema: ZodType<OpenAICodexResponseOutputItem> =
+    z.discriminatedUnion('type', [
+        z.looseObject({
+            type: z.literal('message'),
+            content: z.array(
+                z.discriminatedUnion('type', [
+                    z.looseObject({
+                        type: z.literal('output_text'),
+                        text: z.string(),
+                    }),
+                    z.looseObject({
+                        type: z.literal('refusal'),
+                        refusal: z.string(),
+                    }),
+                ])
+            ),
+        }),
+        z.looseObject({
+            type: z.literal('function_call'),
+            call_id: z.string().min(1),
+            name: z.string().min(1),
+            arguments: z.string(),
+        }),
+        z.looseObject({
+            type: z.literal('reasoning'),
+            summary: z.array(z.unknown()).optional(),
+            content: z.array(z.unknown()).optional(),
+        }),
+    ])
+
+const openAICodexSseEventEnvelopeSchema = z.looseObject({
+    type: z.string(),
+})
+
+const openAICodexCompletedEventSchema = z.object({
+    type: z.literal('response.completed'),
+    response: z.object({
+        model: z.string().min(1),
+        output: z.array(openAICodexResponseOutputItemSchema),
+    }),
+})
+
+const openAICodexOutputTextDeltaEventSchema = z.object({
+    type: z.literal('response.output_text.delta'),
+    delta: z.string(),
+})
 
 type ModelToolDefinition = {
     description: string
@@ -216,6 +264,7 @@ export const buildOpenAICodexResponsesRequestBody = (
     reasoning: {
         effort: 'medium',
     },
+    stream: true,
     ...convertModelRequestToOpenAICodex(request),
 })
 
@@ -307,4 +356,223 @@ export const sendOpenAICodexResponsesRequest = async ({
         },
         body: JSON.stringify(body),
     })
+}
+
+export type OpenAICodexFinalAnswerTextSink = (delta: string) => void
+
+type ParsedSseRecord =
+    | {
+          type: 'event'
+          event: unknown
+      }
+    | {
+          type: 'done'
+      }
+    | {
+          type: 'ignored'
+      }
+
+const parseSseRecord = (record: string): ParsedSseRecord => {
+    const data = record
+        .split(/\r?\n/)
+        .filter((line) => line.startsWith('data:'))
+        .map((line) => line.slice(5).replace(/^ /, ''))
+        .join('\n')
+        .trim()
+
+    if (data.length === 0) {
+        return { type: 'ignored' }
+    }
+
+    if (data === '[DONE]') {
+        return { type: 'done' }
+    }
+
+    try {
+        return {
+            type: 'event',
+            event: JSON.parse(data),
+        }
+    } catch {
+        throw new Error('OpenAI Codex SSE protocol error.')
+    }
+}
+
+const findSseRecordBoundary = (
+    buffer: string
+): {
+    index: number
+    length: number
+} | null => {
+    const match = /\r?\n\r?\n/.exec(buffer)
+
+    return match === null
+        ? null
+        : {
+              index: match.index,
+              length: match[0].length,
+          }
+}
+
+const processOpenAICodexSseEvent = (
+    event: unknown,
+    bufferedTextDeltas: string[],
+    onFinalAnswerTextDelta: OpenAICodexFinalAnswerTextSink | undefined
+): ModelResponse | null => {
+    const envelope = openAICodexSseEventEnvelopeSchema.safeParse(event)
+
+    if (!envelope.success) {
+        return null
+    }
+
+    if (envelope.data.type === 'error') {
+        throw new Error('OpenAI Codex streaming request failed.')
+    }
+
+    if (envelope.data.type === 'response.output_text.delta') {
+        const parsed = openAICodexOutputTextDeltaEventSchema.safeParse(event)
+
+        if (!parsed.success) {
+            throw new Error('OpenAI Codex SSE protocol error.')
+        }
+
+        bufferedTextDeltas.push(parsed.data.delta)
+        return null
+    }
+
+    if (envelope.data.type !== 'response.completed') {
+        return null
+    }
+
+    const parsed = openAICodexCompletedEventSchema.safeParse(event)
+
+    if (!parsed.success) {
+        throw new Error('OpenAI Codex SSE protocol error.')
+    }
+
+    const response = convertOpenAICodexOutputToModelResponse(
+        parsed.data.response.output,
+        parsed.data.response.model
+    )
+
+    if (response.type === 'final_answer') {
+        const streamedText = bufferedTextDeltas.join('')
+
+        if (streamedText.length > 0 && streamedText !== response.content) {
+            throw new Error('OpenAI Codex SSE protocol error.')
+        }
+
+        bufferedTextDeltas.forEach((delta) => onFinalAnswerTextDelta?.(delta))
+    }
+
+    return response
+}
+
+export const parseOpenAICodexResponsesSse = async (
+    response: Response,
+    onFinalAnswerTextDelta?: OpenAICodexFinalAnswerTextSink
+): Promise<ModelResponse> => {
+    if (response.body === null) {
+        throw new Error('OpenAI Codex SSE response body is missing.')
+    }
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    const bufferedTextDeltas: string[] = []
+    let buffer = ''
+
+    const processRecord = (record: string): ModelResponse | null => {
+        const parsedRecord = parseSseRecord(record)
+
+        if (parsedRecord.type === 'done') {
+            throw new Error('OpenAI Codex SSE stream ended before a completed response.')
+        }
+
+        if (parsedRecord.type !== 'event') {
+            return null
+        }
+
+        return processOpenAICodexSseEvent(
+            parsedRecord.event,
+            bufferedTextDeltas,
+            onFinalAnswerTextDelta
+        )
+    }
+
+    try {
+        while (true) {
+            const { done, value } = await reader.read()
+
+            buffer += done ? decoder.decode() : decoder.decode(value, { stream: true })
+
+            let boundary = findSseRecordBoundary(buffer)
+
+            while (boundary !== null) {
+                const record = buffer.slice(0, boundary.index)
+
+                buffer = buffer.slice(boundary.index + boundary.length)
+
+                const modelResponse = processRecord(record)
+
+                if (modelResponse !== null) {
+                    return modelResponse
+                }
+
+                boundary = findSseRecordBoundary(buffer)
+            }
+
+            if (done) {
+                if (buffer.length > 0) {
+                    const modelResponse = processRecord(buffer)
+
+                    if (modelResponse !== null) {
+                        return modelResponse
+                    }
+                }
+
+                throw new Error('OpenAI Codex SSE stream ended before a completed response.')
+            }
+        }
+    } finally {
+        try {
+            await reader.cancel()
+        } catch {
+            // The response may already be closed; cleanup must not replace the transport result.
+        }
+
+        try {
+            reader.releaseLock()
+        } catch {
+            // A failed release is cleanup-only and must not replace the transport result.
+        }
+    }
+}
+
+export type OpenAICodexResponsesTransportOptions = {
+    credentialStore: CredentialStore
+    fetch?: typeof globalThis.fetch
+    resolveCredential?: OpenAICodexCredentialResolver
+    onFinalAnswerTextDelta?: OpenAICodexFinalAnswerTextSink
+}
+
+export const createOpenAICodexResponsesTransport = ({
+    credentialStore,
+    fetch,
+    resolveCredential,
+    onFinalAnswerTextDelta,
+}: OpenAICodexResponsesTransportOptions): ModelTransport => {
+    return async (request) => {
+        const response = await sendOpenAICodexResponsesRequest({
+            body: buildOpenAICodexResponsesRequestBody(request),
+            credentialStore,
+            ...(fetch === undefined ? {} : { fetch }),
+            ...(resolveCredential === undefined ? {} : { resolveCredential }),
+        })
+
+        if (!response.ok) {
+            throw new Error(`OpenAI Codex request failed with status ${response.status}.`)
+        }
+
+        return parseOpenAICodexResponsesSse(response, onFinalAnswerTextDelta)
+    }
 }
