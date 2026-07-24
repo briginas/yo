@@ -51,10 +51,11 @@ describe('createOpenAICodexAuthorization', () => {
 })
 
 describe('startOpenAICodexCallbackListener', () => {
-    test('binds only to the fixed loopback address and returns the raw callback URL', async () => {
+    test('binds only to the fixed loopback address and accepts a callback with the expected state', async () => {
         let listenOptions: CallbackServerListenOptions | undefined
         let closeCount = 0
         const listener = await startOpenAICodexCallbackListener({
+            expectedState: 'expected-state',
             listen: async (options) => {
                 listenOptions = options
                 return {
@@ -72,16 +73,15 @@ describe('startOpenAICodexCallbackListener', () => {
         })
         assert.deepEqual(
             listenOptions?.onRequest({
-                requestUrl: '/auth/callback?code=authorization-code&state=unvalidated-state',
+                requestUrl: '/auth/callback?code=authorization-code&state=expected-state',
             }),
             { statusCode: 204 }
         )
 
-        const callbackUrl = await listener.waitForCallback()
-
-        assert.equal(callbackUrl?.pathname, '/auth/callback')
-        assert.equal(callbackUrl?.searchParams.get('code'), 'authorization-code')
-        assert.equal(callbackUrl?.searchParams.get('state'), 'unvalidated-state')
+        assert.deepEqual(await listener.waitForCallback(), {
+            status: 'accepted',
+            code: 'authorization-code',
+        })
 
         await listener.close()
         await listener.close()
@@ -89,8 +89,45 @@ describe('startOpenAICodexCallbackListener', () => {
         assert.equal(closeCount, 1)
     })
 
+    test('rejects missing authorization codes and state mismatches', async (context) => {
+        const cases = [
+            {
+                name: 'missing code',
+                requestUrl: '/auth/callback?state=expected-state',
+                reason: 'missing_code',
+            },
+            {
+                name: 'state mismatch',
+                requestUrl: '/auth/callback?code=authorization-code&state=wrong-state',
+                reason: 'state_mismatch',
+            },
+        ] as const
+
+        for (const testCase of cases) {
+            await context.test(testCase.name, async () => {
+                let listenOptions: CallbackServerListenOptions | undefined
+                const listener = await startOpenAICodexCallbackListener({
+                    expectedState: 'expected-state',
+                    listen: async (options) => {
+                        listenOptions = options
+                        return { close: async () => {} }
+                    },
+                })
+
+                assert.deepEqual(listenOptions?.onRequest({ requestUrl: testCase.requestUrl }), {
+                    statusCode: 400,
+                })
+                assert.deepEqual(await listener.waitForCallback(), {
+                    status: 'rejected',
+                    reason: testCase.reason,
+                })
+            })
+        }
+    })
+
     test('settles a pending callback wait when the listener closes', async () => {
         const listener = await startOpenAICodexCallbackListener({
+            expectedState: 'expected-state',
             listen: async () => ({
                 close: async () => {},
             }),

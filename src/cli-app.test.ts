@@ -5,20 +5,36 @@ import { relative } from 'node:path'
 import { test } from 'node:test'
 
 import { runCli } from './cli-app.ts'
+import type {
+    OpenAICodexAuthorization,
+    OpenAICodexCallbackListener,
+    OpenAICodexCallbackListenerOptions,
+} from './auth/openai-codex-login.ts'
 import type { ModelRequest, ModelTransport } from './runtime/run.ts'
 
 type CliInvocation = {
     argv: readonly string[]
     transport?: ModelTransport | null
+    createAuthorization?: () => OpenAICodexAuthorization
+    startCallbackListener?: (
+        options: OpenAICodexCallbackListenerOptions
+    ) => Promise<OpenAICodexCallbackListener>
 }
 
-const invokeCli = async ({ argv, transport = null }: CliInvocation) => {
+const invokeCli = async ({
+    argv,
+    transport = null,
+    createAuthorization,
+    startCallbackListener,
+}: CliInvocation) => {
     const outputs: string[] = []
     const errors: string[] = []
     const result = await runCli(argv, {
         transport,
         writeOutput: (message) => outputs.push(message),
         writeError: (message) => errors.push(message),
+        ...(createAuthorization === undefined ? {} : { createAuthorization }),
+        ...(startCallbackListener === undefined ? {} : { startCallbackListener }),
     })
 
     return { errors, outputs, result }
@@ -156,6 +172,101 @@ test('reports unavailable production transport after argument validation', async
         session: null,
     })
     assert.deepEqual(errors, ['OpenAI transport is not available yet; complete milestone 6 first.'])
+})
+
+test('prints an authorization URL only after the callback listener is ready', async () => {
+    const events: string[] = []
+    let callbackOptions: OpenAICodexCallbackListenerOptions | undefined
+    const authorization = {
+        authorizationUrl:
+            'https://auth.openai.com/oauth/authorize?state=public-state&code_challenge=challenge',
+        codeVerifier: 'private-verifier',
+        state: 'public-state',
+    }
+    const outputs: string[] = []
+    const errors: string[] = []
+
+    const result = await runCli(['login'], {
+        transport: null,
+        createAuthorization: () => authorization,
+        startCallbackListener: async (options) => {
+            events.push('listener_started')
+            callbackOptions = options
+            return {
+                waitForCallback: async () => ({
+                    status: 'accepted',
+                    code: 'authorization-code',
+                }),
+                close: async () => {
+                    events.push('listener_closed')
+                },
+            }
+        },
+        writeOutput: (message) => {
+            events.push('output')
+            outputs.push(message)
+        },
+        writeError: (message) => errors.push(message),
+    })
+
+    assert.deepEqual(callbackOptions, { expectedState: authorization.state })
+    assert.deepEqual(events, ['listener_started', 'output', 'output', 'listener_closed'])
+    assert.deepEqual(errors, [])
+    assert.deepEqual(outputs, [
+        `Open this URL in your browser:\n${authorization.authorizationUrl}`,
+        'Authorization received. Credential exchange will be implemented in milestone 6.2.3.',
+    ])
+    assert.equal(result.exitCode, 0)
+    assert.equal(result.session, null)
+    assert.doesNotMatch(
+        `${outputs.join('\n')}\n${errors.join('\n')}`,
+        /private-verifier|authorization-code/
+    )
+})
+
+test('reports an occupied OAuth callback port without printing an authorization URL', async () => {
+    const { errors, outputs, result } = await invokeCli({
+        argv: ['login'],
+        createAuthorization: () => ({
+            authorizationUrl: 'https://auth.openai.com/oauth/authorize?state=public-state',
+            codeVerifier: 'private-verifier',
+            state: 'public-state',
+        }),
+        startCallbackListener: async () => {
+            throw Object.assign(new Error('callback port is reserved'), { code: 'EADDRINUSE' })
+        },
+    })
+
+    assert.deepEqual(outputs, [])
+    assert.deepEqual(result, { exitCode: 1, session: null })
+    assert.deepEqual(errors, [
+        'OAuth callback address 127.0.0.1:1455 is already in use. Close the other listener and try again.',
+    ])
+})
+
+test('reports a rejected OAuth callback and closes its listener', async () => {
+    let closeCount = 0
+    const { errors, outputs, result } = await invokeCli({
+        argv: ['login'],
+        createAuthorization: () => ({
+            authorizationUrl: 'https://auth.openai.com/oauth/authorize?state=public-state',
+            codeVerifier: 'private-verifier',
+            state: 'public-state',
+        }),
+        startCallbackListener: async () => ({
+            waitForCallback: async () => ({ status: 'rejected', reason: 'state_mismatch' }),
+            close: async () => {
+                closeCount += 1
+            },
+        }),
+    })
+
+    assert.deepEqual(outputs, [
+        'Open this URL in your browser:\nhttps://auth.openai.com/oauth/authorize?state=public-state',
+    ])
+    assert.deepEqual(errors, ['OAuth callback state did not match the login request.'])
+    assert.deepEqual(result, { exitCode: 1, session: null })
+    assert.equal(closeCount, 1)
 })
 
 test('reports workspace canonicalization failures as runtime errors', async () => {

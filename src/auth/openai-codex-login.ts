@@ -38,11 +38,22 @@ export type CallbackServerListener = (
 ) => Promise<CallbackServer>
 
 export type OpenAICodexCallbackListener = {
-    waitForCallback: () => Promise<URL | null>
+    waitForCallback: () => Promise<OpenAICodexCallbackOutcome | null>
     close: () => Promise<void>
 }
 
+export type OpenAICodexCallbackOutcome =
+    | {
+          status: 'accepted'
+          code: string
+      }
+    | {
+          status: 'rejected'
+          reason: 'missing_code' | 'state_mismatch'
+      }
+
 export type OpenAICodexCallbackListenerOptions = {
+    expectedState: string
     listen?: CallbackServerListener
 }
 
@@ -110,20 +121,21 @@ const listenWithNodeHttp: CallbackServerListener = ({ host, port, onRequest }) =
     })
 
 export const startOpenAICodexCallbackListener = async ({
+    expectedState,
     listen = listenWithNodeHttp,
-}: OpenAICodexCallbackListenerOptions = {}): Promise<OpenAICodexCallbackListener> => {
-    let resolveCallback: ((callbackUrl: URL | null) => void) | undefined
+}: OpenAICodexCallbackListenerOptions): Promise<OpenAICodexCallbackListener> => {
+    let resolveCallback: ((outcome: OpenAICodexCallbackOutcome | null) => void) | undefined
     let callbackSettled = false
-    const callbackPromise = new Promise<URL | null>((resolve) => {
+    const callbackPromise = new Promise<OpenAICodexCallbackOutcome | null>((resolve) => {
         resolveCallback = resolve
     })
-    const settleCallback = (callbackUrl: URL | null): void => {
+    const settleCallback = (outcome: OpenAICodexCallbackOutcome | null): void => {
         if (callbackSettled) {
             return
         }
 
         callbackSettled = true
-        resolveCallback?.(callbackUrl)
+        resolveCallback?.(outcome)
     }
     const server = await listen({
         host: CALLBACK_HOST,
@@ -135,7 +147,19 @@ export const startOpenAICodexCallbackListener = async ({
                 return { statusCode: 404 }
             }
 
-            settleCallback(callbackUrl)
+            const code = callbackUrl.searchParams.get('code')
+
+            if (code === null || code.length === 0) {
+                settleCallback({ status: 'rejected', reason: 'missing_code' })
+                return { statusCode: 400 }
+            }
+
+            if (callbackUrl.searchParams.get('state') !== expectedState) {
+                settleCallback({ status: 'rejected', reason: 'state_mismatch' })
+                return { statusCode: 400 }
+            }
+
+            settleCallback({ status: 'accepted', code })
             return { statusCode: 204 }
         },
     })

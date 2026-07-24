@@ -1,6 +1,13 @@
 import { relative, resolve, sep } from 'node:path'
 
 import {
+    createOpenAICodexAuthorization,
+    startOpenAICodexCallbackListener,
+    type OpenAICodexAuthorization,
+    type OpenAICodexCallbackListener,
+    type OpenAICodexCallbackListenerOptions,
+} from './auth/openai-codex-login.ts'
+import {
     canonicalizeWorkspaceRoot,
     readFileArgumentsSchema,
     runAgent,
@@ -15,18 +22,27 @@ const RUN_BUDGET = {
     perToolTimeoutMs: 5_000,
 } as const
 
-const USAGE = 'Usage: yo ask "<task>" --cwd <workspace> [--model <name>]'
+const USAGE = ['Usage: yo ask "<task>" --cwd <workspace> [--model <name>]', '       yo login'].join(
+    '\n'
+)
 
 type AskCommand = {
+    name: 'ask'
     task: string
     cwd: string
     model: string | null
 }
 
+type LoginCommand = {
+    name: 'login'
+}
+
+type CliCommand = AskCommand | LoginCommand
+
 type ParseResult =
     | {
           status: 'success'
-          command: AskCommand
+          command: CliCommand
       }
     | {
           status: 'error'
@@ -37,6 +53,10 @@ export type CliDependencies = {
     transport: ModelTransport | null
     writeOutput: (message: string) => void
     writeError: (message: string) => void
+    createAuthorization?: () => OpenAICodexAuthorization
+    startCallbackListener?: (
+        options: OpenAICodexCallbackListenerOptions
+    ) => Promise<OpenAICodexCallbackListener>
 }
 
 export type CliResult = {
@@ -44,11 +64,25 @@ export type CliResult = {
     session: SessionState | null
 }
 
-const parseAskCommand = (argv: readonly string[]): ParseResult => {
+const parseCliCommand = (argv: readonly string[]): ParseResult => {
+    if (argv[0] === 'login') {
+        if (argv.length !== 1) {
+            return {
+                status: 'error',
+                message: 'login does not accept arguments',
+            }
+        }
+
+        return {
+            status: 'success',
+            command: { name: 'login' },
+        }
+    }
+
     if (argv[0] !== 'ask') {
         return {
             status: 'error',
-            message: 'Expected the ask command',
+            message: 'Expected the ask or login command',
         }
     }
 
@@ -127,6 +161,7 @@ const parseAskCommand = (argv: readonly string[]): ParseResult => {
     return {
         status: 'success',
         command: {
+            name: 'ask',
             task,
             cwd,
             model: model ?? null,
@@ -149,6 +184,73 @@ const runtimeError = (message: string, writeError: CliDependencies['writeError']
     return {
         exitCode: 1,
         session: null,
+    }
+}
+
+const isAddressInUseError = (error: unknown): boolean =>
+    error instanceof Error && 'code' in error && error.code === 'EADDRINUSE'
+
+type LoginDependencies = {
+    createAuthorization: (() => OpenAICodexAuthorization) | undefined
+    startCallbackListener:
+        | ((options: OpenAICodexCallbackListenerOptions) => Promise<OpenAICodexCallbackListener>)
+        | undefined
+    writeError: CliDependencies['writeError']
+    writeOutput: CliDependencies['writeOutput']
+}
+
+const runLogin = async ({
+    createAuthorization,
+    startCallbackListener,
+    writeError,
+    writeOutput,
+}: LoginDependencies): Promise<CliResult> => {
+    const authorization = createAuthorization?.() ?? createOpenAICodexAuthorization()
+    let listener: OpenAICodexCallbackListener
+
+    try {
+        listener = await (startCallbackListener ?? startOpenAICodexCallbackListener)({
+            expectedState: authorization.state,
+        })
+    } catch (error) {
+        if (isAddressInUseError(error)) {
+            return runtimeError(
+                'OAuth callback address 127.0.0.1:1455 is already in use. Close the other listener and try again.',
+                writeError
+            )
+        }
+
+        return runtimeError('Cannot start the OAuth callback listener.', writeError)
+    }
+
+    try {
+        writeOutput(`Open this URL in your browser:\n${authorization.authorizationUrl}`)
+
+        const outcome = await listener.waitForCallback()
+
+        if (outcome === null) {
+            return runtimeError('OAuth callback did not complete.', writeError)
+        }
+
+        if (outcome.status === 'rejected') {
+            return runtimeError(
+                outcome.reason === 'state_mismatch'
+                    ? 'OAuth callback state did not match the login request.'
+                    : 'OAuth callback did not include an authorization code.',
+                writeError
+            )
+        }
+
+        writeOutput(
+            'Authorization received. Credential exchange will be implemented in milestone 6.2.3.'
+        )
+
+        return {
+            exitCode: 0,
+            session: null,
+        }
+    } finally {
+        await listener.close()
     }
 }
 
@@ -243,12 +345,27 @@ const formatSessionOutput = (session: SessionState): string => {
 
 export const runCli = async (
     argv: readonly string[],
-    { transport, writeOutput, writeError }: CliDependencies
+    {
+        transport,
+        writeOutput,
+        writeError,
+        createAuthorization,
+        startCallbackListener,
+    }: CliDependencies
 ): Promise<CliResult> => {
-    const parsed = parseAskCommand(argv)
+    const parsed = parseCliCommand(argv)
 
     if (parsed.status === 'error') {
         return usageError(parsed.message, writeError)
+    }
+
+    if (parsed.command.name === 'login') {
+        return runLogin({
+            createAuthorization,
+            startCallbackListener,
+            writeOutput,
+            writeError,
+        })
     }
 
     if (transport === null) {
