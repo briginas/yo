@@ -310,9 +310,103 @@ describe('refreshOpenAICodexCredential', () => {
             accountId: 'refreshed-account-id',
         })
     })
+
+    test('sanitizes network, HTTP, and malformed refresh failures', async (context) => {
+        const currentRefreshToken = 'private-current-refresh-token'
+        const cases = [
+            {
+                name: 'network failure',
+                privateDetail: 'private-network-failure',
+                fetch: async (): Promise<Response> => {
+                    throw new Error('private-network-failure')
+                },
+            },
+            {
+                name: 'unsuccessful response',
+                privateDetail: 'private-response-details',
+                fetch: async () =>
+                    new Response('private-response-details', {
+                        status: 401,
+                    }),
+            },
+            {
+                name: 'malformed response',
+                privateDetail: 'private-malformed-response',
+                fetch: async () => new Response('private-malformed-response', { status: 200 }),
+            },
+            {
+                name: 'missing token fields',
+                privateDetail: 'private-missing-token-fields',
+                fetch: async () =>
+                    new Response(
+                        JSON.stringify({
+                            error: 'private-missing-token-fields',
+                        }),
+                        { status: 200 }
+                    ),
+            },
+            {
+                name: 'missing account id',
+                privateDetail: 'private-invalid-access-token',
+                fetch: async () =>
+                    new Response(
+                        JSON.stringify({
+                            access_token: 'private-invalid-access-token',
+                            refresh_token: 'private-rotated-refresh-token',
+                            expires_in: 3_600,
+                        }),
+                        { status: 200 }
+                    ),
+            },
+        ] as const
+
+        for (const testCase of cases) {
+            await context.test(testCase.name, async () => {
+                await assert.rejects(
+                    refreshOpenAICodexCredential({
+                        refreshToken: currentRefreshToken,
+                        fetch: testCase.fetch,
+                    }),
+                    (error: unknown) => {
+                        assert.ok(error instanceof Error)
+                        assert.equal(
+                            error.message,
+                            'OAuth credential refresh failed. Run yo login again.'
+                        )
+                        assert.equal(error.message.includes(currentRefreshToken), false)
+                        assert.equal(error.message.includes(testCase.privateDetail), false)
+
+                        return true
+                    }
+                )
+            })
+        }
+    })
 })
 
 describe('resolveOpenAICodexCredential', () => {
+    test('returns undefined without locking or refreshing when no credential is stored', async () => {
+        const credentialStore: CredentialStore = {
+            read: async (providerId) => {
+                assert.equal(providerId, 'openai-codex')
+                return undefined
+            },
+            modify: async () => {
+                throw new Error('modify must not run')
+            },
+            delete: async () => {},
+        }
+
+        const resolved = await resolveOpenAICodexCredential({
+            credentialStore,
+            refreshCredential: async () => {
+                throw new Error('refresh must not run')
+            },
+        })
+
+        assert.equal(resolved, undefined)
+    })
+
     test('returns a valid credential without locking or refreshing', async () => {
         const credential = {
             type: 'oauth',
