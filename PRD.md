@@ -111,7 +111,7 @@ Use fixture directories and a scripted faux model to test:
 
 Use injected HTTP and temporary credential stores to test OAuth and the Codex adapter without real credentials or network requests. Cover PKCE and state validation, credential permissions and refresh, login status and logout, secret redaction, final-answer streaming, and tool-call normalization.
 
-## 7. Acceptance criteria
+## 7. Milestone 1 acceptance criteria
 
 - The CLI completes a read-only research task against a fixture repository.
 - No model-invoked code path can write files, start a process, access credentials, or make arbitrary network requests in this milestone.
@@ -121,9 +121,48 @@ Use injected HTTP and temporary credential stores to test OAuth and the Codex ad
 - A user with ChatGPT Plus can run `yo login` and complete one real read-only task without configuring an OpenAI API key.
 - The final output gives enough evidence for a human to check the answer.
 
-## 8. Follow-up milestones
+## 8. Next milestone boundary
+
+Milestone 2 adds an in-memory multi-turn CLI command:
+
+```text
+yo chat --cwd <approved-workspace> [--model <name>]
+```
+
+The command reuses the existing ChatGPT OAuth transport, canonical workspace root, bounded agent loop, structured events, evidence output, and the same three read-only tools. User messages, assistant messages, tool calls, and tool results remain available to later turns only while the `yo chat` process is running.
+
+The terminal provides live, event-backed feedback during each turn:
+
+- show a prompt when user input is expected;
+- show that the harness is waiting while a model request is in flight;
+- show each tool request and its lifecycle outcome: running, completed, denied, timed out, or failed;
+- include only a safe summary of tool arguments, truncation, and completion status rather than dumping unrestricted tool results;
+- stream final-answer text and clearly mark the end and stop reason of each turn;
+- use stable line-oriented output without terminal control sequences when output is not an interactive TTY.
+
+Interactive status output is derived from harness lifecycle events and must not expose hidden reasoning, OAuth credentials, authorization headers, raw provider payloads, or unsanitized errors. Terminal rendering remains outside the provider adapter and read-only tool dispatcher.
+
+Milestone 2 does not add persistent sessions, JSONL history, compaction, branching, a TUI, model-visible write or process tools, patch application, validation commands, skills, extensions, MCP, subagents, API-key fallback, or provider portability. Exiting the process discards the chat transcript and must not write inside the approved workspace.
+
+### Milestone 2 acceptance criteria
+
+- A user can run `yo chat --cwd <approved-workspace> [--model <name>]`, complete multiple turns, and ask a follow-up that relies on messages and tool observations from an earlier turn.
+- The approved workspace root and selected model remain fixed for the lifetime of the chat process.
+- Each user turn has a fresh bounded step count and tool timeout, plus its own ordered events, final status, stop reason, and evidence.
+- While a turn is active, the terminal clearly shows when the harness is waiting for the model and when each tool is running, completed, denied, timed out, or failed.
+- Tool status displays contain only bounded, safe summaries of known arguments, result status, and truncation; they never dump unrestricted tool results or unknown argument objects.
+- Final-answer text streams when the transport supports it and appears exactly once; transports without text deltas still produce the complete final answer.
+- Interactive TTY progress is cleaned up on every completion and failure path, while non-TTY output remains deterministic and contains no terminal control sequences.
+- EOF and the exact `/exit` command end the chat cleanly; `/exit` is not sent to the model or appended to the conversation transcript.
+- Exiting the process discards all chat state, leaves the approved workspace unchanged, and creates no persistent transcript or chat-state file.
+- Live output and retained context never expose hidden reasoning, OAuth credentials, authorization headers, raw provider payloads, or unsanitized errors.
+- The model-visible registry remains limited to `list_files`, `search_code`, and `read_file`, with the existing schema validation, permission checks, output bounds, and one-`ToolResult`-per-call invariant.
+- Existing `yo ask`, `yo login`, `yo auth status`, and `yo logout` behavior remains compatible.
+- Deterministic faux-transport tests pass without real credentials or paid requests, and one real ChatGPT Plus chat completes a tool-using turn and a follow-up without `OPENAI_API_KEY`.
+
+Later milestones may:
 
 1. Propose and apply patches behind explicit terminal approval.
 2. Add allowlisted validation commands with fixed working directory, timeout, and output limits.
 3. Add append-only JSONL sessions, then compaction that preserves task, approval state, changed files, and validation evidence.
-4. Add interactive UX, then skills/extensions and provider portability when the single-agent loop has been validated.
+4. Add richer interactive UX, then skills/extensions and provider portability after the in-memory chat loop has been validated.
