@@ -1,7 +1,7 @@
 # Active implementation plan: Milestone 2 in-memory interactive chat
 
-- **Status:** active, 8.1–8.2.2 complete
-- **First incomplete leaf:** `8.2.3 Verify multi-turn context`
+- **Status:** active, 8.1–8.2.3 complete
+- **First incomplete leaf:** `8.3.1 Define the renderer boundary`
 - **Source of truth for:** Milestone 2 implementation order and verification
 - **Related documents:** [implementation map](../../../IMPLEMENTATION_PLAN.md),
   [Milestone 2 requirements](../../requirements/milestone-2-in-memory-chat.md)
@@ -264,15 +264,15 @@ flowchart LR
               keeping the workspace, model, and transcript fixed.
         - [x] Stop safely on transport failure or budget exhaustion without
               inventing a persistent recovery mechanism.
-    - [ ] **8.2.3 Verify multi-turn context**
-        - [ ] Use a faux transport to verify a first turn with `search_code` and
+    - [x] **8.2.3 Verify multi-turn context**
+        - [x] Use a faux transport to verify a first turn with `search_code` and
               `read_file`, followed by a grounded second-turn answer that relies on
               prior observations.
-        - [ ] Verify the system message appears once, each user message appears
+        - [x] Verify the system message appears once, each user message appears
               once, and tool results remain paired with their calls.
-        - [ ] Verify workspace/model immutability, per-turn budget reset,
+        - [x] Verify workspace/model immutability, per-turn budget reset,
               failure behavior, and absence of filesystem writes.
-        - [ ] Run focused conversation tests, the full test suite, build, format
+        - [x] Run focused conversation tests, the full test suite, build, format
               check, and whitespace check.
 
 - [ ] **8.3 Render safe interactive terminal status**

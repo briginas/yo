@@ -43,6 +43,7 @@ test('exports only the approved read-only runtime capabilities', () => {
         'readFileArgumentsSchema',
         'resolveWorkspacePath',
         'runAgent',
+        'runConversationTurn',
         'searchCode',
         'searchCodeArgumentsSchema',
     ])

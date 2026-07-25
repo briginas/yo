@@ -15,9 +15,9 @@ one. Confirm the first incomplete leaf with the user before implementation.
   [requirements](docs/requirements/milestone-2-in-memory-chat.md) and
   [active implementation plan](docs/plans/active/milestone-2-in-memory-chat.md)
   are the detailed sources of truth.
-- **Next candidate leaf:** `8.2.3 Verify multi-turn context`.
+- **Next candidate leaf:** `8.3.1 Define the renderer boundary`.
   Milestone 2 has completed the verified public event-observer boundary and
-  bounded turn continuation.
+  bounded in-memory turn continuation.
 
 ## Permanent constraints
 
