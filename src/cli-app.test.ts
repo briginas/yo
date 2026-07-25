@@ -144,9 +144,44 @@ test('passes an explicit model and returns a failed session with exit code 1', a
     }
 })
 
+test('canonicalizes chat workspace before stopping at the unimplemented input boundary', async () => {
+    const workspace = await mkdtemp(`${tmpdir()}/yo-cli-chat-`)
+    let transportCalled = false
+    const transport: ModelTransport = async () => {
+        transportCalled = true
+        throw new Error('transport must not be called')
+    }
+
+    try {
+        const relativeWorkspace = relative(process.cwd(), workspace)
+        const { errors, outputs, result } = await invokeCli({
+            argv: ['chat', '--model', 'chosen-model', '--cwd', relativeWorkspace],
+            transport,
+        })
+
+        assert.deepEqual(result, { exitCode: 1, session: null })
+        assert.deepEqual(outputs, [])
+        assert.deepEqual(errors, ['Chat input loop is not available yet'])
+        assert.equal(transportCalled, false)
+    } finally {
+        await rm(workspace, { recursive: true, force: true })
+    }
+})
+
+test('rejects chat before the input boundary when its workspace cannot be canonicalized', async () => {
+    const { errors, outputs, result } = await invokeCli({
+        argv: ['chat', '--cwd', '/missing/yo-chat-workspace'],
+    })
+
+    assert.deepEqual(result, { exitCode: 1, session: null })
+    assert.deepEqual(outputs, [])
+    assert.equal(errors.length, 1)
+    assert.match(errors[0]!, /^Cannot use workspace:/)
+})
+
 test('rejects invalid command-line arguments with usage exit code 2', async (context) => {
     const cases = [
-        { name: 'unknown command', argv: ['chat', 'task', '--cwd', '.'] },
+        { name: 'chat positional argument', argv: ['chat', 'task', '--cwd', '.'] },
         { name: 'login arguments', argv: ['login', 'extra'] },
         { name: 'missing auth subcommand', argv: ['auth'] },
         { name: 'unknown auth subcommand', argv: ['auth', 'logout'] },

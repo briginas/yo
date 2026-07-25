@@ -1,7 +1,7 @@
 # Active implementation plan: Milestone 2 in-memory interactive chat
 
-- **Status:** active, 8.1–8.3 complete
-- **First incomplete leaf:** `8.4.1 Parse the bounded chat command`
+- **Status:** active, 8.1–8.3 and 8.4.1 complete
+- **First incomplete leaf:** `8.4.2 Add an injectable line-input boundary`
 - **Source of truth for:** Milestone 2 implementation order and verification
 - **Related documents:** [implementation map](../../../IMPLEMENTATION_PLAN.md),
   [Milestone 2 requirements](../../requirements/milestone-2-in-memory-chat.md)
@@ -314,18 +314,18 @@ flowchart LR
               check, and whitespace check.
 
 - [ ] **8.4 Add the `yo chat` command and input loop**
-    - [ ] **8.4.1 Parse the bounded chat command**
-        - [ ] Extract the command variants, usage text, and pure argument parser
+    - [x] **8.4.1 Parse the bounded chat command**
+        - [x] Extract the command variants, usage text, and pure argument parser
               from `cli-app.ts` into `cli-command.ts` while adding `chat`; keep
               authentication, workspace setup, transport, and runtime
               orchestration outside the parser.
-        - [ ] Accept exactly
+        - [x] Accept exactly
               `yo chat --cwd <workspace> [--model <name>]`.
-        - [ ] Reject missing, duplicate, empty, option-like, unknown, and extra
+        - [x] Reject missing, duplicate, empty, option-like, unknown, and extra
               arguments with usage exit code `2`.
-        - [ ] Preserve all existing `ask`, login, auth status, and logout
+        - [x] Preserve all existing `ask`, login, auth status, and logout
               parsing behavior.
-        - [ ] Canonicalize the workspace once before accepting the first user
+        - [x] Canonicalize the workspace once before accepting the first user
               turn.
     - [ ] **8.4.2 Add an injectable line-input boundary**
         - [ ] Prompt for one line at a time without exposing terminal input as a

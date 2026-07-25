@@ -11,6 +11,7 @@ import {
 } from './auth/openai-codex-login.ts'
 import { createFileCredentialStore } from './auth/file-credential-store.ts'
 import { OPENAI_CODEX_PROVIDER_ID, type CredentialStore } from './auth/credential.ts'
+import { parseCliCommand, USAGE } from './cli-command.ts'
 import {
     canonicalizeWorkspaceRoot,
     readFileArgumentsSchema,
@@ -25,44 +26,6 @@ const RUN_BUDGET = {
     maxSteps: 10,
     perToolTimeoutMs: 5_000,
 } as const
-
-const USAGE = [
-    'Usage: yo ask "<task>" --cwd <workspace> [--model <name>]',
-    '       yo login',
-    '       yo auth status',
-    '       yo logout',
-].join('\n')
-
-type AskCommand = {
-    name: 'ask'
-    task: string
-    cwd: string
-    model: string | null
-}
-
-type LoginCommand = {
-    name: 'login'
-}
-
-type AuthStatusCommand = {
-    name: 'auth_status'
-}
-
-type LogoutCommand = {
-    name: 'logout'
-}
-
-type CliCommand = AskCommand | LoginCommand | AuthStatusCommand | LogoutCommand
-
-type ParseResult =
-    | {
-          status: 'success'
-          command: CliCommand
-      }
-    | {
-          status: 'error'
-          message: string
-      }
 
 export type CliDependencies = {
     transport: ModelTransport
@@ -79,146 +42,6 @@ export type CliDependencies = {
 export type CliResult = {
     exitCode: 0 | 1 | 2
     session: SessionState | null
-}
-
-const parseCliCommand = (argv: readonly string[]): ParseResult => {
-    if (argv[0] === 'login') {
-        if (argv.length !== 1) {
-            return {
-                status: 'error',
-                message: 'login does not accept arguments',
-            }
-        }
-
-        return {
-            status: 'success',
-            command: { name: 'login' },
-        }
-    }
-
-    if (argv[0] === 'auth') {
-        if (argv[1] !== 'status') {
-            return {
-                status: 'error',
-                message: 'Expected the auth status command',
-            }
-        }
-
-        if (argv.length !== 2) {
-            return {
-                status: 'error',
-                message: 'auth status does not accept arguments',
-            }
-        }
-
-        return {
-            status: 'success',
-            command: { name: 'auth_status' },
-        }
-    }
-
-    if (argv[0] === 'logout') {
-        if (argv.length !== 1) {
-            return {
-                status: 'error',
-                message: 'logout does not accept arguments',
-            }
-        }
-
-        return {
-            status: 'success',
-            command: { name: 'logout' },
-        }
-    }
-
-    if (argv[0] !== 'ask') {
-        return {
-            status: 'error',
-            message: 'Expected the ask, login, auth status, or logout command',
-        }
-    }
-
-    let task: string | undefined
-    let cwd: string | undefined
-    let model: string | undefined
-
-    for (let index = 1; index < argv.length; index += 1) {
-        const argument = argv[index]!
-
-        if (argument === '--cwd' || argument === '--model') {
-            const value = argv[index + 1]
-
-            if (value === undefined || value.startsWith('-') || value.trim().length === 0) {
-                return {
-                    status: 'error',
-                    message: `${argument} requires a non-empty value`,
-                }
-            }
-
-            if (argument === '--cwd') {
-                if (cwd !== undefined) {
-                    return {
-                        status: 'error',
-                        message: '--cwd may be specified only once',
-                    }
-                }
-
-                cwd = value
-            } else {
-                if (model !== undefined) {
-                    return {
-                        status: 'error',
-                        message: '--model may be specified only once',
-                    }
-                }
-
-                model = value
-            }
-
-            index += 1
-            continue
-        }
-
-        if (argument.startsWith('-')) {
-            return {
-                status: 'error',
-                message: `Unknown option: ${argument}`,
-            }
-        }
-
-        if (task !== undefined) {
-            return {
-                status: 'error',
-                message: 'Expected exactly one task',
-            }
-        }
-
-        task = argument
-    }
-
-    if (task === undefined || task.trim().length === 0) {
-        return {
-            status: 'error',
-            message: 'Task must not be empty',
-        }
-    }
-
-    if (cwd === undefined) {
-        return {
-            status: 'error',
-            message: '--cwd is required',
-        }
-    }
-
-    return {
-        status: 'success',
-        command: {
-            name: 'ask',
-            task,
-            cwd,
-            model: model ?? null,
-        },
-    }
 }
 
 const usageError = (message: string, writeError: CliDependencies['writeError']): CliResult => {
@@ -519,6 +342,10 @@ export const runCli = async (
         const cause = error instanceof Error ? error.message : 'Unknown workspace error'
 
         return runtimeError(`Cannot use workspace: ${cause}`, writeError)
+    }
+
+    if (parsed.command.name === 'chat') {
+        return runtimeError('Chat input loop is not available yet', writeError)
     }
 
     try {
