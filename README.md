@@ -5,8 +5,11 @@
 The project takes architectural inspiration from [`pi`](../pi), especially its separation between the agent loop, model transport, tool execution, and interactive presentation. `yo` intentionally keeps a smaller boundary: one Codex transport, one bounded single-agent loop, and three read-only tools with local validation and permission checks.
 
 ## Current status
-
-Milestone 1 is complete: `yo ask` supports a bounded read-only task through ChatGPT Plus OAuth. [Milestone 2](IMPLEMENTATION_PLAN.md) is planned as an in-memory `yo chat` command with multiple turns and live terminal feedback; it does not add persistence, write tools, shell execution, MCP, or subagents.
+Milestone 1 is complete: `yo ask` supports a bounded read-only task through ChatGPT Plus OAuth.
+Milestone 2 is in progress: live lifecycle events and bounded turn continuation are implemented.
+The remaining work covers terminal status rendering, the `yo chat` command, and safe final-answer
+release. [See the active plan →](IMPLEMENTATION_PLAN.md)
+It does not add persistence, write tools, shell execution, MCP, or subagents.
 
 ## Requirements and setup
 
