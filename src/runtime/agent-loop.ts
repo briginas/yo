@@ -5,6 +5,7 @@ import type {
     RunEvent,
     RunEventObserver,
     RunStatus,
+    SessionMessage,
     SessionState,
     StopReason,
 } from './run.ts'
@@ -27,6 +28,7 @@ export type RunAgentOptions = {
     model: string | null
     transport: ModelTransport
     onEvent?: RunEventObserver
+    initialMessages?: readonly SessionMessage[]
 }
 
 type ToolDispatcher = (
@@ -107,7 +109,7 @@ const createUnexpectedDispatcherErrorResult = (call: ToolCall, error: unknown): 
 // Exported only from this internal module so the loop can be tested with a controlled dispatcher.
 // The public runtime barrel exposes runAgent with the closed read-only registry.
 export const runAgentWithDispatcher = async (
-    { task, workspaceRoot, budget, model, transport, onEvent }: RunAgentOptions,
+    { task, workspaceRoot, budget, model, transport, onEvent, initialMessages }: RunAgentOptions,
     dispatch: ToolDispatcher
 ): Promise<SessionState> => {
     const session: SessionState = {
@@ -117,10 +119,14 @@ export const runAgentWithDispatcher = async (
         status: 'running',
         stepCount: 0,
         messages: [
-            {
-                role: 'system',
-                content: SYSTEM_PROMPT,
-            },
+            ...(initialMessages === undefined
+                ? [
+                      {
+                          role: 'system' as const,
+                          content: SYSTEM_PROMPT,
+                      },
+                  ]
+                : structuredClone(initialMessages)),
             {
                 role: 'user',
                 content: task,

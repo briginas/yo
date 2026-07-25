@@ -3,9 +3,12 @@ export {
     appendTurnToConversation,
     createConversation,
     createConversationTurnResult,
+    runConversationTurn,
     type ConversationState,
     type ConversationTurnResult,
     type CreateConversationOptions,
+    type RunConversationTurnOptions,
+    type RunConversationTurnResult,
 } from './conversation.ts'
 export * from './filesystem.ts'
 export * from './permissions.ts'

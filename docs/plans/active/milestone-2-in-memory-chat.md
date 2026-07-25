@@ -1,7 +1,7 @@
 # Active implementation plan: Milestone 2 in-memory interactive chat
 
-- **Status:** active, 8.1–8.2.1 complete
-- **First incomplete leaf:** `8.2.2 Implement bounded turn continuation`
+- **Status:** active, 8.1–8.2.2 complete
+- **First incomplete leaf:** `8.2.3 Verify multi-turn context`
 - **Source of truth for:** Milestone 2 implementation order and verification
 - **Related documents:** [implementation map](../../../IMPLEMENTATION_PLAN.md),
   [Milestone 2 requirements](../../requirements/milestone-2-in-memory-chat.md)
@@ -254,15 +254,15 @@ flowchart LR
         - [x] Define how a completed or failed turn updates the transcript
               without adding persistence or compaction.
         - [x] Keep `yo ask` on its existing one-turn contract.
-    - [ ] **8.2.2 Implement bounded turn continuation**
-        - [ ] Append one user message, run the existing bounded loop against
+    - [x] **8.2.2 Implement bounded turn continuation**
+        - [x] Append one user message, run the existing bounded loop against
               prior messages, and return the updated in-memory conversation plus the
               turn result.
-        - [ ] Preserve assistant tool calls and matching tool results in
+        - [x] Preserve assistant tool calls and matching tool results in
               provider-neutral order for the next model request.
-        - [ ] Reset the step counter and per-turn events for each turn while
+        - [x] Reset the step counter and per-turn events for each turn while
               keeping the workspace, model, and transcript fixed.
-        - [ ] Stop safely on transport failure or budget exhaustion without
+        - [x] Stop safely on transport failure or budget exhaustion without
               inventing a persistent recovery mechanism.
     - [ ] **8.2.3 Verify multi-turn context**
         - [ ] Use a faux transport to verify a first turn with `search_code` and
