@@ -3,6 +3,7 @@ import { test } from 'node:test'
 
 import {
     createTerminalRenderer,
+    createTerminalStatusOutput,
     formatTerminalStatusLine,
     type TerminalStatus,
     type TerminalTextWriter,
@@ -30,6 +31,30 @@ const createRendererFixture = (isInteractive: boolean) => {
         statuses,
         errors,
         renderer,
+    }
+}
+
+type TerminalOutputOperation =
+    | {
+          type: 'write'
+          message: string
+      }
+    | {
+          type: 'clear_line' | 'move_cursor_to_start'
+      }
+
+const createStatusOutputFixture = (isInteractive: boolean) => {
+    const operations: TerminalOutputOperation[] = []
+    const output = createTerminalStatusOutput({
+        write: (message) => operations.push({ type: 'write', message }),
+        clearLine: () => operations.push({ type: 'clear_line' }),
+        moveCursorToStart: () => operations.push({ type: 'move_cursor_to_start' }),
+        isInteractive,
+    })
+
+    return {
+        operations,
+        output,
     }
 }
 
@@ -623,4 +648,198 @@ test('ignores unmatched authorization and completion events', () => {
     })
 
     assert.deepEqual(statuses, [])
+})
+
+test('writes every non-interactive status as a deterministic line without terminal controls', () => {
+    const { operations, output } = createStatusOutputFixture(false)
+    const statuses: TerminalStatus[] = [
+        {
+            type: 'model_waiting',
+            step: 1,
+            active: true,
+        },
+        {
+            type: 'model_waiting',
+            step: 1,
+            active: false,
+        },
+        {
+            type: 'tool_running',
+            step: 1,
+            callId: 'call-1',
+            toolName: 'read_file',
+            argumentSummary: 'path="src/cli.ts"',
+            truncation: null,
+        },
+        {
+            type: 'turn_finished',
+            status: 'completed',
+            reason: 'final_answer',
+        },
+    ]
+
+    for (const status of statuses) {
+        output.writeStatus(status)
+    }
+    output.clearProgress()
+
+    assert.deepEqual(
+        operations,
+        statuses.map((status) => ({
+            type: 'write',
+            message: `${formatTerminalStatusLine(status)}\n`,
+        }))
+    )
+})
+
+test('shows and clears interactive model progress with idempotent cleanup', () => {
+    const { operations, output } = createStatusOutputFixture(true)
+
+    output.writeStatus({
+        type: 'model_waiting',
+        step: 1,
+        active: true,
+    })
+    output.writeStatus({
+        type: 'model_waiting',
+        step: 1,
+        active: false,
+    })
+    output.clearProgress()
+
+    assert.deepEqual(operations, [
+        { type: 'clear_line' },
+        { type: 'move_cursor_to_start' },
+        { type: 'write', message: 'status: model_waiting step=1' },
+        { type: 'clear_line' },
+        { type: 'move_cursor_to_start' },
+    ])
+})
+
+test('replaces interactive progress and settles tool outcomes on durable lines', () => {
+    type ToolStatus = Extract<TerminalStatus, { callId: string }>
+
+    const settledStatuses = [
+        {
+            type: 'tool_completed',
+            step: 2,
+            callId: 'call-completed',
+            toolName: 'read_file',
+            argumentSummary: 'path="src/cli.ts"',
+            truncation: null,
+        },
+        {
+            type: 'tool_denied',
+            step: 2,
+            callId: 'call-denied',
+            toolName: 'read_file',
+            argumentSummary: 'path="../outside.ts"',
+            truncation: null,
+        },
+        {
+            type: 'tool_timeout',
+            step: 2,
+            callId: 'call-timeout',
+            toolName: 'search_code',
+            argumentSummary: 'query="needle"',
+            truncation: null,
+        },
+        {
+            type: 'tool_failed',
+            step: 2,
+            callId: 'call-failed',
+            toolName: 'unknown_tool',
+            argumentSummary: null,
+            truncation: null,
+        },
+    ] as const satisfies readonly ToolStatus[]
+
+    for (const settledStatus of settledStatuses) {
+        const { operations, output } = createStatusOutputFixture(true)
+        const runningStatus: ToolStatus = {
+            ...settledStatus,
+            type: 'tool_running',
+            truncation: null,
+        }
+
+        output.writeStatus({
+            type: 'model_waiting',
+            step: 2,
+            active: true,
+        })
+        output.writeStatus(runningStatus)
+        output.writeStatus(settledStatus)
+
+        assert.deepEqual(operations, [
+            { type: 'clear_line' },
+            { type: 'move_cursor_to_start' },
+            { type: 'write', message: 'status: model_waiting step=2' },
+            { type: 'clear_line' },
+            { type: 'move_cursor_to_start' },
+            { type: 'write', message: formatTerminalStatusLine(runningStatus) },
+            { type: 'clear_line' },
+            { type: 'move_cursor_to_start' },
+            {
+                type: 'write',
+                message: `${formatTerminalStatusLine(settledStatus)}\n`,
+            },
+        ])
+    }
+})
+
+test('cleans interactive progress on transport failure and budget exhaustion', () => {
+    const cases: TerminalStatus[] = [
+        {
+            type: 'turn_finished',
+            status: 'failed',
+            reason: 'transport_error',
+        },
+        {
+            type: 'turn_finished',
+            status: 'completed',
+            reason: 'step_budget_exhausted',
+        },
+    ]
+
+    for (const status of cases) {
+        const { operations, output } = createStatusOutputFixture(true)
+
+        output.writeStatus({
+            type: 'model_waiting',
+            step: 3,
+            active: true,
+        })
+        output.writeStatus(status)
+        output.clearProgress()
+
+        assert.deepEqual(operations.slice(-3), [
+            { type: 'clear_line' },
+            { type: 'move_cursor_to_start' },
+            {
+                type: 'write',
+                message: `${formatTerminalStatusLine(status)}\n`,
+            },
+        ])
+    }
+})
+
+test('writes settled interactive status without terminal controls when no progress is active', () => {
+    const { operations, output } = createStatusOutputFixture(true)
+    const status: TerminalStatus = {
+        type: 'tool_denied',
+        step: 1,
+        callId: 'call-denied',
+        toolName: 'read_file',
+        argumentSummary: 'path="../outside.ts"',
+        truncation: null,
+    }
+
+    output.writeStatus(status)
+
+    assert.deepEqual(operations, [
+        {
+            type: 'write',
+            message: `${formatTerminalStatusLine(status)}\n`,
+        },
+    ])
 })

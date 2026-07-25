@@ -33,6 +33,18 @@ export type TerminalStatus =
 
 export type TerminalStatusWriter = (status: TerminalStatus) => void
 
+export type CreateTerminalStatusOutputOptions = {
+    write: TerminalTextWriter
+    clearLine: () => void
+    moveCursorToStart: () => void
+    isInteractive: boolean
+}
+
+export type TerminalStatusOutput = {
+    readonly writeStatus: TerminalStatusWriter
+    readonly clearProgress: () => void
+}
+
 export type CreateTerminalRendererOptions = {
     writeAnswer: TerminalTextWriter
     writeStatus: TerminalStatusWriter
@@ -191,6 +203,62 @@ export const formatTerminalStatusLine = (status: TerminalStatus): string => {
             return normalizeSingleLine(
                 `status: turn_finished status=${status.status} reason=${status.reason}`
             )
+    }
+}
+
+export const createTerminalStatusOutput = ({
+    write,
+    clearLine,
+    moveCursorToStart,
+    isInteractive,
+}: CreateTerminalStatusOutputOptions): TerminalStatusOutput => {
+    let hasActiveProgress = false
+
+    const clearProgress = (): void => {
+        if (!isInteractive || !hasActiveProgress) {
+            return
+        }
+
+        clearLine()
+        moveCursorToStart()
+        hasActiveProgress = false
+    }
+
+    const writeInteractiveProgress = (status: TerminalStatus): void => {
+        clearLine()
+        moveCursorToStart()
+        write(formatTerminalStatusLine(status))
+        hasActiveProgress = true
+    }
+
+    const writeStatus: TerminalStatusWriter = (status) => {
+        if (!isInteractive) {
+            write(`${formatTerminalStatusLine(status)}\n`)
+            return
+        }
+
+        if (status.type === 'model_waiting') {
+            if (status.active) {
+                writeInteractiveProgress(status)
+            } else {
+                clearProgress()
+            }
+
+            return
+        }
+
+        if (status.type === 'tool_running') {
+            writeInteractiveProgress(status)
+            return
+        }
+
+        clearProgress()
+        write(`${formatTerminalStatusLine(status)}\n`)
+    }
+
+    return {
+        writeStatus,
+        clearProgress,
     }
 }
 

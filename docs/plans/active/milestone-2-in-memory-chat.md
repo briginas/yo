@@ -1,7 +1,7 @@
 # Active implementation plan: Milestone 2 in-memory interactive chat
 
-- **Status:** active, 8.1–8.3.2 complete
-- **First incomplete leaf:** `8.3.3 Add TTY progress behavior`
+- **Status:** active, 8.1–8.3.3 complete
+- **First incomplete leaf:** `8.3.4 Verify renderer safety and determinism`
 - **Source of truth for:** Milestone 2 implementation order and verification
 - **Related documents:** [implementation map](../../../IMPLEMENTATION_PLAN.md),
   [Milestone 2 requirements](../../requirements/milestone-2-in-memory-chat.md)
@@ -294,14 +294,14 @@ flowchart LR
         - [x] Sanitize errors and exclude reasoning, credentials, authorization
               headers, raw provider events, and unknown argument objects.
         - [x] Use deterministic line-oriented messages for non-TTY output.
-    - [ ] **8.3.3 Add TTY progress behavior**
-        - [ ] Show and clear a model-waiting indicator between `model_requested`
+    - [x] **8.3.3 Add TTY progress behavior**
+        - [x] Show and clear a model-waiting indicator between `model_requested`
               and `model_responded`.
-        - [ ] Show and settle tool progress between authorization and
+        - [x] Show and settle tool progress between authorization and
               completion.
-        - [ ] Ensure progress cleanup occurs on success, denial, timeout, error,
+        - [x] Ensure progress cleanup occurs on success, denial, timeout, error,
               transport failure, budget exhaustion, and exit.
-        - [ ] Prefer Node terminal primitives; do not add a dependency in this
+        - [x] Prefer Node terminal primitives; do not add a dependency in this
               leaf without separate approval.
     - [ ] **8.3.4 Verify renderer safety and determinism**
         - [ ] Test every supported event transition in TTY and non-TTY modes
