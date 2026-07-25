@@ -60,7 +60,7 @@ Run and review the checks for each step before moving to the next one.
     - [x] Print the final answer and evidence report: stop reason, files, and tools used.
     - [x] Verify a fixture-repository run with the faux transport.
 
-- [ ] **6. ChatGPT OAuth and OpenAI Codex adapter**
+- [x] **6. ChatGPT OAuth and OpenAI Codex adapter**
     - [x] **6.1 Store ChatGPT OAuth credentials safely**
         - [x] Define internal OAuth credential and credential-store contracts without changing the provider-neutral runtime boundary.
         - [x] Store the `openai-codex` credential in `~/.yo/auth.json`, with directory mode `0700`, file mode `0600`, atomic updates, and refresh locking.
@@ -70,7 +70,7 @@ Run and review the checks for each step before moving to the next one.
         - [x] Print a clickable authorization URL without starting a browser process; reject callback state mismatches and report an occupied callback port clearly.
         - [x] Exchange the authorization code for an OAuth credential and persist it without logging token values or token responses.
         - [x] Verify the complete login flow with injected HTTP and a temporary credential store; do not add device-code login.
-    - [ ] **6.3 Implement the credential lifecycle**
+    - [x] **6.3 Implement the credential lifecycle**
         - [x] Add `yo auth status` with non-secret account and expiry information and `yo logout` that removes the stored credential.
         - [x] Refresh an expiring access token under the credential-store lock and persist a rotated refresh token before a model request.
         - [x] Preserve the last stored credential on refresh failure, require a new `yo login`, and never fall back to an API key.
@@ -85,10 +85,10 @@ Run and review the checks for each step before moving to the next one.
         - [x] Run `yo login`, confirm `yo auth status`, and complete one `yo ask` task without `OPENAI_API_KEY`.
         - [x] Confirm that logout removes the credential and that the approved workspace remains unchanged.
 
-- [ ] **7. Milestone 1 verification**
-    - [ ] Run the full build and test suite.
-    - [ ] Check the implementation against every PRD acceptance criterion.
-    - [ ] Record the boundary for the next milestone: in-memory `yo chat`, retaining read-only tools only.
+- [x] **7. Milestone 1 verification**
+    - [x] Run the full build and test suite.
+    - [x] Check the implementation against every PRD acceptance criterion.
+    - [x] Record the boundary for the next milestone: in-memory `yo chat`, retaining read-only tools only.
 
 ## Permanent constraints
 
