@@ -10,7 +10,7 @@ import {
     type OpenAICodexCredentialExchange,
 } from './auth/openai-codex-login.ts'
 import { createFileCredentialStore } from './auth/file-credential-store.ts'
-import type { CredentialStore } from './auth/credential.ts'
+import { OPENAI_CODEX_PROVIDER_ID, type CredentialStore } from './auth/credential.ts'
 import {
     canonicalizeWorkspaceRoot,
     readFileArgumentsSchema,
@@ -303,7 +303,7 @@ const runLogin = async ({
                 codeVerifier: authorization.codeVerifier,
             })
 
-            await credentialStore.modify('openai-codex', async () => credential)
+            await credentialStore.modify(OPENAI_CODEX_PROVIDER_ID, async () => credential)
         } catch {
             return runtimeError('OAuth credential exchange failed. Run yo login again.', writeError)
         }
@@ -330,7 +330,7 @@ const runAuthStatus = async ({
     let credential: Awaited<ReturnType<CredentialStore['read']>>
 
     try {
-        credential = await credentialStore.read('openai-codex')
+        credential = await credentialStore.read(OPENAI_CODEX_PROVIDER_ID)
     } catch {
         return runtimeError('Cannot read OAuth authentication status.', writeError)
     }
@@ -341,7 +341,7 @@ const runAuthStatus = async ({
         writeOutput(
             [
                 'Authentication: signed in',
-                'Provider: openai-codex',
+                `Provider: ${OPENAI_CODEX_PROVIDER_ID}`,
                 `Account ID: ${credential.accountId}`,
                 `Expires at: ${new Date(credential.expiresAt).toISOString()}`,
                 `Access token: ${credential.expiresAt > Date.now() ? 'valid' : 'expired'}`,
@@ -364,7 +364,7 @@ const runLogout = async ({
     'credentialStore' | 'writeError' | 'writeOutput'
 >): Promise<CliResult> => {
     try {
-        await credentialStore.delete('openai-codex')
+        await credentialStore.delete(OPENAI_CODEX_PROVIDER_ID)
     } catch {
         return runtimeError('Cannot remove OAuth credential.', writeError)
     }

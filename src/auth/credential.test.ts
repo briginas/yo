@@ -4,6 +4,7 @@ import { describe, test } from 'node:test'
 import {
     credentialProviderIdSchema,
     credentialSchema,
+    OPENAI_CODEX_PROVIDER_ID,
     type Credential,
     type CredentialProviderId,
     type CredentialStore,
@@ -92,7 +93,7 @@ describe('credentialSchema', () => {
 
 test('CredentialStore supports provider-keyed read, modify, and delete', async () => {
     const store = createTestStore()
-    const providerId: CredentialProviderId = 'openai-codex'
+    const providerId: CredentialProviderId = OPENAI_CODEX_PROVIDER_ID
 
     assert.equal(await store.read(providerId), undefined)
 

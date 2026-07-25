@@ -18,7 +18,11 @@ import {
     OPENAI_CODEX_AUTH_CLAIM,
     startOpenAICodexCallbackListener,
 } from './auth/openai-codex-login.ts'
-import type { Credential, CredentialStore } from './auth/credential.ts'
+import {
+    OPENAI_CODEX_PROVIDER_ID,
+    type Credential,
+    type CredentialStore,
+} from './auth/credential.ts'
 import type { ModelRequest, ModelTransport } from './runtime/run.ts'
 
 type CliInvocation = {
@@ -223,7 +227,7 @@ test('reports non-secret OAuth account and expiry status', async (context) => {
                 argv: ['auth', 'status'],
                 credentialStore: {
                     read: async (providerId) => {
-                        assert.equal(providerId, 'openai-codex')
+                        assert.equal(providerId, OPENAI_CODEX_PROVIDER_ID)
                         return credential
                     },
                     modify: async () => credential,
@@ -278,7 +282,7 @@ test('logs out idempotently through the credential store', async () => {
         read: async () => storedCredential,
         modify: async () => storedCredential,
         delete: async (providerId) => {
-            assert.equal(providerId, 'openai-codex')
+            assert.equal(providerId, OPENAI_CODEX_PROVIDER_ID)
             storedCredential = undefined
             deleteCount += 1
         },
@@ -507,9 +511,9 @@ test('completes browser login through injected HTTP and a temporary credential s
             createHash('sha256').update(codeVerifier!, 'utf8').digest('base64url'),
             authorizationUrl.searchParams.get('code_challenge')
         )
-        assert.deepEqual(await credentialStore.read('openai-codex'), expectedCredential)
+        assert.deepEqual(await credentialStore.read(OPENAI_CODEX_PROVIDER_ID), expectedCredential)
         assert.deepEqual(JSON.parse(await readFile(authPath, 'utf8')), {
-            'openai-codex': expectedCredential,
+            [OPENAI_CODEX_PROVIDER_ID]: expectedCredential,
         })
 
         const cliMessages = `${outputs.join('\n')}\n${errors.join('\n')}`

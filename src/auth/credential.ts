@@ -1,6 +1,9 @@
 import { z } from 'zod'
 
-export const credentialProviderIdSchema = z.literal('openai-codex')
+// Single source of truth for the credential store key and provider id.
+export const OPENAI_CODEX_PROVIDER_ID = 'openai-codex'
+
+export const credentialProviderIdSchema = z.literal(OPENAI_CODEX_PROVIDER_ID)
 
 export type CredentialProviderId = z.infer<typeof credentialProviderIdSchema>
 

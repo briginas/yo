@@ -8,6 +8,7 @@ import { z } from 'zod'
 
 import {
     credentialSchema,
+    OPENAI_CODEX_PROVIDER_ID,
     type Credential,
     type CredentialProviderId,
     type CredentialStore,
@@ -18,7 +19,7 @@ const FILE_MODE = 0o600
 
 const credentialStoreFileSchema = z
     .object({
-        'openai-codex': credentialSchema.optional(),
+        [OPENAI_CODEX_PROVIDER_ID]: credentialSchema.optional(),
     })
     .strict()
 

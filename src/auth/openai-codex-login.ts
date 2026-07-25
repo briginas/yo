@@ -3,7 +3,12 @@ import { createServer } from 'node:http'
 
 import { z } from 'zod'
 
-import { credentialSchema, type Credential, type CredentialStore } from './credential.ts'
+import {
+    credentialSchema,
+    OPENAI_CODEX_PROVIDER_ID,
+    type Credential,
+    type CredentialStore,
+} from './credential.ts'
 
 const AUTHORIZE_URL = 'https://auth.openai.com/oauth/authorize'
 const TOKEN_URL = 'https://auth.openai.com/oauth/token'
@@ -263,13 +268,13 @@ export const resolveOpenAICodexCredential = async ({
     refreshCredential = refreshOpenAICodexCredential,
     now = Date.now,
 }: OpenAICodexCredentialResolverOptions): Promise<Credential | undefined> => {
-    const stored = await credentialStore.read('openai-codex')
+    const stored = await credentialStore.read(OPENAI_CODEX_PROVIDER_ID)
 
     if (stored === undefined || now() < stored.expiresAt) {
         return stored
     }
 
-    return credentialStore.modify('openai-codex', async (current) => {
+    return credentialStore.modify(OPENAI_CODEX_PROVIDER_ID, async (current) => {
         // Another process may have refreshed or removed the credential before this lock was acquired.
         if (current === undefined || now() < current.expiresAt) {
             return

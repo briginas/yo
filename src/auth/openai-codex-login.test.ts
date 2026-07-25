@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, test } from 'node:test'
 
-import type { Credential, CredentialStore } from './credential.ts'
+import { OPENAI_CODEX_PROVIDER_ID, type Credential, type CredentialStore } from './credential.ts'
 import { createFileCredentialStore } from './file-credential-store.ts'
 import {
     createOpenAICodexAuthorization,
@@ -388,7 +388,7 @@ describe('resolveOpenAICodexCredential', () => {
     test('returns undefined without locking or refreshing when no credential is stored', async () => {
         const credentialStore: CredentialStore = {
             read: async (providerId) => {
-                assert.equal(providerId, 'openai-codex')
+                assert.equal(providerId, OPENAI_CODEX_PROVIDER_ID)
                 return undefined
             },
             modify: async () => {
@@ -454,7 +454,7 @@ describe('resolveOpenAICodexCredential', () => {
         } as const satisfies Credential
 
         try {
-            await credentialStore.modify('openai-codex', async () => expiredCredential)
+            await credentialStore.modify(OPENAI_CODEX_PROVIDER_ID, async () => expiredCredential)
 
             const resolved = await resolveOpenAICodexCredential({
                 credentialStore,
@@ -466,7 +466,10 @@ describe('resolveOpenAICodexCredential', () => {
             })
 
             assert.deepEqual(resolved, refreshedCredential)
-            assert.deepEqual(await credentialStore.read('openai-codex'), refreshedCredential)
+            assert.deepEqual(
+                await credentialStore.read(OPENAI_CODEX_PROVIDER_ID),
+                refreshedCredential
+            )
         } finally {
             await rm(fixtureRoot, { recursive: true, force: true })
         }
@@ -485,7 +488,7 @@ describe('resolveOpenAICodexCredential', () => {
         } as const satisfies Credential
 
         try {
-            await credentialStore.modify('openai-codex', async () => expiredCredential)
+            await credentialStore.modify(OPENAI_CODEX_PROVIDER_ID, async () => expiredCredential)
 
             await assert.rejects(
                 resolveOpenAICodexCredential({
@@ -497,7 +500,10 @@ describe('resolveOpenAICodexCredential', () => {
                 }),
                 new Error('OAuth credential refresh failed. Run yo login again.')
             )
-            assert.deepEqual(await credentialStore.read('openai-codex'), expiredCredential)
+            assert.deepEqual(
+                await credentialStore.read(OPENAI_CODEX_PROVIDER_ID),
+                expiredCredential
+            )
         } finally {
             await rm(fixtureRoot, { recursive: true, force: true })
         }
@@ -544,7 +550,10 @@ describe('resolveOpenAICodexCredential', () => {
         let refreshCount = 0
 
         try {
-            await fileCredentialStore.modify('openai-codex', async () => expiredCredential)
+            await fileCredentialStore.modify(
+                OPENAI_CODEX_PROVIDER_ID,
+                async () => expiredCredential
+            )
 
             const resolveCredential = () =>
                 resolveOpenAICodexCredential({
@@ -559,7 +568,10 @@ describe('resolveOpenAICodexCredential', () => {
 
             assert.deepEqual(resolved, [refreshedCredential, refreshedCredential])
             assert.equal(refreshCount, 1)
-            assert.deepEqual(await fileCredentialStore.read('openai-codex'), refreshedCredential)
+            assert.deepEqual(
+                await fileCredentialStore.read(OPENAI_CODEX_PROVIDER_ID),
+                refreshedCredential
+            )
         } finally {
             await rm(fixtureRoot, { recursive: true, force: true })
         }

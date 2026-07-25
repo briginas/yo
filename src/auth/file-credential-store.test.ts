@@ -4,10 +4,10 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, describe, test } from 'node:test'
 
-import type { Credential } from './credential.ts'
+import { OPENAI_CODEX_PROVIDER_ID, type Credential } from './credential.ts'
 import { createFileCredentialStore } from './file-credential-store.ts'
 
-const providerId = 'openai-codex'
+const providerId = OPENAI_CODEX_PROVIDER_ID
 const credential = {
     type: 'oauth',
     accessToken: 'access-token',
