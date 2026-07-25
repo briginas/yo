@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, writeFile } from 'node:fs/promises'
+import { mkdtemp, readdir, realpath, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -9,6 +9,7 @@ import {
     createConversation,
     createConversationTurnResult,
     runConversationTurn,
+    type ModelTransport,
     type ModelRequest,
     type SessionState,
 } from './index.ts'
@@ -205,6 +206,159 @@ test('continues one bounded turn from the conversation transcript', async () => 
     assistantMessage.content = 'Changed after the turn.'
     assert.equal(result.conversation.messages[2]?.role, 'assistant')
     assert.notEqual(result.conversation.messages[2]?.content, assistantMessage.content)
+})
+
+test('retains prior tool observations for a grounded second turn', async () => {
+    const workspaceRoot = await realpath(await mkdtemp(join(tmpdir(), 'yo-conversation-context-')))
+    await writeFile(join(workspaceRoot, 'entry.ts'), 'export const entry = true\n')
+    const initialWorkspaceEntries = await readdir(workspaceRoot)
+    const initialConversation = createConversation({
+        systemPrompt: 'Use read-only tools.',
+        workspaceRoot,
+        model: 'faux-model',
+    })
+    const requests: ModelRequest[] = []
+    let requestCount = 0
+    const transport: ModelTransport = async (request) => {
+        requests.push(request)
+        requestCount += 1
+
+        switch (requestCount) {
+            case 1:
+                return {
+                    type: 'tool_calls' as const,
+                    model: 'faux-model',
+                    content: 'I will search for the entrypoint.',
+                    toolCalls: [
+                        {
+                            id: 'search-entry',
+                            name: 'search_code',
+                            arguments: { query: 'entry' },
+                        },
+                    ],
+                }
+            case 2:
+                return {
+                    type: 'tool_calls' as const,
+                    model: 'faux-model',
+                    content: 'I will read the matching file.',
+                    toolCalls: [
+                        {
+                            id: 'read-entry',
+                            name: 'read_file',
+                            arguments: { path: 'entry.ts' },
+                        },
+                    ],
+                }
+            case 3:
+                return {
+                    type: 'final_answer' as const,
+                    model: 'faux-model',
+                    content: 'The entrypoint is entry.ts.',
+                }
+            case 4:
+                return {
+                    type: 'final_answer' as const,
+                    model: 'faux-model',
+                    content: 'It exports entry with the value true.',
+                }
+            default:
+                throw new Error('Unexpected model request.')
+        }
+    }
+    const budget = { maxSteps: 3, perToolTimeoutMs: 1_000 }
+
+    const firstTurn = await runConversationTurn({
+        conversation: initialConversation,
+        task: 'Find the entrypoint.',
+        budget,
+        transport,
+    })
+    const secondTurn = await runConversationTurn({
+        conversation: firstTurn.conversation,
+        task: 'What does the entrypoint export?',
+        budget,
+        transport,
+    })
+
+    assert.equal(requests.length, 4)
+    assert.deepEqual(requests[3]?.messages, [
+        { role: 'system', content: 'Use read-only tools.' },
+        { role: 'user', content: 'Find the entrypoint.' },
+        {
+            role: 'assistant',
+            content: 'I will search for the entrypoint.',
+            toolCalls: [
+                {
+                    id: 'search-entry',
+                    name: 'search_code',
+                    arguments: { query: 'entry' },
+                },
+            ],
+        },
+        {
+            role: 'tool',
+            result: {
+                status: 'success',
+                callId: 'search-entry',
+                content: 'entry.ts:1:export const entry = true',
+                metadata: { truncated: false, truncation: null },
+            },
+        },
+        {
+            role: 'assistant',
+            content: 'I will read the matching file.',
+            toolCalls: [
+                {
+                    id: 'read-entry',
+                    name: 'read_file',
+                    arguments: { path: 'entry.ts' },
+                },
+            ],
+        },
+        {
+            role: 'tool',
+            result: {
+                status: 'success',
+                callId: 'read-entry',
+                content: '1:export const entry = true',
+                metadata: { truncated: false, truncation: null },
+            },
+        },
+        {
+            role: 'assistant',
+            content: 'The entrypoint is entry.ts.',
+            toolCalls: [],
+        },
+        { role: 'user', content: 'What does the entrypoint export?' },
+    ])
+    assert.deepEqual(
+        secondTurn.conversation.messages.map((message) => message.role),
+        [
+            'system',
+            'user',
+            'assistant',
+            'tool',
+            'assistant',
+            'tool',
+            'assistant',
+            'user',
+            'assistant',
+        ]
+    )
+    assert.equal(
+        secondTurn.conversation.messages.filter((message) => message.role === 'system').length,
+        1
+    )
+    assert.equal(
+        secondTurn.conversation.messages.filter((message) => message.role === 'user').length,
+        2
+    )
+    assert.equal(firstTurn.turn.session.stepCount, 3)
+    assert.equal(secondTurn.turn.session.stepCount, 1)
+    assert.equal(secondTurn.conversation.workspaceRoot, workspaceRoot)
+    assert.equal(secondTurn.conversation.model, 'faux-model')
+    assert.deepEqual(await readdir(workspaceRoot), initialWorkspaceEntries)
 })
 
 test('retains a failed or budget-exhausted bounded turn without recovery', async () => {
