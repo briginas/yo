@@ -1,7 +1,7 @@
 # Active implementation plan: Milestone 2 in-memory interactive chat
 
-- **Status:** active, 8.1.2 complete
-- **First incomplete leaf:** `8.1.3 Verify and expose the event boundary`
+- **Status:** active, 8.1 complete
+- **First incomplete leaf:** `8.2.1 Define conversation and turn contracts`
 - **Source of truth for:** Milestone 2 implementation order and verification
 - **Related documents:** [implementation map](../../../IMPLEMENTATION_PLAN.md),
   [Milestone 2 requirements](../../requirements/milestone-2-in-memory-chat.md)
@@ -209,7 +209,7 @@ flowchart LR
 
 ## Implementation steps
 
-- [ ] **8.1 Deliver lifecycle events while a run is active**
+- [x] **8.1 Deliver lifecycle events while a run is active**
     - [x] **8.1.1 Define the live event observer contract**
         - [x] Add a synchronous provider-neutral `RunEvent` observer type and an
               optional observer field at the bounded-loop boundary.
@@ -236,12 +236,12 @@ flowchart LR
               budgets, and one-result-per-call behavior.
         - [x] Verify final-answer, tool success, invalid arguments, denial,
               timeout, execution error, transport failure, and step-budget flows.
-    - [ ] **8.1.3 Verify and expose the event boundary**
-        - [ ] Export only the minimal public observer contract required by CLI
+    - [x] **8.1.3 Verify and expose the event boundary**
+        - [x] Export only the minimal public observer contract required by CLI
               composition.
-        - [ ] Verify existing callers without an observer and a controlled
+        - [x] Verify existing callers without an observer and a controlled
               observer receiving every event once.
-        - [ ] Run focused runtime tests, the full test suite, build, format
+        - [x] Run focused runtime tests, the full test suite, build, format
               check, and whitespace check.
 
 - [ ] **8.2 Continue a conversation in memory**

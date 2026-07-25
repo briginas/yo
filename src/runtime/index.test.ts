@@ -5,6 +5,12 @@ import { join } from 'node:path'
 import { test } from 'node:test'
 
 import * as runtime from './index.ts'
+import type {
+    ModelTransport,
+    RunAgentOptions,
+    RunEventObserver,
+    RunEventSnapshot,
+} from './index.ts'
 
 const { canonicalizeWorkspaceRoot, dispatchToolCall, listFiles, readFile, runAgent, searchCode } =
     runtime
@@ -77,4 +83,32 @@ test('exports the read-only tool dispatcher', () => {
 
 test('exports the bounded read-only agent loop', () => {
     assert.equal(typeof runAgent, 'function')
+})
+
+test('exposes the optional event observer contract through the runtime barrel', async () => {
+    const transport: ModelTransport = async () => ({
+        type: 'final_answer',
+        model: null,
+        content: 'Done.',
+    })
+    const options = {
+        task: 'Finish.',
+        workspaceRoot: '/approved/workspace',
+        budget: {
+            maxSteps: 1,
+            perToolTimeoutMs: 1_000,
+        },
+        model: null,
+        transport,
+    } satisfies RunAgentOptions
+
+    const withoutObserver = await runAgent(options)
+    const observed: RunEventSnapshot[] = []
+    const onEvent: RunEventObserver = (event) => {
+        observed.push(event)
+    }
+    const withObserver = await runAgent({ ...options, onEvent })
+
+    assert.equal(withoutObserver.finalAnswer, 'Done.')
+    assert.deepEqual(observed, withObserver.events)
 })
