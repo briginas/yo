@@ -1,7 +1,7 @@
 # Active implementation plan: Milestone 2 in-memory interactive chat
 
-- **Status:** active, 8.1–8.3.3 complete
-- **First incomplete leaf:** `8.3.4 Verify renderer safety and determinism`
+- **Status:** active, 8.1–8.3 complete
+- **First incomplete leaf:** `8.4.1 Parse the bounded chat command`
 - **Source of truth for:** Milestone 2 implementation order and verification
 - **Related documents:** [implementation map](../../../IMPLEMENTATION_PLAN.md),
   [Milestone 2 requirements](../../requirements/milestone-2-in-memory-chat.md)
@@ -275,7 +275,7 @@ flowchart LR
         - [x] Run focused conversation tests, the full test suite, build, format
               check, and whitespace check.
 
-- [ ] **8.3 Render safe interactive terminal status**
+- [x] **8.3 Render safe interactive terminal status**
     - [x] **8.3.1 Define the renderer boundary**
         - [x] Add separate injected writers for answers, operational status, and
               errors.
@@ -303,14 +303,14 @@ flowchart LR
               transport failure, budget exhaustion, and exit.
         - [x] Prefer Node terminal primitives; do not add a dependency in this
               leaf without separate approval.
-    - [ ] **8.3.4 Verify renderer safety and determinism**
-        - [ ] Test every supported event transition in TTY and non-TTY modes
+    - [x] **8.3.4 Verify renderer safety and determinism**
+        - [x] Test every supported event transition in TTY and non-TTY modes
               with injected writers.
-        - [ ] Test malformed/unknown tool arguments, long values,
+        - [x] Test malformed/unknown tool arguments, long values,
               sensitive-looking values, unsanitized errors, and truncated results.
-        - [ ] Verify renderer or status-writer failures do not change the agent
+        - [x] Verify renderer or status-writer failures do not change the agent
               transcript or tool-result count.
-        - [ ] Run focused renderer tests, the full test suite, build, format
+        - [x] Run focused renderer tests, the full test suite, build, format
               check, and whitespace check.
 
 - [ ] **8.4 Add the `yo chat` command and input loop**

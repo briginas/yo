@@ -8,7 +8,8 @@ import {
     type TerminalStatus,
     type TerminalTextWriter,
 } from './terminal-renderer.ts'
-import type { RunEventSnapshot, RunEventObserver } from './runtime/run.ts'
+import { runAgentWithDispatcher } from './runtime/agent-loop.ts'
+import type { ModelTransport, RunEventSnapshot, RunEventObserver } from './runtime/run.ts'
 
 const completeMetadata = {
     truncated: false,
@@ -672,6 +673,38 @@ test('writes every non-interactive status as a deterministic line without termin
             truncation: null,
         },
         {
+            type: 'tool_completed',
+            step: 1,
+            callId: 'call-completed',
+            toolName: 'read_file',
+            argumentSummary: 'path="src/cli.ts"',
+            truncation: null,
+        },
+        {
+            type: 'tool_denied',
+            step: 1,
+            callId: 'call-denied',
+            toolName: 'read_file',
+            argumentSummary: 'path="../outside.ts"',
+            truncation: null,
+        },
+        {
+            type: 'tool_timeout',
+            step: 1,
+            callId: 'call-timeout',
+            toolName: 'search_code',
+            argumentSummary: 'query="needle"',
+            truncation: null,
+        },
+        {
+            type: 'tool_failed',
+            step: 1,
+            callId: 'call-failed',
+            toolName: 'unknown_tool',
+            argumentSummary: null,
+            truncation: null,
+        },
+        {
             type: 'turn_finished',
             status: 'completed',
             reason: 'final_answer',
@@ -690,6 +723,11 @@ test('writes every non-interactive status as a deterministic line without termin
             message: `${formatTerminalStatusLine(status)}\n`,
         }))
     )
+    for (const operation of operations) {
+        if (operation.type === 'write') {
+            assert.doesNotMatch(operation.message, /\u001b/)
+        }
+    }
 })
 
 test('shows and clears interactive model progress with idempotent cleanup', () => {
@@ -791,13 +829,23 @@ test('cleans interactive progress on transport failure and budget exhaustion', (
     const cases: TerminalStatus[] = [
         {
             type: 'turn_finished',
+            status: 'completed',
+            reason: 'final_answer',
+        },
+        {
+            type: 'turn_finished',
             status: 'failed',
             reason: 'transport_error',
         },
         {
             type: 'turn_finished',
-            status: 'completed',
+            status: 'aborted',
             reason: 'step_budget_exhausted',
+        },
+        {
+            type: 'turn_finished',
+            status: 'aborted',
+            reason: 'aborted',
         },
     ]
 
@@ -842,4 +890,81 @@ test('writes settled interactive status without terminal controls when no progre
             message: `${formatTerminalStatusLine(status)}\n`,
         },
     ])
+})
+
+test('status-writer failures do not change the transcript or duplicate tool results', async () => {
+    let requestCount = 0
+    const call = {
+        id: 'call-1',
+        name: 'read_file',
+        arguments: {
+            path: 'src/cli.ts',
+        },
+    } as const
+    const transport: ModelTransport = async () => {
+        requestCount += 1
+
+        return requestCount === 1
+            ? {
+                  type: 'tool_calls',
+                  model: 'faux-model',
+                  toolCalls: [call],
+              }
+            : {
+                  type: 'final_answer',
+                  model: 'faux-model',
+                  content: 'Done.',
+              }
+    }
+    const renderer = createTerminalRenderer({
+        writeAnswer: () => undefined,
+        writeStatus: () => {
+            throw new Error('status writer failure')
+        },
+        writeError: () => undefined,
+        isInteractive: false,
+    })
+
+    const session = await runAgentWithDispatcher(
+        {
+            task: 'Read the CLI.',
+            workspaceRoot: '/approved/workspace',
+            budget: {
+                maxSteps: 2,
+                perToolTimeoutMs: 1_000,
+            },
+            model: 'faux-model',
+            transport,
+            onEvent: renderer.onEvent,
+        },
+        async (_workspaceRoot, toolCall, _timeoutMs, onPermissionDecision) => {
+            onPermissionDecision?.({ decision: 'allow' })
+
+            return {
+                status: 'success',
+                callId: toolCall.id,
+                content: 'file contents',
+                metadata: completeMetadata,
+            }
+        }
+    )
+
+    assert.equal(session.status, 'completed')
+    assert.equal(session.finalAnswer, 'Done.')
+    assert.deepEqual(
+        session.messages.map((message) => message.role),
+        ['system', 'user', 'assistant', 'tool', 'assistant']
+    )
+    assert.equal(
+        session.messages.filter(
+            (message) => message.role === 'tool' && message.result.callId === call.id
+        ).length,
+        1
+    )
+    assert.equal(
+        session.events.filter(
+            (event) => event.type === 'tool_completed' && event.result.callId === call.id
+        ).length,
+        1
+    )
 })

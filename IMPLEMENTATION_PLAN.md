@@ -15,10 +15,10 @@ one. Confirm the first incomplete leaf with the user before implementation.
   [requirements](docs/requirements/milestone-2-in-memory-chat.md) and
   [active implementation plan](docs/plans/active/milestone-2-in-memory-chat.md)
   are the detailed sources of truth.
-- **Next candidate leaf:** `8.3.4 Verify renderer safety and determinism`.
+- **Next candidate leaf:** `8.4.1 Parse the bounded chat command`.
   Milestone 2 has completed the verified public event-observer boundary,
-  bounded in-memory turn continuation, and safe deterministic terminal status
-  summaries with static TTY progress behavior.
+  bounded in-memory turn continuation, and the verified safe deterministic
+  terminal renderer with static TTY progress behavior.
 
 ## Permanent constraints
 
