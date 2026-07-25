@@ -36,7 +36,8 @@ model-visible tools.
 - The OpenAI Codex transport parses text deltas but currently buffers them until
   `response.completed`, then replays them to its final-answer sink; neither the
   transport nor the production CLI displays answer text as network events
-  arrive.
+  arrive. The `ModelTransport` boundary has no mechanism for a transport to
+  deliver streaming deltas to the runtime while a request is in flight.
 - Every new run starts with a new system and user transcript; there is no
   in-memory conversation coordinator.
 - CLI output has answer and error writers, but no separate status channel or
@@ -52,9 +53,11 @@ model-visible tools.
   status, stop reason, and evidence.
 - Live event delivery lets the terminal show model waiting and tool lifecycle
   states without changing tool execution or permission decisions.
-- Provider-labeled final-answer deltas stream once as they arrive; assistant
-  commentary and unlabeled text do not enter the answer channel, and the
-  completed answer is not printed a second time.
+- Provider-confirmed final-answer deltas are released through the event
+  observer after their output item is complete; the transport invokes the
+  per-request `onFinalAnswerDelta` callback only for confirmed final-answer
+  output items, assistant commentary and unlabeled text do not enter the answer
+  channel, and the evidence summary does not repeat released answer text.
 - Whitespace-only input is ignored locally without changing the transcript.
 - A transport failure or step-budget exhaustion ends only the current turn,
   reports its sanitized outcome, and returns to the prompt; setup, input, EOF,
@@ -82,7 +85,11 @@ model-visible tools.
   boundary, composes the coordinator and renderer, and handles EOF and `/exit`.
 - **OpenAI Codex transport:** remains provider-specific, normalizes Responses
   API data, and tracks provider output identity so only provider-labeled
-  final-answer deltas reach the CLI as they arrive.
+  final-answer deltas reach the runtime through the per-request
+  `onFinalAnswerDelta` callback after their output item is complete. Deltas are
+  buffered until the output item's identity is confirmed; non-final-answer
+  deltas are silently discarded. This is safe delayed release, not byte-by-byte
+  terminal streaming.
 
 ## Execution and data flow
 
@@ -114,8 +121,8 @@ flowchart LR
   turn-finished statuses.
 - Safe summaries of known tool arguments, result status, and truncation
   metadata.
-- Live delivery of provider-labeled final-answer text without commentary,
-  unlabeled text, or duplicate output.
+- Safe delayed release of provider-labeled final-answer text without
+  commentary, unlabeled text, or duplicate output.
 - TTY-aware progress indicators and deterministic non-TTY status lines.
 - Injectable input, output, status, and terminal-capability boundaries for
   deterministic tests.
@@ -156,7 +163,13 @@ flowchart LR
   redaction rather than generic object serialization.
 - Only provider-labeled final-answer deltas may enter the answer stream;
   commentary, hidden reasoning, unlabeled text, and raw provider events remain
-  excluded.
+  excluded. Deltas must be buffered until their output identity is confirmed by
+  the provider's output-item completion event; transports that cannot
+  correlate deltas with confirmed output identity must suppress all delayed
+  delta releases and fall back to the completed answer.
+- The evidence summary includes stop reason, tools used, and files inspected
+  but must not repeat final-answer text that was delivered through the answer
+  channel.
 - The canonical workspace root and selected model cannot change within a chat
   process.
 - Per-turn step and tool-timeout budgets remain enforced.
@@ -176,9 +189,11 @@ flowchart LR
   explicitly; never dump arbitrary arguments, results, errors, or provider
   objects.
 - **Misclassified or duplicate final-answer text:** associate deltas with
-  provider output identity and final-answer phase, exclude commentary and
-  unlabeled text, reconcile streamed text with the completed response, and test
-  streamed, non-streamed, empty, and failed responses.
+  provider output identity confirmed by `output_item.done`, buffer until
+  confirmed, exclude commentary and unlabeled text, reconcile released text
+  with the completed response, print evidence without repeating the answer, and
+  test safe delayed release, identity-resolution failure, empty, and failed
+  responses.
 - **Transcript corruption across turns:** keep a single system message, append
   each user turn once, and verify assistant/tool-call/tool-result ordering with
   a faux transport.
@@ -200,7 +215,9 @@ flowchart LR
               optional observer field at the bounded-loop boundary.
         - [ ] Specify ordered, exactly-once delivery of detached, structurally
               read-only event snapshots after the authoritative event is recorded
-              in `SessionState.events`.
+              in `SessionState.events`. Include a `final_answer_delta` event
+              carrying the released delta string so observers receive answer text
+              after the transport confirms its output item.
         - [ ] Ensure observer snapshots share no mutable nested call, arguments,
               decision, or result objects with runtime state.
         - [ ] Catch observer exceptions at the notification boundary so UI
@@ -213,8 +230,8 @@ flowchart LR
     - [ ] **8.1.2 Centralize runtime event recording**
         - [ ] Replace direct `session.events.push(...)` calls with one internal
               record-and-notify helper.
-        - [ ] Cover run start/end, model request/response, tool
-              request/authorization/completion, and final-answer events.
+        - [ ] Cover run start/end, model request/response, final-answer delta,
+              tool request/authorization/completion, and final-answer events.
         - [ ] Preserve current event order, session state, stop reasons,
               budgets, and one-result-per-call behavior.
         - [ ] Verify final-answer, tool success, invalid arguments, denial,
@@ -338,19 +355,33 @@ flowchart LR
         - [ ] Run focused CLI tests, the full test suite, build, format check,
               and whitespace check.
 
-- [ ] **8.5 Compose live model streaming with terminal feedback**
-    - [ ] **8.5.1 Deliver safe final-answer deltas as provider events arrive**
-        - [ ] Extend the Codex SSE parser to associate each output-text delta
-              with its `output_index` and provider-declared output phase.
-        - [ ] Emit only deltas belonging to provider-labeled `final_answer`
-              output; never emit commentary, hidden reasoning, unlabeled text, or
-              raw provider events through the answer sink.
+- [ ] **8.5 Compose safe final-answer release with terminal feedback**
+    - [ ] **8.5.1 Release safe final-answer deltas after output-item confirmation**
+        - [ ] Extend the Codex SSE parser to require and retain the
+              `output_index` carried by each `output_text.delta`, then associate
+              it with the `response.output_item.done` event carrying the same
+              index, which declares the output item's role (message vs reasoning
+              vs refusal).
+        - [ ] Buffer output-text deltas until the matching output-item completion
+              event confirms the item is a final-answer message; silently discard
+              deltas whose confirmed item is reasoning, refusal, or unclassified.
+        - [ ] Release only confirmed final-answer deltas through the per-request
+              `onFinalAnswerDelta` callback once the output item is complete;
+              do not promise byte-by-byte rendering while the item is still in
+              flight. Never emit commentary, hidden reasoning, unlabeled text,
+              or raw provider events through the answer sink.
+        - [ ] If output identity cannot be resolved — due to malformed streams,
+              missing `output_item.done` events, or ambiguous output ordering —
+              suppress all delayed delta releases and fall back to the completed
+              `ModelResponse` so the answer still reaches the user without
+              leaking unclassified text.
         - [ ] Keep the completed `ModelResponse` authoritative, reconcile
-              emitted text with its final content, and use complete-answer fallback
-              when no safe live deltas were available.
-        - [ ] Verify interleaved commentary, final-answer text, tool calls,
-              missing phases, malformed output indexes, stream failure, and
-              completed-response mismatch without real network requests.
+              emitted deltas with its final content, and use complete-answer
+              fallback when no safe live deltas were available.
+        - [ ] Verify interleaved reasoning and final-answer output items,
+              missing `output_item.done` events, misordered output indices,
+              stream failure, empty delta sets, and completed-response mismatch
+              without real network requests.
     - [ ] **8.5.2 Wire model and tool lifecycle feedback**
         - [ ] Connect the runtime event observer to the terminal renderer for
               both single-turn and chat composition where approved.
@@ -360,20 +391,27 @@ flowchart LR
               delta is written, or on model response, tool execution, or failure
               when no answer delta arrives.
         - [ ] Transition cleanly from model waiting to tool execution, another
-              model request, final streaming, or failure.
-    - [ ] **8.5.3 Stream the final answer exactly once**
-        - [ ] Connect the live OpenAI Codex final-answer delta sink to the answer
-              renderer.
+              model request, final-answer release, or failure.
+    - [ ] **8.5.3 Render the final answer exactly once**
+        - [ ] Connect the confirmed final-answer delta sink to the answer
+              renderer so received deltas are written without additional
+              renderer buffering.
         - [ ] Avoid reprinting the completed answer after deltas have already
-              been emitted.
+              been emitted; track whether any deltas were emitted and suppress
+              the completed-answer write when safe release was active.
         - [ ] Fall back to the completed final answer when a transport produces
-              no deltas, including faux transports.
+              no deltas, including faux transports and transports that suppressed
+              deltas due to unresolved output identity.
         - [ ] Keep assistant preamble text and hidden reasoning out of the
               final-answer stream.
+        - [ ] Ensure the per-turn evidence summary (stop reason, tools, files)
+              does not repeat answer text; the answer channel is the sole
+              source of answer output.
     - [ ] **8.5.4 Verify output composition**
-        - [ ] Test chunked live streaming, commentary exclusion, no-delta
-              fallback, empty deltas, tool calls before a final answer, malformed
-              streams, authentication failure, usage limits, and transport failure.
+        - [ ] Test chunked safe release after output-item confirmation,
+              commentary exclusion, no-delta fallback, empty deltas, tool calls
+              before a final answer, malformed streams, authentication failure,
+              usage limits, and transport failure.
         - [ ] Verify TTY progress is cleared before final text and non-TTY
               output contains no control sequences.
         - [ ] Verify final answer, evidence, status, and error channels contain

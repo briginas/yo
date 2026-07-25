@@ -24,17 +24,40 @@ The terminal provides live, event-backed feedback during each turn:
   timed out, or failed;
 - include only a safe summary of tool arguments, truncation, and completion
   status rather than dumping unrestricted tool results;
-- stream provider-labeled final-answer text as it arrives and clearly mark the
-  end and stop reason of each turn;
+- release provider-confirmed final-answer text through the event observer after
+  its output item is complete, and clearly mark the end and stop reason of each
+  turn without duplicating the answer text in the evidence summary;
 - use stable line-oriented output without terminal control sequences when
   output is not an interactive TTY.
 
+**Transport boundary for safe final-answer delivery.** The `ModelTransport` call signature
+is extended with an optional per-request `onFinalAnswerDelta` callback.
+Streaming-aware transports invoke this callback with provider-confirmed
+final-answer text after the provider completes and identifies its output item.
+This is a safe delayed release, not byte-by-byte terminal streaming. Transports
+that do not support safe delivery — including deterministic faux transports —
+ignore the callback and produce the complete answer only at response time. The
+runtime records each released delta as a lifecycle event observable by the
+renderer; terminal rendering remains outside the provider adapter and the
+read-only tool dispatcher.
+
+**Provider-labeled output identity.** When a provider labels output items by
+role (e.g. `message` with `output_text` content versus `reasoning`), the
+transport must require the `output_index` carried by each `output_text.delta`
+and correlate it with the `output_item.done` event carrying the same index. It
+must buffer the delta until that completion event confirms the output item's
+identity. Only deltas belonging to confirmed final-answer output items may be
+emitted; deltas from reasoning, refusal, or unclassified items are silently
+discarded. If the transport cannot correlate deltas with confirmed output
+identity — due to malformed streams, missing `output_item.done` events, or
+ambiguous output ordering — it must suppress all delayed delta releases and
+fall back to the completed answer. This prevents commentary, hidden reasoning,
+or unlabeled text from entering the answer stream through timing alone.
+
 Interactive status output is derived from harness lifecycle events and must not
 expose hidden reasoning, OAuth credentials, authorization headers, raw provider
-payloads, unsanitized errors, assistant commentary, or text that the provider
-has not identified as a final answer. A transport that cannot safely identify
-final-answer deltas before completion returns the complete answer without live
-text streaming. Terminal rendering remains outside the provider adapter and
+payloads, unsanitized errors, or text that the provider has not identified as a
+final answer. Terminal rendering remains outside the provider adapter and
 read-only tool dispatcher.
 
 Whitespace-only input is a local no-op: it is not sent to the model or appended
@@ -65,9 +88,13 @@ not write inside the approved workspace.
 - Tool status displays contain only bounded, safe summaries of known arguments,
   result status, and truncation; they never dump unrestricted tool results or
   unknown argument objects.
-- Provider-labeled final-answer text streams as it arrives and appears exactly
-  once; commentary and unlabeled text never enter the answer stream, while
-  transports without safe text deltas still produce the complete final answer.
+- Provider-confirmed final-answer text is released through the event observer
+  after its output item is complete and appears exactly once; commentary and
+  unlabeled text never enter the answer stream, while transports without safe
+  text deltas still produce the complete final answer.
+- The per-turn evidence summary includes stop reason, tools used, and files
+  inspected but does not repeat the final answer text; the answer appears only
+  in the answer channel (released after confirmation or completed).
 - Interactive TTY progress is cleaned up on every completion and failure path,
   while non-TTY output remains deterministic and contains no terminal control
   sequences.
