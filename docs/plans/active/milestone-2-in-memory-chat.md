@@ -315,6 +315,10 @@ flowchart LR
 
 - [ ] **8.4 Add the `yo chat` command and input loop**
     - [ ] **8.4.1 Parse the bounded chat command**
+        - [ ] Extract the command variants, usage text, and pure argument parser
+              from `cli-app.ts` into `cli-command.ts` while adding `chat`; keep
+              authentication, workspace setup, transport, and runtime
+              orchestration outside the parser.
         - [ ] Accept exactly
               `yo chat --cwd <workspace> [--model <name>]`.
         - [ ] Reject missing, duplicate, empty, option-like, unknown, and extra
@@ -333,6 +337,10 @@ flowchart LR
         - [ ] Close input resources and clear active progress indicators on
               every exit path.
     - [ ] **8.4.3 Compose the in-memory chat loop**
+        - [ ] Extract evidence collection and formatting from `cli-app.ts` into
+              `evidence-report.ts`; preserve the exact existing `yo ask` report
+              while allowing chat turns to render evidence without repeating
+              final-answer text.
         - [ ] Reuse one conversation state, workspace root, model, transport,
               and closed read-only registry across turns.
         - [ ] Run one bounded turn per accepted input line and return to the
