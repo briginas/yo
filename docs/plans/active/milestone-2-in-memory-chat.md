@@ -1,7 +1,7 @@
 # Active implementation plan: Milestone 2 in-memory interactive chat
 
-- **Status:** active, 8.1.1 complete
-- **First incomplete leaf:** `8.1.2 Centralize runtime event recording`
+- **Status:** active, 8.1.2 complete
+- **First incomplete leaf:** `8.1.3 Verify and expose the event boundary`
 - **Source of truth for:** Milestone 2 implementation order and verification
 - **Related documents:** [implementation map](../../../IMPLEMENTATION_PLAN.md),
   [Milestone 2 requirements](../../requirements/milestone-2-in-memory-chat.md)
@@ -227,14 +227,14 @@ flowchart LR
               current behavior.
         - [x] Verify the contract with focused type and unit tests; do not
               change CLI output in this leaf.
-    - [ ] **8.1.2 Centralize runtime event recording**
-        - [ ] Replace direct `session.events.push(...)` calls with one internal
+    - [x] **8.1.2 Centralize runtime event recording**
+        - [x] Replace direct `session.events.push(...)` calls with one internal
               record-and-notify helper.
-        - [ ] Cover run start/end, model request/response, final-answer delta,
+        - [x] Cover run start/end, model request/response, final-answer delta,
               tool request/authorization/completion, and final-answer events.
-        - [ ] Preserve current event order, session state, stop reasons,
+        - [x] Preserve current event order, session state, stop reasons,
               budgets, and one-result-per-call behavior.
-        - [ ] Verify final-answer, tool success, invalid arguments, denial,
+        - [x] Verify final-answer, tool success, invalid arguments, denial,
               timeout, execution error, transport failure, and step-budget flows.
     - [ ] **8.1.3 Verify and expose the event boundary**
         - [ ] Export only the minimal public observer contract required by CLI

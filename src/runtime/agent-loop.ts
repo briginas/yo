@@ -44,7 +44,7 @@ const finishRun = (
 ): SessionState => {
     session.status = status
     session.stopReason = reason
-    recordEvent(session, onEvent, {
+    recordAndNotify(session, onEvent, {
         type: 'run_finished',
         status,
         reason,
@@ -65,7 +65,7 @@ const freezeSnapshot = (value: unknown): void => {
     }
 }
 
-const recordEvent = (
+const recordAndNotify = (
     session: SessionState,
     onEvent: RunEventObserver | undefined,
     event: RunEvent
@@ -130,7 +130,7 @@ export const runAgentWithDispatcher = async (
         finalAnswer: null,
         stopReason: null,
     }
-    recordEvent(session, onEvent, {
+    recordAndNotify(session, onEvent, {
         type: 'run_started',
         task,
         workspaceRoot,
@@ -144,7 +144,7 @@ export const runAgentWithDispatcher = async (
             messages: [...session.messages],
             visibleTools: [...VISIBLE_TOOLS],
         }
-        recordEvent(session, onEvent, {
+        recordAndNotify(session, onEvent, {
             type: 'model_requested',
             step: session.stepCount,
             metadata: {
@@ -161,7 +161,7 @@ export const runAgentWithDispatcher = async (
             return finishRun(session, 'failed', 'transport_error', onEvent)
         }
 
-        recordEvent(session, onEvent, {
+        recordAndNotify(session, onEvent, {
             type: 'model_responded',
             step: session.stepCount,
             metadata: {
@@ -178,7 +178,7 @@ export const runAgentWithDispatcher = async (
                 toolCalls: [],
             })
             session.finalAnswer = response.content
-            recordEvent(session, onEvent, {
+            recordAndNotify(session, onEvent, {
                 type: 'final_answer',
                 answer: response.content,
             })
@@ -193,7 +193,7 @@ export const runAgentWithDispatcher = async (
         })
 
         for (const call of response.toolCalls) {
-            recordEvent(session, onEvent, {
+            recordAndNotify(session, onEvent, {
                 type: 'tool_requested',
                 step: session.stepCount,
                 call,
@@ -207,7 +207,7 @@ export const runAgentWithDispatcher = async (
                     call,
                     budget.perToolTimeoutMs,
                     (decision) => {
-                        recordEvent(session, onEvent, {
+                        recordAndNotify(session, onEvent, {
                             type: 'tool_authorized',
                             step: session.stepCount,
                             callId: call.id,
@@ -223,7 +223,7 @@ export const runAgentWithDispatcher = async (
                 role: 'tool',
                 result,
             })
-            recordEvent(session, onEvent, {
+            recordAndNotify(session, onEvent, {
                 type: 'tool_completed',
                 step: session.stepCount,
                 result,

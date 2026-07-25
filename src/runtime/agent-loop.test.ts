@@ -6,6 +6,7 @@ import { test } from 'node:test'
 
 import { runAgent, runAgentWithDispatcher } from './agent-loop.ts'
 import type { ModelRequest, ModelTransport, RunEventSnapshot, SessionState } from './run.ts'
+import type { ToolCall, ToolResult } from './tools.ts'
 import { canonicalizeWorkspaceRoot } from './workspace.ts'
 
 const budget = {
@@ -143,6 +144,117 @@ test('swallows observer errors without changing the completed run', async () => 
     assert.equal(session.status, 'completed')
     assert.equal(session.finalAnswer, 'Done.')
     assert.equal(session.messages.filter((message) => message.role === 'assistant').length, 1)
+})
+
+test('records and notifies each tool outcome exactly once in lifecycle order', async () => {
+    const calls: readonly [ToolCall, ...ToolCall[]] = [
+        { id: 'success-call', name: 'read_file', arguments: { path: 'success.ts' } },
+        { id: 'invalid-call', name: 'read_file', arguments: { path: 1 } },
+        { id: 'denied-call', name: 'read_file', arguments: { path: 'denied.ts' } },
+        { id: 'timeout-call', name: 'read_file', arguments: { path: 'timeout.ts' } },
+        { id: 'error-call', name: 'read_file', arguments: { path: 'error.ts' } },
+    ]
+    const observed: RunEventSnapshot[] = []
+    let requestCount = 0
+    const transport: ModelTransport = async () => {
+        requestCount += 1
+
+        return requestCount === 1
+            ? { type: 'tool_calls', model: 'faux-model', toolCalls: calls }
+            : { type: 'final_answer', model: 'faux-model', content: 'Done.' }
+    }
+
+    const session = await runAgentWithDispatcher(
+        {
+            task: 'Exercise every outcome.',
+            workspaceRoot: '/approved/workspace',
+            budget,
+            model: 'faux-model',
+            transport,
+            onEvent: (event) => observed.push(event),
+        },
+        async (_workspaceRoot, call, _timeoutMs, onPermissionDecision) => {
+            const resultByCallId: Record<string, ToolResult> = {
+                'success-call': {
+                    status: 'success',
+                    callId: call.id,
+                    content: 'contents',
+                    metadata: { truncated: false, truncation: null },
+                },
+                'invalid-call': {
+                    status: 'invalid_arguments',
+                    callId: call.id,
+                    content: 'Invalid arguments',
+                    metadata: { truncated: false, truncation: null },
+                    error: { code: 'invalid_arguments', message: 'Invalid arguments' },
+                },
+                'denied-call': {
+                    status: 'denied',
+                    callId: call.id,
+                    content: 'Denied',
+                    metadata: { truncated: false, truncation: null },
+                    error: { code: 'outside_workspace', message: 'Denied' },
+                },
+                'timeout-call': {
+                    status: 'timeout',
+                    callId: call.id,
+                    content: 'Timed out',
+                    metadata: { truncated: false, truncation: null },
+                    error: { code: 'timeout', message: 'Timed out' },
+                },
+                'error-call': {
+                    status: 'execution_error',
+                    callId: call.id,
+                    content: 'Failed',
+                    metadata: { truncated: false, truncation: null },
+                    error: { code: 'execution_error', message: 'Failed' },
+                },
+            }
+            const result = resultByCallId[call.id]!
+
+            if (result.status !== 'invalid_arguments') {
+                onPermissionDecision?.(
+                    result.status === 'denied'
+                        ? { decision: 'deny', reason: 'outside_workspace' }
+                        : { decision: 'allow' }
+                )
+            }
+
+            return result
+        }
+    )
+
+    assert.deepEqual(observed, session.events)
+    assert.deepEqual(
+        session.events.map((event) => event.type),
+        [
+            'run_started',
+            'model_requested',
+            'model_responded',
+            'tool_requested',
+            'tool_authorized',
+            'tool_completed',
+            'tool_requested',
+            'tool_completed',
+            'tool_requested',
+            'tool_authorized',
+            'tool_completed',
+            'tool_requested',
+            'tool_authorized',
+            'tool_completed',
+            'tool_requested',
+            'tool_authorized',
+            'tool_completed',
+            'model_requested',
+            'model_responded',
+            'final_answer',
+            'run_finished',
+        ]
+    )
+    for (const call of calls) {
+        assert.equal(toolResultCount(session, call.id), 1)
+        assert.equal(toolCompletedCount(session, call.id), 1)
+    }
 })
 
 test('completes an in-memory session when the model returns a final answer', async () => {
@@ -786,6 +898,7 @@ test('returns exactly one timeout result to the model and continues the loop', a
 
 test('stops after the model-request budget without dropping the last tool result', async () => {
     let requestCount = 0
+    const observed: RunEventSnapshot[] = []
     const transport: ModelTransport = async () => {
         requestCount += 1
 
@@ -811,6 +924,7 @@ test('stops after the model-request budget without dropping the last tool result
         },
         model: null,
         transport,
+        onEvent: (event) => observed.push(event),
     })
 
     assert.equal(requestCount, 1)
@@ -868,6 +982,7 @@ test('stops after the model-request budget without dropping the last tool result
             reason: 'step_budget_exhausted',
         },
     ])
+    assert.deepEqual(observed, session.events)
 
     const zeroStepSession = await runAgent({
         task: 'Do not start.',
@@ -1064,6 +1179,7 @@ test('normalizes an unexpected dispatcher rejection into one completed result', 
 })
 
 test('returns a failed session when the model transport rejects', async () => {
+    const observed: RunEventSnapshot[] = []
     const session = await runAgent({
         task: 'Inspect the workspace.',
         workspaceRoot: '/approved/workspace',
@@ -1072,6 +1188,7 @@ test('returns a failed session when the model transport rejects', async () => {
         transport: async () => {
             throw new Error('transport unavailable')
         },
+        onEvent: (event) => observed.push(event),
     })
 
     assert.equal(session.status, 'failed')
@@ -1099,4 +1216,5 @@ test('returns a failed session when the model transport rejects', async () => {
             reason: 'transport_error',
         },
     ])
+    assert.deepEqual(observed, session.events)
 })
