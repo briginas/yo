@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { test } from 'node:test'
 
 import { runAgent, runAgentWithDispatcher } from './agent-loop.ts'
-import type { ModelRequest, ModelTransport, SessionState } from './run.ts'
+import type { ModelRequest, ModelTransport, RunEventSnapshot, SessionState } from './run.ts'
 import { canonicalizeWorkspaceRoot } from './workspace.ts'
 
 const budget = {
@@ -22,6 +22,128 @@ const toolCompletedCount = (session: SessionState, callId: string): number =>
     session.events.filter(
         (event) => event.type === 'tool_completed' && event.result.callId === callId
     ).length
+
+test('delivers detached read-only events after recording them', async () => {
+    const observed: RunEventSnapshot[] = []
+    let eventsAtFirstObservation = -1
+    const transport: ModelTransport = async () => ({
+        type: 'final_answer',
+        model: 'faux-model',
+        content: 'Done.',
+    })
+
+    const session = await runAgent({
+        task: 'Finish.',
+        workspaceRoot: '/approved/workspace',
+        budget,
+        model: 'faux-model',
+        transport,
+        onEvent: (event) => {
+            observed.push(event)
+
+            if (event.type === 'run_started') {
+                eventsAtFirstObservation = observed.length
+            }
+        },
+    })
+
+    assert.equal(eventsAtFirstObservation, 1)
+    assert.deepEqual(observed, session.events)
+    assert.notEqual(observed[0], session.events[0])
+    assert.ok(Object.isFrozen(observed[0]))
+    assert.ok(Object.isFrozen(observed[1]?.type === 'model_requested' ? observed[1].metadata : {}))
+})
+
+test('isolates nested observer snapshots from runtime events and transcript', async () => {
+    const call = {
+        id: 'read-call',
+        name: 'read_file',
+        arguments: { path: 'src/agent.ts' },
+    }
+    let observedCall: Extract<RunEventSnapshot, { type: 'tool_requested' }> | undefined
+    let observedResult: Extract<RunEventSnapshot, { type: 'tool_completed' }> | undefined
+    const transport: ModelTransport = async (request) =>
+        request.messages.some((message) => message.role === 'tool')
+            ? {
+                  type: 'final_answer',
+                  model: 'faux-model',
+                  content: 'Done.',
+              }
+            : {
+                  type: 'tool_calls',
+                  model: 'faux-model',
+                  toolCalls: [call],
+              }
+
+    const session = await runAgentWithDispatcher(
+        {
+            task: 'Read the file.',
+            workspaceRoot: '/approved/workspace',
+            budget,
+            model: 'faux-model',
+            transport,
+            onEvent: (event) => {
+                if (event.type === 'tool_requested') {
+                    observedCall = event
+                }
+
+                if (event.type === 'tool_completed') {
+                    observedResult = event
+                }
+            },
+        },
+        async () => ({
+            status: 'success',
+            callId: call.id,
+            content: 'contents',
+            metadata: { truncated: false, truncation: null },
+        })
+    )
+
+    assert.ok(observedCall)
+    assert.ok(observedResult)
+    const requested = session.events.find((event) => event.type === 'tool_requested')
+    const completed = session.events.find((event) => event.type === 'tool_completed')
+    const transcriptResult = session.messages.find((message) => message.role === 'tool')
+
+    assert.ok(requested?.type === 'tool_requested')
+    assert.ok(completed?.type === 'tool_completed')
+    assert.ok(transcriptResult?.role === 'tool')
+    assert.notEqual(observedCall.call, requested.call)
+    assert.notEqual(observedCall.call.arguments, requested.call.arguments)
+    assert.notEqual(observedResult.result, completed.result)
+    assert.notEqual(observedResult.result, transcriptResult.result)
+    assert.throws(() => {
+        ;(observedCall!.call.arguments as { path: string }).path = 'mutated.ts'
+    }, TypeError)
+    assert.equal((requested.call.arguments as { path: string }).path, 'src/agent.ts')
+})
+
+test('swallows observer errors without changing the completed run', async () => {
+    let notifications = 0
+    const transport: ModelTransport = async () => ({
+        type: 'final_answer',
+        model: 'faux-model',
+        content: 'Done.',
+    })
+
+    const session = await runAgent({
+        task: 'Finish.',
+        workspaceRoot: '/approved/workspace',
+        budget,
+        model: 'faux-model',
+        transport,
+        onEvent: () => {
+            notifications += 1
+            throw new Error('renderer failure')
+        },
+    })
+
+    assert.equal(notifications, session.events.length)
+    assert.equal(session.status, 'completed')
+    assert.equal(session.finalAnswer, 'Done.')
+    assert.equal(session.messages.filter((message) => message.role === 'assistant').length, 1)
+})
 
 test('completes an in-memory session when the model returns a final answer', async () => {
     const requests: ModelRequest[] = []

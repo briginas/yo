@@ -1,5 +1,13 @@
 import type { PermissionDecision } from './permissions.ts'
-import type { ModelTransport, RunBudget, RunStatus, SessionState, StopReason } from './run.ts'
+import type {
+    ModelTransport,
+    RunBudget,
+    RunEvent,
+    RunEventObserver,
+    RunStatus,
+    SessionState,
+    StopReason,
+} from './run.ts'
 import { dispatchToolCall } from './tool-dispatcher.ts'
 import type { ToolCall, ToolName, ToolResult } from './tools.ts'
 
@@ -18,6 +26,7 @@ export type RunAgentOptions = {
     budget: RunBudget
     model: string | null
     transport: ModelTransport
+    onEvent?: RunEventObserver
 }
 
 type ToolDispatcher = (
@@ -30,17 +39,50 @@ type ToolDispatcher = (
 const finishRun = (
     session: SessionState,
     status: Exclude<RunStatus, 'pending' | 'running'>,
-    reason: StopReason
+    reason: StopReason,
+    onEvent: RunEventObserver | undefined
 ): SessionState => {
     session.status = status
     session.stopReason = reason
-    session.events.push({
+    recordEvent(session, onEvent, {
         type: 'run_finished',
         status,
         reason,
     })
 
     return session
+}
+
+const freezeSnapshot = (value: unknown): void => {
+    if (value === null || typeof value !== 'object' || Object.isFrozen(value)) {
+        return
+    }
+
+    Object.freeze(value)
+
+    for (const nestedValue of Object.values(value)) {
+        freezeSnapshot(nestedValue)
+    }
+}
+
+const recordEvent = (
+    session: SessionState,
+    onEvent: RunEventObserver | undefined,
+    event: RunEvent
+): void => {
+    session.events.push(event)
+
+    if (onEvent === undefined) {
+        return
+    }
+
+    try {
+        const snapshot = structuredClone(event)
+        freezeSnapshot(snapshot)
+        onEvent(snapshot)
+    } catch {
+        // Observers are non-owning UI hooks and must not affect the agent run.
+    }
 }
 
 const createUnexpectedDispatcherErrorResult = (call: ToolCall, error: unknown): ToolResult => {
@@ -65,7 +107,7 @@ const createUnexpectedDispatcherErrorResult = (call: ToolCall, error: unknown): 
 // Exported only from this internal module so the loop can be tested with a controlled dispatcher.
 // The public runtime barrel exposes runAgent with the closed read-only registry.
 export const runAgentWithDispatcher = async (
-    { task, workspaceRoot, budget, model, transport }: RunAgentOptions,
+    { task, workspaceRoot, budget, model, transport, onEvent }: RunAgentOptions,
     dispatch: ToolDispatcher
 ): Promise<SessionState> => {
     const session: SessionState = {
@@ -88,7 +130,7 @@ export const runAgentWithDispatcher = async (
         finalAnswer: null,
         stopReason: null,
     }
-    session.events.push({
+    recordEvent(session, onEvent, {
         type: 'run_started',
         task,
         workspaceRoot,
@@ -102,7 +144,7 @@ export const runAgentWithDispatcher = async (
             messages: [...session.messages],
             visibleTools: [...VISIBLE_TOOLS],
         }
-        session.events.push({
+        recordEvent(session, onEvent, {
             type: 'model_requested',
             step: session.stepCount,
             metadata: {
@@ -116,10 +158,10 @@ export const runAgentWithDispatcher = async (
         try {
             response = await transport(request)
         } catch {
-            return finishRun(session, 'failed', 'transport_error')
+            return finishRun(session, 'failed', 'transport_error', onEvent)
         }
 
-        session.events.push({
+        recordEvent(session, onEvent, {
             type: 'model_responded',
             step: session.stepCount,
             metadata: {
@@ -136,12 +178,12 @@ export const runAgentWithDispatcher = async (
                 toolCalls: [],
             })
             session.finalAnswer = response.content
-            session.events.push({
+            recordEvent(session, onEvent, {
                 type: 'final_answer',
                 answer: response.content,
             })
 
-            return finishRun(session, 'completed', 'final_answer')
+            return finishRun(session, 'completed', 'final_answer', onEvent)
         }
 
         session.messages.push({
@@ -151,7 +193,7 @@ export const runAgentWithDispatcher = async (
         })
 
         for (const call of response.toolCalls) {
-            session.events.push({
+            recordEvent(session, onEvent, {
                 type: 'tool_requested',
                 step: session.stepCount,
                 call,
@@ -165,7 +207,7 @@ export const runAgentWithDispatcher = async (
                     call,
                     budget.perToolTimeoutMs,
                     (decision) => {
-                        session.events.push({
+                        recordEvent(session, onEvent, {
                             type: 'tool_authorized',
                             step: session.stepCount,
                             callId: call.id,
@@ -181,7 +223,7 @@ export const runAgentWithDispatcher = async (
                 role: 'tool',
                 result,
             })
-            session.events.push({
+            recordEvent(session, onEvent, {
                 type: 'tool_completed',
                 step: session.stepCount,
                 result,
@@ -189,7 +231,7 @@ export const runAgentWithDispatcher = async (
         }
     }
 
-    return finishRun(session, 'aborted', 'step_budget_exhausted')
+    return finishRun(session, 'aborted', 'step_budget_exhausted', onEvent)
 }
 
 export const runAgent = (options: RunAgentOptions): Promise<SessionState> =>

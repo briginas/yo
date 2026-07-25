@@ -80,10 +80,26 @@ export type RunEvent =
           answer: string
       }
     | {
+          type: 'final_answer_delta'
+          delta: string
+      }
+    | {
           type: 'run_finished'
           status: Exclude<RunStatus, 'pending' | 'running'>
           reason: StopReason
       }
+
+type ReadonlyDeep<Value> = Value extends (...arguments_: never[]) => unknown
+    ? Value
+    : Value extends readonly (infer Item)[]
+      ? readonly ReadonlyDeep<Item>[]
+      : Value extends object
+        ? { readonly [Key in keyof Value]: ReadonlyDeep<Value[Key]> }
+        : Value
+
+export type RunEventSnapshot = ReadonlyDeep<RunEvent>
+
+export type RunEventObserver = (event: RunEventSnapshot) => void
 
 export type SessionMessage =
     | {

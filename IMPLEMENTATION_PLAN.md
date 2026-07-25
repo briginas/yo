@@ -15,8 +15,8 @@ one. Confirm the first incomplete leaf with the user before implementation.
   [requirements](docs/requirements/milestone-2-in-memory-chat.md) and
   [active implementation plan](docs/plans/active/milestone-2-in-memory-chat.md)
   are the detailed sources of truth.
-- **Next candidate leaf:** `8.1.1 Define the live event observer contract`.
-  Milestone 2 implementation has not started.
+- **Next candidate leaf:** `8.1.2 Centralize runtime event recording`.
+  Milestone 2 has completed its first leaf, the live event observer contract.
 
 ## Permanent constraints
 

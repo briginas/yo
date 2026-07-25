@@ -1,7 +1,7 @@
 # Active implementation plan: Milestone 2 in-memory interactive chat
 
-- **Status:** active, implementation not started
-- **First incomplete leaf:** `8.1.1 Define the live event observer contract`
+- **Status:** active, 8.1.1 complete
+- **First incomplete leaf:** `8.1.2 Centralize runtime event recording`
 - **Source of truth for:** Milestone 2 implementation order and verification
 - **Related documents:** [implementation map](../../../IMPLEMENTATION_PLAN.md),
   [Milestone 2 requirements](../../requirements/milestone-2-in-memory-chat.md)
@@ -210,22 +210,22 @@ flowchart LR
 ## Implementation steps
 
 - [ ] **8.1 Deliver lifecycle events while a run is active**
-    - [ ] **8.1.1 Define the live event observer contract**
-        - [ ] Add a synchronous provider-neutral `RunEvent` observer type and an
+    - [x] **8.1.1 Define the live event observer contract**
+        - [x] Add a synchronous provider-neutral `RunEvent` observer type and an
               optional observer field at the bounded-loop boundary.
-        - [ ] Specify ordered, exactly-once delivery of detached, structurally
+        - [x] Specify ordered, exactly-once delivery of detached, structurally
               read-only event snapshots after the authoritative event is recorded
               in `SessionState.events`. Include a `final_answer_delta` event
               carrying the released delta string so observers receive answer text
               after the transport confirms its output item.
-        - [ ] Ensure observer snapshots share no mutable nested call, arguments,
+        - [x] Ensure observer snapshots share no mutable nested call, arguments,
               decision, or result objects with runtime state.
-        - [ ] Catch observer exceptions at the notification boundary so UI
+        - [x] Catch observer exceptions at the notification boundary so UI
               failures cannot interrupt tool-result creation, alter permissions, or
               enter the model transcript.
-        - [ ] Keep the observer optional so existing `runAgent` callers retain
+        - [x] Keep the observer optional so existing `runAgent` callers retain
               current behavior.
-        - [ ] Verify the contract with focused type and unit tests; do not
+        - [x] Verify the contract with focused type and unit tests; do not
               change CLI output in this leaf.
     - [ ] **8.1.2 Centralize runtime event recording**
         - [ ] Replace direct `session.events.push(...)` calls with one internal
