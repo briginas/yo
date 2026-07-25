@@ -1,6 +1,15 @@
 import type { RunEventObserver, RunEventSnapshot, RunStatus, StopReason } from './runtime/run.ts'
+import {
+    listFilesArgumentsSchema,
+    readFileArgumentsSchema,
+    searchCodeArgumentsSchema,
+    type ToolName,
+    type ToolResultTruncation,
+} from './runtime/tools.ts'
 
 export type TerminalTextWriter = (message: string) => void
+
+type SafeToolName = ToolName | 'unknown_tool'
 
 export type TerminalStatus =
     | {
@@ -12,7 +21,9 @@ export type TerminalStatus =
           type: 'tool_running' | 'tool_completed' | 'tool_denied' | 'tool_timeout' | 'tool_failed'
           step: number
           callId: string
-          toolName: string
+          toolName: SafeToolName
+          argumentSummary: string | null
+          truncation: ToolResultTruncation | null
       }
     | {
           type: 'turn_finished'
@@ -38,7 +49,102 @@ export type TerminalRenderer = {
 
 type RequestedTool = {
     step: number
-    name: string
+    toolName: SafeToolName
+    argumentSummary: string | null
+}
+
+const SAFE_STRING_MAX_CHARACTERS = 80
+const SENSITIVE_VALUE_PATTERN =
+    /(?:authorization|bearer|access_token|refresh_token|client_secret|sk-)/i
+
+const normalizeSingleLine = (value: string): string =>
+    value
+        .replace(/[\u0000-\u001f\u007f-\u009f]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+
+const formatSafeString = (value: string): string => {
+    if (SENSITIVE_VALUE_PATTERN.test(value)) {
+        return '<redacted>'
+    }
+
+    const escaped = normalizeSingleLine(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')
+    const characters = [...escaped]
+    const preview =
+        characters.length > SAFE_STRING_MAX_CHARACTERS
+            ? `${characters.slice(0, SAFE_STRING_MAX_CHARACTERS - 3).join('')}...`
+            : escaped
+
+    return `"${preview}"`
+}
+
+const formatOptionalField = (name: string, value: string | number | undefined): string[] =>
+    value === undefined
+        ? []
+        : [`${name}=${typeof value === 'string' ? formatSafeString(value) : value}`]
+
+const summarizeToolArguments = (
+    name: string,
+    arguments_: unknown
+): Pick<RequestedTool, 'toolName' | 'argumentSummary'> => {
+    switch (name) {
+        case 'list_files': {
+            const parsed = listFilesArgumentsSchema.safeParse(arguments_)
+
+            if (!parsed.success) {
+                return { toolName: name, argumentSummary: null }
+            }
+
+            return {
+                toolName: name,
+                argumentSummary: [
+                    `path=${formatSafeString(parsed.data.path)}`,
+                    ...formatOptionalField('glob', parsed.data.glob),
+                    ...formatOptionalField('limit', parsed.data.limit),
+                ].join(' '),
+            }
+        }
+        case 'search_code': {
+            const parsed = searchCodeArgumentsSchema.safeParse(arguments_)
+
+            if (!parsed.success) {
+                return { toolName: name, argumentSummary: null }
+            }
+
+            return {
+                toolName: name,
+                argumentSummary: [
+                    `query=${formatSafeString(parsed.data.query)}`,
+                    ...formatOptionalField('path', parsed.data.path),
+                    ...formatOptionalField('glob', parsed.data.glob),
+                    ...formatOptionalField('limit', parsed.data.limit),
+                ].join(' '),
+            }
+        }
+        case 'read_file': {
+            const parsed = readFileArgumentsSchema.safeParse(arguments_)
+
+            if (!parsed.success) {
+                return { toolName: name, argumentSummary: null }
+            }
+
+            const { path, startLine, endLine } = parsed.data
+            const lineRange =
+                startLine === undefined && endLine === undefined
+                    ? []
+                    : [`lines=${startLine ?? '*'}-${endLine ?? '*'}`]
+
+            return {
+                toolName: name,
+                argumentSummary: [`path=${formatSafeString(path)}`, ...lineRange].join(' '),
+            }
+        }
+        default:
+            return {
+                toolName: 'unknown_tool',
+                argumentSummary: null,
+            }
+    }
 }
 
 const mapToolCompletionType = (
@@ -56,6 +162,35 @@ const mapToolCompletionType = (
         case 'execution_error':
         case 'aborted':
             return 'tool_failed'
+    }
+}
+
+export const formatTerminalStatusLine = (status: TerminalStatus): string => {
+    switch (status.type) {
+        case 'model_waiting':
+            return normalizeSingleLine(
+                `status: ${status.active ? 'model_waiting' : 'model_ready'} step=${status.step}`
+            )
+        case 'tool_running':
+        case 'tool_completed':
+        case 'tool_denied':
+        case 'tool_timeout':
+        case 'tool_failed': {
+            const arguments_ =
+                status.argumentSummary === null ? 'arguments=unavailable' : status.argumentSummary
+            const truncation =
+                status.truncation === null
+                    ? ''
+                    : ` truncated=${status.truncation.reason} limit=${status.truncation.limit} observed=${status.truncation.observed}`
+
+            return normalizeSingleLine(
+                `status: ${status.type} step=${status.step} tool=${status.toolName} ${arguments_}${truncation}`
+            )
+        }
+        case 'turn_finished':
+            return normalizeSingleLine(
+                `status: turn_finished status=${status.status} reason=${status.reason}`
+            )
     }
 }
 
@@ -83,12 +218,15 @@ export const createTerminalRenderer = ({
                     active: false,
                 })
                 return
-            case 'tool_requested':
+            case 'tool_requested': {
+                const summary = summarizeToolArguments(event.call.name, event.call.arguments)
+
                 requestedTools.set(event.call.id, {
                     step: event.step,
-                    name: event.call.name,
+                    ...summary,
                 })
                 return
+            }
             case 'tool_authorized': {
                 if (event.decision.decision === 'deny') {
                     return
@@ -104,7 +242,9 @@ export const createTerminalRenderer = ({
                     type: 'tool_running',
                     step: requestedTool.step,
                     callId: event.callId,
-                    toolName: requestedTool.name,
+                    toolName: requestedTool.toolName,
+                    argumentSummary: requestedTool.argumentSummary,
+                    truncation: null,
                 })
                 return
             }
@@ -120,7 +260,12 @@ export const createTerminalRenderer = ({
                     type: mapToolCompletionType(event),
                     step: requestedTool.step,
                     callId: event.result.callId,
-                    toolName: requestedTool.name,
+                    toolName: requestedTool.toolName,
+                    argumentSummary: requestedTool.argumentSummary,
+                    truncation:
+                        event.result.metadata.truncated && event.result.metadata.truncation !== null
+                            ? { ...event.result.metadata.truncation }
+                            : null,
                 })
                 return
             }

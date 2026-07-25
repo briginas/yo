@@ -1,7 +1,7 @@
 # Active implementation plan: Milestone 2 in-memory interactive chat
 
-- **Status:** active, 8.1–8.3.1 complete
-- **First incomplete leaf:** `8.3.2 Format safe status summaries`
+- **Status:** active, 8.1–8.3.2 complete
+- **First incomplete leaf:** `8.3.3 Add TTY progress behavior`
 - **Source of truth for:** Milestone 2 implementation order and verification
 - **Related documents:** [implementation map](../../../IMPLEMENTATION_PLAN.md),
   [Milestone 2 requirements](../../requirements/milestone-2-in-memory-chat.md)
@@ -286,14 +286,14 @@ flowchart LR
               allow decision.
         - [x] Keep rendering independent of the provider adapter, dispatcher,
               and credential store.
-    - [ ] **8.3.2 Format safe status summaries**
-        - [ ] Format known tool arguments through their strict schemas and
+    - [x] **8.3.2 Format safe status summaries**
+        - [x] Format known tool arguments through their strict schemas and
               bounded field-specific summaries.
-        - [ ] Report tool name, safe path/range/filter information, result
+        - [x] Report tool name, safe path/range/filter information, result
               status, and truncation without printing unrestricted result content.
-        - [ ] Sanitize errors and exclude reasoning, credentials, authorization
+        - [x] Sanitize errors and exclude reasoning, credentials, authorization
               headers, raw provider events, and unknown argument objects.
-        - [ ] Use deterministic line-oriented messages for non-TTY output.
+        - [x] Use deterministic line-oriented messages for non-TTY output.
     - [ ] **8.3.3 Add TTY progress behavior**
         - [ ] Show and clear a model-waiting indicator between `model_requested`
               and `model_responded`.
