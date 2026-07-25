@@ -1,7 +1,7 @@
 # Active implementation plan: Milestone 2 in-memory interactive chat
 
-- **Status:** active, 8.1–8.3 and 8.4.1–8.4.3 complete
-- **First incomplete leaf:** `8.4.4 Verify CLI chat behavior`
+- **Status:** active, 8.1–8.4 complete
+- **First incomplete leaf:** `8.5.1 Release safe final-answer deltas after output-item confirmation`
 - **Source of truth for:** Milestone 2 implementation order and verification
 - **Related documents:** [implementation map](../../../IMPLEMENTATION_PLAN.md),
   [Milestone 2 requirements](../../requirements/milestone-2-in-memory-chat.md)
@@ -313,7 +313,7 @@ flowchart LR
         - [x] Run focused renderer tests, the full test suite, build, format
               check, and whitespace check.
 
-- [ ] **8.4 Add the `yo chat` command and input loop**
+- [x] **8.4 Add the `yo chat` command and input loop**
     - [x] **8.4.1 Parse the bounded chat command**
         - [x] Extract the command variants, usage text, and pure argument parser
               from `cli-app.ts` into `cli-command.ts` while adding `chat`; keep
@@ -352,15 +352,15 @@ flowchart LR
               `/exit`, with output cleanup on every path.
         - [x] Print per-turn evidence and stop reason without mixing status text
               into the final-answer channel.
-    - [ ] **8.4.4 Verify CLI chat behavior**
-        - [ ] Test two-turn success, a tool-using turn, follow-up context, EOF,
+    - [x] **8.4.4 Verify CLI chat behavior**
+        - [x] Test two-turn success, a tool-using turn, follow-up context, EOF,
               `/exit`, blank input, transport failure, and step-budget exhaustion
               with injected input and faux transport.
-        - [ ] Verify status ordering, exit codes, cleanup, unchanged workspace
+        - [x] Verify status ordering, exit codes, cleanup, unchanged workspace
               contents, and no credential or transcript output.
-        - [ ] Verify existing `yo ask` exact output and all authentication
+        - [x] Verify existing `yo ask` exact output and all authentication
               commands remain unchanged.
-        - [ ] Run focused CLI tests, the full test suite, build, format check,
+        - [x] Run focused CLI tests, the full test suite, build, format check,
               and whitespace check.
 
 - [ ] **8.5 Compose safe final-answer release with terminal feedback**

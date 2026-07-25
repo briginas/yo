@@ -23,7 +23,7 @@ import {
     type Credential,
     type CredentialStore,
 } from './auth/credential.ts'
-import type { LineInput } from './line-input.ts'
+import { CHAT_PROMPT, type LineInput } from './line-input.ts'
 import type { ModelRequest, ModelTransport } from './runtime/run.ts'
 
 type CliInvocation = {
@@ -36,6 +36,9 @@ type CliInvocation = {
     credentialStore?: CredentialStore
     exchangeCredential?: (options: { code: string; codeVerifier: string }) => Promise<Credential>
     createLineInput?: () => LineInput
+    clearStatusLine?: () => void
+    moveStatusCursorToStart?: () => void
+    isInteractive?: boolean
 }
 
 const invokeCli = async ({
@@ -46,6 +49,9 @@ const invokeCli = async ({
     credentialStore,
     exchangeCredential,
     createLineInput,
+    clearStatusLine,
+    moveStatusCursorToStart,
+    isInteractive,
 }: CliInvocation) => {
     const outputs: string[] = []
     const answers: string[] = []
@@ -67,9 +73,9 @@ const invokeCli = async ({
             })),
         writeAnswer: (message) => answers.push(message),
         writeStatus: (message) => statuses.push(message),
-        clearStatusLine: () => undefined,
-        moveStatusCursorToStart: () => undefined,
-        isInteractive: false,
+        clearStatusLine: clearStatusLine ?? (() => undefined),
+        moveStatusCursorToStart: moveStatusCursorToStart ?? (() => undefined),
+        isInteractive: isInteractive ?? false,
         ...(createAuthorization === undefined ? {} : { createAuthorization }),
         ...(startCallbackListener === undefined ? {} : { startCallbackListener }),
         ...(credentialStore === undefined ? {} : { credentialStore }),
@@ -160,26 +166,52 @@ test('passes an explicit model and returns a failed session with exit code 1', a
     }
 })
 
-test('composes retained chat turns with separate answer, evidence, and status output', async () => {
-    const workspace = await mkdtemp(`${tmpdir()}/yo-cli-chat-`)
+test('composes a tool-using chat turn and retains its observations for a follow-up', async () => {
+    const fixtureRoot = await mkdtemp(`${tmpdir()}/yo-cli-chat-`)
+    const workspace = join(fixtureRoot, 'workspace')
+    const sourceDirectory = join(workspace, 'src')
+    const sourcePath = join(sourceDirectory, 'settings.ts')
+    const source = 'export const defaultTimeoutMs = 5_000\n'
     const requests: ModelRequest[] = []
-    const lines = ['Find the entrypoint.', 'What does it export?', '/exit']
+    const lines = [
+        'Find the default timeout.',
+        'What did the earlier observation establish?',
+        '/exit',
+    ]
     let lineIndex = 0
     let closeCount = 0
+    const privateTranscriptMarker = 'Bearer private-access-token'
     const transport: ModelTransport = async (request) => {
         requests.push(request)
+
+        if (requests.length === 1) {
+            return {
+                type: 'tool_calls',
+                model: 'chosen-model',
+                content: privateTranscriptMarker,
+                toolCalls: [
+                    {
+                        id: 'search-call',
+                        name: 'search_code',
+                        arguments: { query: 'defaultTimeoutMs', path: 'src' },
+                    },
+                ],
+            }
+        }
 
         return {
             type: 'final_answer',
             model: 'chosen-model',
             content:
-                requests.length === 1
-                    ? 'The entrypoint is src/cli.ts.'
-                    : 'It exports the command-line application.',
+                requests.length === 2
+                    ? 'The default timeout is 5,000 ms.'
+                    : 'The earlier observation found the definition in src/settings.ts:1.',
         }
     }
 
     try {
+        await mkdir(sourceDirectory, { recursive: true })
+        await writeFile(sourcePath, source)
         const relativeWorkspace = relative(process.cwd(), workspace)
         const canonicalWorkspace = await realpath(workspace)
         const { answers, errors, outputs, result, statuses } = await invokeCli({
@@ -195,41 +227,311 @@ test('composes retained chat turns with separate answer, evidence, and status ou
 
         assert.deepEqual(errors, [])
         assert.deepEqual(answers, [
-            'The entrypoint is src/cli.ts.\n\n',
-            'It exports the command-line application.\n\n',
+            'The default timeout is 5,000 ms.\n\n',
+            'The earlier observation found the definition in src/settings.ts:1.\n\n',
         ])
         assert.deepEqual(outputs, [
-            ['Evidence:', 'Stop reason: final_answer', 'Tools: (none)', 'Files:', '- (none)'].join(
-                '\n'
-            ),
+            [
+                'Evidence:',
+                'Stop reason: final_answer',
+                'Tools: search_code',
+                'Files:',
+                '- src/settings.ts',
+            ].join('\n'),
             ['Evidence:', 'Stop reason: final_answer', 'Tools: (none)', 'Files:', '- (none)'].join(
                 '\n'
             ),
         ])
+        assert.deepEqual(statuses, [
+            'status: model_waiting step=1\n',
+            'status: model_ready step=1\n',
+            'status: tool_running step=1 tool=search_code query="defaultTimeoutMs" path="src"\n',
+            'status: tool_completed step=1 tool=search_code query="defaultTimeoutMs" path="src"\n',
+            'status: model_waiting step=2\n',
+            'status: model_ready step=2\n',
+            'status: turn_finished status=completed reason=final_answer\n',
+            'status: model_waiting step=1\n',
+            'status: model_ready step=1\n',
+            'status: turn_finished status=completed reason=final_answer\n',
+        ])
         assert.equal(result.exitCode, 0)
-        assert.equal(result.session?.task, 'What does it export?')
+        assert.equal(result.session?.task, 'What did the earlier observation establish?')
         assert.equal(result.session?.workspaceRoot, canonicalWorkspace)
         assert.equal(result.session?.budget.maxSteps, 10)
-        assert.equal(requests.length, 2)
+        assert.equal(result.session?.stepCount, 1)
+        assert.equal(requests.length, 3)
         assert.equal(requests[0]?.model, 'chosen-model')
         assert.equal(requests[1]?.model, 'chosen-model')
+        assert.equal(requests[2]?.model, 'chosen-model')
         assert.deepEqual(
-            requests[1]?.messages.map((message) => message.role),
-            ['system', 'user', 'assistant', 'user']
+            requests[2]?.messages.map((message) => message.role),
+            ['system', 'user', 'assistant', 'tool', 'assistant', 'user']
         )
-        const firstUserMessage = requests[1]?.messages[1]
-        const firstAssistantMessage = requests[1]?.messages[2]
-        const secondUserMessage = requests[1]?.messages[3]
+        const firstUserMessage = requests[2]?.messages[1]
+        const toolCallMessage = requests[2]?.messages[2]
+        const toolResultMessage = requests[2]?.messages[3]
+        const firstAnswerMessage = requests[2]?.messages[4]
+        const secondUserMessage = requests[2]?.messages[5]
 
         assert.ok(firstUserMessage?.role === 'user')
-        assert.ok(firstAssistantMessage?.role === 'assistant')
+        assert.ok(toolCallMessage?.role === 'assistant')
+        assert.ok(toolResultMessage?.role === 'tool')
+        assert.ok(firstAnswerMessage?.role === 'assistant')
         assert.ok(secondUserMessage?.role === 'user')
-        assert.equal(firstUserMessage.content, 'Find the entrypoint.')
-        assert.equal(firstAssistantMessage.content, 'The entrypoint is src/cli.ts.')
-        assert.equal(secondUserMessage.content, 'What does it export?')
-        assert.equal(statuses.join('').includes('The entrypoint is src/cli.ts.'), false)
-        assert.equal(statuses.join('').includes('It exports the command-line application.'), false)
+        assert.equal(firstUserMessage.content, 'Find the default timeout.')
+        assert.equal(toolCallMessage.content, privateTranscriptMarker)
+        assert.deepEqual(toolCallMessage.toolCalls, [
+            {
+                id: 'search-call',
+                name: 'search_code',
+                arguments: { query: 'defaultTimeoutMs', path: 'src' },
+            },
+        ])
+        assert.equal(toolResultMessage.result.status, 'success')
+        assert.equal(
+            toolResultMessage.result.content,
+            'src/settings.ts:1:export const defaultTimeoutMs = 5_000'
+        )
+        assert.equal(firstAnswerMessage.content, 'The default timeout is 5,000 ms.')
+        assert.equal(secondUserMessage.content, 'What did the earlier observation establish?')
+        assert.equal(
+            [...answers, ...outputs, ...statuses, ...errors]
+                .join('')
+                .includes(privateTranscriptMarker),
+            false
+        )
         assert.equal(closeCount, 1)
+        assert.equal(await readFile(sourcePath, 'utf8'), source)
+        assert.deepEqual(await readdir(workspace), ['src'])
+        assert.deepEqual(await readdir(sourceDirectory), ['settings.ts'])
+    } finally {
+        await rm(fixtureRoot, { recursive: true, force: true })
+    }
+})
+
+test('handles EOF, exact exit, and blank chat input without invoking the model', async (context) => {
+    const workspace = await mkdtemp(`${tmpdir()}/yo-cli-chat-input-`)
+    const cases = [
+        { name: 'EOF', lines: [null], promptCount: 1 },
+        { name: 'exact exit', lines: ['/exit'], promptCount: 1 },
+        { name: 'blank input', lines: ['', '   ', '\t', '/exit'], promptCount: 4 },
+    ] as const
+
+    try {
+        for (const testCase of cases) {
+            await context.test(testCase.name, async () => {
+                const prompts: string[] = []
+                let lineIndex = 0
+                let closeCount = 0
+                let transportCallCount = 0
+                const { answers, errors, outputs, result, statuses } = await invokeCli({
+                    argv: ['chat', '--cwd', workspace],
+                    transport: async () => {
+                        transportCallCount += 1
+                        throw new Error('transport must not be called')
+                    },
+                    createLineInput: () => ({
+                        readLine: async (prompt) => {
+                            prompts.push(prompt)
+                            return testCase.lines[lineIndex++] ?? null
+                        },
+                        close: () => {
+                            closeCount += 1
+                        },
+                    }),
+                })
+
+                assert.deepEqual(result, { exitCode: 0, session: null })
+                assert.deepEqual(answers, [])
+                assert.deepEqual(errors, [])
+                assert.deepEqual(outputs, [])
+                assert.deepEqual(statuses, [])
+                assert.deepEqual(prompts, Array(testCase.promptCount).fill(CHAT_PROMPT))
+                assert.equal(transportCallCount, 0)
+                assert.equal(closeCount, 1)
+            })
+        }
+    } finally {
+        await rm(workspace, { recursive: true, force: true })
+    }
+})
+
+test('reports a sanitized transport failure and continues with the next chat turn', async () => {
+    const workspace = await mkdtemp(`${tmpdir()}/yo-cli-chat-transport-`)
+    const requests: ModelRequest[] = []
+    const lines = ['private transcript marker', 'Recover on the next turn.', '/exit']
+    let lineIndex = 0
+    let closeCount = 0
+    let clearCount = 0
+    let moveCount = 0
+    const privateTransportError = 'Bearer private-access-token raw transport failure'
+    const transport: ModelTransport = async (request) => {
+        requests.push(request)
+
+        if (requests.length === 1) {
+            throw new Error(privateTransportError)
+        }
+
+        return {
+            type: 'final_answer',
+            model: null,
+            content: 'The second turn completed.',
+        }
+    }
+
+    try {
+        const { answers, errors, outputs, result, statuses } = await invokeCli({
+            argv: ['chat', '--cwd', workspace],
+            transport,
+            createLineInput: () => ({
+                readLine: async () => lines[lineIndex++] ?? null,
+                close: () => {
+                    closeCount += 1
+                },
+            }),
+            clearStatusLine: () => {
+                clearCount += 1
+            },
+            moveStatusCursorToStart: () => {
+                moveCount += 1
+            },
+            isInteractive: true,
+        })
+
+        assert.deepEqual(errors, [])
+        assert.deepEqual(answers, ['The second turn completed.\n\n'])
+        assert.deepEqual(outputs, [
+            [
+                'Evidence:',
+                'Stop reason: transport_error',
+                'Tools: (none)',
+                'Files:',
+                '- (none)',
+            ].join('\n'),
+            ['Evidence:', 'Stop reason: final_answer', 'Tools: (none)', 'Files:', '- (none)'].join(
+                '\n'
+            ),
+        ])
+        assert.deepEqual(statuses, [
+            'status: model_waiting step=1',
+            'status: turn_finished status=failed reason=transport_error\n',
+            'status: model_waiting step=1',
+            'status: turn_finished status=completed reason=final_answer\n',
+        ])
+        assert.equal(result.exitCode, 0)
+        assert.equal(result.session?.status, 'completed')
+        assert.equal(result.session?.stepCount, 1)
+        assert.equal(requests.length, 2)
+        assert.deepEqual(
+            requests[1]?.messages.map((message) => message.role),
+            ['system', 'user', 'user']
+        )
+        assert.deepEqual(requests[1]?.messages.slice(1), [
+            { role: 'user', content: 'private transcript marker' },
+            { role: 'user', content: 'Recover on the next turn.' },
+        ])
+        assert.equal(
+            [...answers, ...outputs, ...statuses, ...errors]
+                .join('')
+                .includes(privateTransportError),
+            false
+        )
+        assert.equal(
+            [...answers, ...outputs, ...statuses, ...errors]
+                .join('')
+                .includes('private transcript marker'),
+            false
+        )
+        assert.equal(clearCount, 4)
+        assert.equal(moveCount, 4)
+        assert.equal(closeCount, 1)
+    } finally {
+        await rm(workspace, { recursive: true, force: true })
+    }
+})
+
+test('reports step-budget exhaustion and resets the budget for the next chat turn', async () => {
+    const workspace = await mkdtemp(`${tmpdir()}/yo-cli-chat-budget-`)
+    const requests: ModelRequest[] = []
+    const lines = ['Exhaust this turn.', 'Recover with a fresh budget.', '/exit']
+    let lineIndex = 0
+    const privateArgument = 'Bearer private-access-token'
+    const transport: ModelTransport = async (request) => {
+        requests.push(request)
+
+        if (requests.length <= 10) {
+            return {
+                type: 'tool_calls',
+                model: null,
+                toolCalls: [
+                    {
+                        id: `unknown-call-${requests.length}`,
+                        name: 'unknown_tool',
+                        arguments: { authorization: privateArgument },
+                    },
+                ],
+            }
+        }
+
+        return {
+            type: 'final_answer',
+            model: null,
+            content: 'The fresh turn completed.',
+        }
+    }
+
+    try {
+        const { answers, errors, outputs, result, statuses } = await invokeCli({
+            argv: ['chat', '--cwd', workspace],
+            transport,
+            createLineInput: () => ({
+                readLine: async () => lines[lineIndex++] ?? null,
+                close: () => undefined,
+            }),
+        })
+
+        assert.deepEqual(errors, [])
+        assert.deepEqual(answers, ['The fresh turn completed.\n\n'])
+        assert.deepEqual(outputs, [
+            [
+                'Evidence:',
+                'Stop reason: step_budget_exhausted',
+                'Tools: (none)',
+                'Files:',
+                '- (none)',
+            ].join('\n'),
+            ['Evidence:', 'Stop reason: final_answer', 'Tools: (none)', 'Files:', '- (none)'].join(
+                '\n'
+            ),
+        ])
+        assert.deepEqual(statuses.slice(0, 3), [
+            'status: model_waiting step=1\n',
+            'status: model_ready step=1\n',
+            'status: tool_failed step=1 tool=unknown_tool arguments=unavailable\n',
+        ])
+        assert.deepEqual(statuses.slice(27, 31), [
+            'status: model_waiting step=10\n',
+            'status: model_ready step=10\n',
+            'status: tool_failed step=10 tool=unknown_tool arguments=unavailable\n',
+            'status: turn_finished status=aborted reason=step_budget_exhausted\n',
+        ])
+        assert.deepEqual(statuses.slice(31), [
+            'status: model_waiting step=1\n',
+            'status: model_ready step=1\n',
+            'status: turn_finished status=completed reason=final_answer\n',
+        ])
+        assert.equal(result.exitCode, 0)
+        assert.equal(result.session?.status, 'completed')
+        assert.equal(result.session?.stepCount, 1)
+        assert.equal(requests.length, 11)
+        assert.deepEqual(requests[10]?.messages.at(-1), {
+            role: 'user',
+            content: 'Recover with a fresh budget.',
+        })
+        assert.equal(
+            [...answers, ...outputs, ...statuses, ...errors].join('').includes(privateArgument),
+            false
+        )
     } finally {
         await rm(workspace, { recursive: true, force: true })
     }
