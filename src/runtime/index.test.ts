@@ -12,8 +12,17 @@ import type {
     RunEventSnapshot,
 } from './index.ts'
 
-const { canonicalizeWorkspaceRoot, dispatchToolCall, listFiles, readFile, runAgent, searchCode } =
-    runtime
+const {
+    appendTurnToConversation,
+    canonicalizeWorkspaceRoot,
+    createConversation,
+    createConversationTurnResult,
+    dispatchToolCall,
+    listFiles,
+    readFile,
+    runAgent,
+    searchCode,
+} = runtime
 
 const completeMetadata = {
     truncated: false,
@@ -22,7 +31,10 @@ const completeMetadata = {
 
 test('exports only the approved read-only runtime capabilities', () => {
     assert.deepEqual(Object.keys(runtime).sort(), [
+        'appendTurnToConversation',
         'canonicalizeWorkspaceRoot',
+        'createConversation',
+        'createConversationTurnResult',
         'dispatchToolCall',
         'isSensitivePath',
         'listFiles',

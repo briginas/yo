@@ -1,7 +1,7 @@
 # Active implementation plan: Milestone 2 in-memory interactive chat
 
-- **Status:** active, 8.1 complete
-- **First incomplete leaf:** `8.2.1 Define conversation and turn contracts`
+- **Status:** active, 8.1–8.2.1 complete
+- **First incomplete leaf:** `8.2.2 Implement bounded turn continuation`
 - **Source of truth for:** Milestone 2 implementation order and verification
 - **Related documents:** [implementation map](../../../IMPLEMENTATION_PLAN.md),
   [Milestone 2 requirements](../../requirements/milestone-2-in-memory-chat.md)
@@ -245,15 +245,15 @@ flowchart LR
               check, and whitespace check.
 
 - [ ] **8.2 Continue a conversation in memory**
-    - [ ] **8.2.1 Define conversation and turn contracts**
-        - [ ] Introduce a provider-neutral in-memory conversation state with one
+    - [x] **8.2.1 Define conversation and turn contracts**
+        - [x] Introduce a provider-neutral in-memory conversation state with one
               system message, fixed workspace root, selected model, and ordered
               transcript.
-        - [ ] Separate conversation-lifetime state from per-turn `SessionState`,
+        - [x] Separate conversation-lifetime state from per-turn `SessionState`,
               events, budgets, final answer, and stop reason.
-        - [ ] Define how a completed or failed turn updates the transcript
+        - [x] Define how a completed or failed turn updates the transcript
               without adding persistence or compaction.
-        - [ ] Keep `yo ask` on its existing one-turn contract.
+        - [x] Keep `yo ask` on its existing one-turn contract.
     - [ ] **8.2.2 Implement bounded turn continuation**
         - [ ] Append one user message, run the existing bounded loop against
               prior messages, and return the updated in-memory conversation plus the

@@ -101,20 +101,30 @@ export type RunEventSnapshot = ReadonlyDeep<RunEvent>
 
 export type RunEventObserver = (event: RunEventSnapshot) => void
 
-export type SessionMessage =
-    | {
-          role: 'system' | 'user'
-          content: string
-      }
-    | {
-          role: 'assistant'
-          content: string
-          toolCalls: ToolCall[]
-      }
-    | {
-          role: 'tool'
-          result: ToolResult
-      }
+export type SystemMessage = {
+    role: 'system'
+    content: string
+}
+
+export type UserMessage = {
+    role: 'user'
+    content: string
+}
+
+export type AssistantMessage = {
+    role: 'assistant'
+    content: string
+    toolCalls: ToolCall[]
+}
+
+export type ToolMessage = {
+    role: 'tool'
+    result: ToolResult
+}
+
+export type SessionMessage = SystemMessage | UserMessage | AssistantMessage | ToolMessage
+
+export type ConversationMessage = UserMessage | AssistantMessage | ToolMessage
 
 export type SessionState = {
     task: string

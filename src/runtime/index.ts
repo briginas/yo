@@ -1,4 +1,12 @@
 export { runAgent, type RunAgentOptions } from './agent-loop.ts'
+export {
+    appendTurnToConversation,
+    createConversation,
+    createConversationTurnResult,
+    type ConversationState,
+    type ConversationTurnResult,
+    type CreateConversationOptions,
+} from './conversation.ts'
 export * from './filesystem.ts'
 export * from './permissions.ts'
 export * from './run.ts'
