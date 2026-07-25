@@ -65,7 +65,7 @@ type ParseResult =
       }
 
 export type CliDependencies = {
-    transport: ModelTransport | null
+    transport: ModelTransport
     writeOutput: (message: string) => void
     writeError: (message: string) => void
     createAuthorization?: () => OpenAICodexAuthorization
@@ -509,13 +509,6 @@ export const runCli = async (
             writeOutput,
             writeError,
         })
-    }
-
-    if (transport === null) {
-        return runtimeError(
-            'OpenAI transport is not available yet; complete milestone 6 first.',
-            writeError
-        )
     }
 
     let workspaceRoot: string

@@ -27,7 +27,7 @@ import type { ModelRequest, ModelTransport } from './runtime/run.ts'
 
 type CliInvocation = {
     argv: readonly string[]
-    transport?: ModelTransport | null
+    transport?: ModelTransport
     createAuthorization?: () => OpenAICodexAuthorization
     startCallbackListener?: (
         options: OpenAICodexCallbackListenerOptions
@@ -38,7 +38,7 @@ type CliInvocation = {
 
 const invokeCli = async ({
     argv,
-    transport = null,
+    transport,
     createAuthorization,
     startCallbackListener,
     credentialStore,
@@ -47,7 +47,11 @@ const invokeCli = async ({
     const outputs: string[] = []
     const errors: string[] = []
     const result = await runCli(argv, {
-        transport,
+        transport:
+            transport ??
+            (async () => {
+                throw new Error('transport not provided')
+            }),
         writeOutput: (message) => outputs.push(message),
         writeError: (message) => errors.push(message),
         ...(createAuthorization === undefined ? {} : { createAuthorization }),
@@ -183,19 +187,6 @@ test('rejects invalid command-line arguments with usage exit code 2', async (con
             assert.match(errors[0]!, /Usage: yo ask/)
         })
     }
-})
-
-test('reports unavailable production transport after argument validation', async () => {
-    const { errors, outputs, result } = await invokeCli({
-        argv: ['ask', 'Inspect the workspace.', '--cwd', '.'],
-    })
-
-    assert.deepEqual(outputs, [])
-    assert.deepEqual(result, {
-        exitCode: 1,
-        session: null,
-    })
-    assert.deepEqual(errors, ['OpenAI transport is not available yet; complete milestone 6 first.'])
 })
 
 test('reports non-secret OAuth account and expiry status', async (context) => {
@@ -361,7 +352,9 @@ test('prints an authorization URL only after the callback listener is ready', as
     let storedCredential: Credential | undefined
 
     const result = await runCli(['login'], {
-        transport: null,
+        transport: async () => {
+            throw new Error('transport not provided')
+        },
         createAuthorization: () => authorization,
         startCallbackListener: async (options) => {
             events.push('listener_started')
@@ -441,7 +434,9 @@ test('completes browser login through injected HTTP and a temporary credential s
 
     try {
         const result = await runCli(['login'], {
-            transport: null,
+            transport: async () => {
+                throw new Error('transport not provided')
+            },
             startCallbackListener: (options) =>
                 startOpenAICodexCallbackListener({
                     ...options,
