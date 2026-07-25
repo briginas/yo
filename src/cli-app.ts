@@ -1,5 +1,3 @@
-import { relative, resolve, sep } from 'node:path'
-
 import {
     createOpenAICodexAuthorization,
     exchangeOpenAICodexAuthorizationCode,
@@ -12,15 +10,21 @@ import {
 import { createFileCredentialStore } from './auth/file-credential-store.ts'
 import { OPENAI_CODEX_PROVIDER_ID, type CredentialStore } from './auth/credential.ts'
 import { parseCliCommand, USAGE } from './cli-command.ts'
+import { formatEvidenceReport, formatSessionReport } from './evidence-report.ts'
+import { runChatInput, type LineInput } from './line-input.ts'
 import {
     canonicalizeWorkspaceRoot,
-    readFileArgumentsSchema,
+    createConversation,
     runAgent,
+    runConversationTurn,
     type ModelTransport,
     type SessionState,
-    type ToolCall,
-    type ToolResult,
 } from './runtime/index.ts'
+import {
+    createTerminalRenderer,
+    createTerminalStatusOutput,
+    type TerminalTextWriter,
+} from './terminal-renderer.ts'
 
 const RUN_BUDGET = {
     maxSteps: 10,
@@ -31,6 +35,12 @@ export type CliDependencies = {
     transport: ModelTransport
     writeOutput: (message: string) => void
     writeError: (message: string) => void
+    createLineInput?: () => LineInput
+    writeAnswer?: TerminalTextWriter
+    writeStatus?: TerminalTextWriter
+    clearStatusLine?: () => void
+    moveStatusCursorToStart?: () => void
+    isInteractive?: boolean
     createAuthorization?: () => OpenAICodexAuthorization
     startCallbackListener?: (
         options: OpenAICodexCallbackListenerOptions
@@ -200,93 +210,105 @@ const runLogout = async ({
     }
 }
 
-const addUnique = (values: string[], seen: Set<string>, value: string): void => {
-    if (seen.has(value)) {
-        return
-    }
-
-    seen.add(value)
-    values.push(value)
+type ChatDependencies = {
+    transport: ModelTransport
+    writeOutput: CliDependencies['writeOutput']
+    writeError: CliDependencies['writeError']
+    createLineInput: () => LineInput
+    writeAnswer: TerminalTextWriter
+    writeStatus: TerminalTextWriter
+    clearStatusLine: () => void
+    moveStatusCursorToStart: () => void
+    isInteractive: boolean
 }
 
-const normalizeWorkspacePath = (workspaceRoot: string, requestedPath: string): string => {
-    const normalizedPath = relative(workspaceRoot, resolve(workspaceRoot, requestedPath))
-
-    return normalizedPath === '' ? '.' : normalizedPath.split(sep).join('/')
+type RunChatOptions = ChatDependencies & {
+    workspaceRoot: string
+    model: string | null
 }
 
-const collectFiles = (
-    session: SessionState,
-    call: ToolCall,
-    result: Extract<ToolResult, { status: 'success' }>
-): string[] => {
-    if (call.name === 'list_files') {
-        return result.content.split('\n').filter((path) => path.length > 0 && !path.endsWith('/'))
+class ChatTurnError extends Error {}
+
+const runChat = async ({
+    workspaceRoot,
+    model,
+    transport,
+    writeOutput,
+    writeError,
+    createLineInput,
+    writeAnswer,
+    writeStatus,
+    clearStatusLine,
+    moveStatusCursorToStart,
+    isInteractive,
+}: RunChatOptions): Promise<CliResult> => {
+    const statusOutput = createTerminalStatusOutput({
+        write: writeStatus,
+        clearLine: clearStatusLine,
+        moveCursorToStart: moveStatusCursorToStart,
+        isInteractive,
+    })
+    const renderer = createTerminalRenderer({
+        writeAnswer,
+        writeStatus: statusOutput.writeStatus,
+        writeError,
+        isInteractive,
+    })
+    const initialConversation = createConversation({
+        workspaceRoot,
+        model,
+    })
+    let conversation = initialConversation
+    let lastSession: SessionState | null = null
+    let input: LineInput
+
+    try {
+        input = createLineInput()
+    } catch {
+        return runtimeError('Cannot start chat input.', writeError)
     }
 
-    if (call.name === 'search_code') {
-        return result.content
-            .split('\n')
-            .map((match) => /^(.*):\d+:/.exec(match)?.[1])
-            .filter((path): path is string => path !== undefined)
-    }
+    try {
+        await runChatInput({
+            input,
+            clearProgress: statusOutput.clearProgress,
+            onMessage: async (task) => {
+                try {
+                    const result = await runConversationTurn({
+                        conversation,
+                        task,
+                        budget: RUN_BUDGET,
+                        transport,
+                        onEvent: renderer.onEvent,
+                    })
+                    const session = result.turn.session
 
-    if (call.name === 'read_file') {
-        const parsedArguments = readFileArgumentsSchema.safeParse(call.arguments)
+                    conversation = result.conversation
+                    lastSession = session
 
-        if (parsedArguments.success) {
-            return [normalizeWorkspacePath(session.workspaceRoot, parsedArguments.data.path)]
+                    if (session.finalAnswer !== null) {
+                        renderer.writeAnswer(`${session.finalAnswer}\n\n`)
+                    }
+
+                    writeOutput(formatEvidenceReport(session))
+                } catch {
+                    throw new ChatTurnError()
+                }
+            },
+        })
+
+        return {
+            exitCode: 0,
+            session: lastSession,
+        }
+    } catch (error) {
+        writeError(error instanceof ChatTurnError ? 'Chat turn failed.' : 'Chat input failed.')
+
+        return {
+            exitCode: 1,
+            session: lastSession,
         }
     }
-
-    return []
-}
-
-const formatSessionOutput = (session: SessionState): string => {
-    const callsById = new Map<string, ToolCall>()
-    const tools: string[] = []
-    const seenTools = new Set<string>()
-    const files: string[] = []
-    const seenFiles = new Set<string>()
-
-    for (const event of session.events) {
-        if (event.type === 'tool_requested') {
-            callsById.set(event.call.id, event.call)
-            continue
-        }
-
-        if (event.type === 'tool_authorized' && event.decision.decision === 'allow') {
-            const call = callsById.get(event.callId)
-
-            if (call !== undefined) {
-                addUnique(tools, seenTools, call.name)
-            }
-
-            continue
-        }
-
-        if (event.type === 'tool_completed' && event.result.status === 'success') {
-            const call = callsById.get(event.result.callId)
-
-            if (call === undefined) {
-                continue
-            }
-
-            for (const file of collectFiles(session, call, event.result)) {
-                addUnique(files, seenFiles, file)
-            }
-        }
-    }
-
-    return [
-        session.finalAnswer ?? 'No final answer.',
-        '',
-        'Evidence:',
-        `Stop reason: ${session.stopReason ?? 'unknown'}`,
-        `Tools: ${tools.length > 0 ? tools.join(', ') : '(none)'}`,
-        'Files:',
-        ...(files.length > 0 ? files.map((file) => `- ${file}`) : ['- (none)']),
-    ].join('\n')
 }
 
 export const runCli = async (
@@ -299,6 +321,12 @@ export const runCli = async (
         startCallbackListener,
         exchangeCredential,
         credentialStore,
+        createLineInput,
+        writeAnswer,
+        writeStatus,
+        clearStatusLine,
+        moveStatusCursorToStart,
+        isInteractive,
     }: CliDependencies
 ): Promise<CliResult> => {
     const parsed = parseCliCommand(argv)
@@ -345,7 +373,30 @@ export const runCli = async (
     }
 
     if (parsed.command.name === 'chat') {
-        return runtimeError('Chat input loop is not available yet', writeError)
+        if (
+            createLineInput === undefined ||
+            writeAnswer === undefined ||
+            writeStatus === undefined ||
+            clearStatusLine === undefined ||
+            moveStatusCursorToStart === undefined ||
+            isInteractive === undefined
+        ) {
+            return runtimeError('Chat I/O is not configured.', writeError)
+        }
+
+        return runChat({
+            workspaceRoot,
+            model: parsed.command.model,
+            transport,
+            writeOutput,
+            writeError,
+            createLineInput,
+            writeAnswer,
+            writeStatus,
+            clearStatusLine,
+            moveStatusCursorToStart,
+            isInteractive,
+        })
     }
 
     try {
@@ -357,7 +408,7 @@ export const runCli = async (
             transport,
         })
 
-        writeOutput(formatSessionOutput(session))
+        writeOutput(formatSessionReport(session))
 
         return {
             exitCode: session.status === 'completed' ? 0 : 1,

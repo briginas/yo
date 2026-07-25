@@ -10,10 +10,8 @@ import type {
     StopReason,
 } from './run.ts'
 import { dispatchToolCall } from './tool-dispatcher.ts'
+import { DEFAULT_SYSTEM_PROMPT } from './system-prompt.ts'
 import type { ToolCall, ToolName, ToolResult } from './tools.ts'
-
-const SYSTEM_PROMPT =
-    'You are a read-only coding agent. Inspect only the approved workspace through the available read-only tools and base your final answer on tool results.'
 
 const VISIBLE_TOOLS = [
     'list_files',
@@ -123,7 +121,7 @@ export const runAgentWithDispatcher = async (
                 ? [
                       {
                           role: 'system' as const,
-                          content: SYSTEM_PROMPT,
+                          content: DEFAULT_SYSTEM_PROMPT,
                       },
                   ]
                 : structuredClone(initialMessages)),

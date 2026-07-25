@@ -23,6 +23,7 @@ import {
     type Credential,
     type CredentialStore,
 } from './auth/credential.ts'
+import type { LineInput } from './line-input.ts'
 import type { ModelRequest, ModelTransport } from './runtime/run.ts'
 
 type CliInvocation = {
@@ -34,6 +35,7 @@ type CliInvocation = {
     ) => Promise<OpenAICodexCallbackListener>
     credentialStore?: CredentialStore
     exchangeCredential?: (options: { code: string; codeVerifier: string }) => Promise<Credential>
+    createLineInput?: () => LineInput
 }
 
 const invokeCli = async ({
@@ -43,8 +45,11 @@ const invokeCli = async ({
     startCallbackListener,
     credentialStore,
     exchangeCredential,
+    createLineInput,
 }: CliInvocation) => {
     const outputs: string[] = []
+    const answers: string[] = []
+    const statuses: string[] = []
     const errors: string[] = []
     const result = await runCli(argv, {
         transport:
@@ -54,13 +59,24 @@ const invokeCli = async ({
             }),
         writeOutput: (message) => outputs.push(message),
         writeError: (message) => errors.push(message),
+        createLineInput:
+            createLineInput ??
+            (() => ({
+                readLine: async () => null,
+                close: () => undefined,
+            })),
+        writeAnswer: (message) => answers.push(message),
+        writeStatus: (message) => statuses.push(message),
+        clearStatusLine: () => undefined,
+        moveStatusCursorToStart: () => undefined,
+        isInteractive: false,
         ...(createAuthorization === undefined ? {} : { createAuthorization }),
         ...(startCallbackListener === undefined ? {} : { startCallbackListener }),
         ...(credentialStore === undefined ? {} : { credentialStore }),
         ...(exchangeCredential === undefined ? {} : { exchangeCredential }),
     })
 
-    return { errors, outputs, result }
+    return { answers, errors, outputs, result, statuses }
 }
 
 test('runs ask with a canonical workspace, fixed budget, and no default model', async () => {
@@ -144,25 +160,76 @@ test('passes an explicit model and returns a failed session with exit code 1', a
     }
 })
 
-test('canonicalizes chat workspace before stopping at the unimplemented input boundary', async () => {
+test('composes retained chat turns with separate answer, evidence, and status output', async () => {
     const workspace = await mkdtemp(`${tmpdir()}/yo-cli-chat-`)
-    let transportCalled = false
-    const transport: ModelTransport = async () => {
-        transportCalled = true
-        throw new Error('transport must not be called')
+    const requests: ModelRequest[] = []
+    const lines = ['Find the entrypoint.', 'What does it export?', '/exit']
+    let lineIndex = 0
+    let closeCount = 0
+    const transport: ModelTransport = async (request) => {
+        requests.push(request)
+
+        return {
+            type: 'final_answer',
+            model: 'chosen-model',
+            content:
+                requests.length === 1
+                    ? 'The entrypoint is src/cli.ts.'
+                    : 'It exports the command-line application.',
+        }
     }
 
     try {
         const relativeWorkspace = relative(process.cwd(), workspace)
-        const { errors, outputs, result } = await invokeCli({
+        const canonicalWorkspace = await realpath(workspace)
+        const { answers, errors, outputs, result, statuses } = await invokeCli({
             argv: ['chat', '--model', 'chosen-model', '--cwd', relativeWorkspace],
             transport,
+            createLineInput: () => ({
+                readLine: async () => lines[lineIndex++] ?? null,
+                close: () => {
+                    closeCount += 1
+                },
+            }),
         })
 
-        assert.deepEqual(result, { exitCode: 1, session: null })
-        assert.deepEqual(outputs, [])
-        assert.deepEqual(errors, ['Chat input loop is not available yet'])
-        assert.equal(transportCalled, false)
+        assert.deepEqual(errors, [])
+        assert.deepEqual(answers, [
+            'The entrypoint is src/cli.ts.\n\n',
+            'It exports the command-line application.\n\n',
+        ])
+        assert.deepEqual(outputs, [
+            ['Evidence:', 'Stop reason: final_answer', 'Tools: (none)', 'Files:', '- (none)'].join(
+                '\n'
+            ),
+            ['Evidence:', 'Stop reason: final_answer', 'Tools: (none)', 'Files:', '- (none)'].join(
+                '\n'
+            ),
+        ])
+        assert.equal(result.exitCode, 0)
+        assert.equal(result.session?.task, 'What does it export?')
+        assert.equal(result.session?.workspaceRoot, canonicalWorkspace)
+        assert.equal(result.session?.budget.maxSteps, 10)
+        assert.equal(requests.length, 2)
+        assert.equal(requests[0]?.model, 'chosen-model')
+        assert.equal(requests[1]?.model, 'chosen-model')
+        assert.deepEqual(
+            requests[1]?.messages.map((message) => message.role),
+            ['system', 'user', 'assistant', 'user']
+        )
+        const firstUserMessage = requests[1]?.messages[1]
+        const firstAssistantMessage = requests[1]?.messages[2]
+        const secondUserMessage = requests[1]?.messages[3]
+
+        assert.ok(firstUserMessage?.role === 'user')
+        assert.ok(firstAssistantMessage?.role === 'assistant')
+        assert.ok(secondUserMessage?.role === 'user')
+        assert.equal(firstUserMessage.content, 'Find the entrypoint.')
+        assert.equal(firstAssistantMessage.content, 'The entrypoint is src/cli.ts.')
+        assert.equal(secondUserMessage.content, 'What does it export?')
+        assert.equal(statuses.join('').includes('The entrypoint is src/cli.ts.'), false)
+        assert.equal(statuses.join('').includes('It exports the command-line application.'), false)
+        assert.equal(closeCount, 1)
     } finally {
         await rm(workspace, { recursive: true, force: true })
     }

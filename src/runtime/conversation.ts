@@ -8,6 +8,7 @@ import type {
     SessionState,
     SystemMessage,
 } from './run.ts'
+import { DEFAULT_SYSTEM_PROMPT } from './system-prompt.ts'
 
 export type ConversationState = {
     readonly workspaceRoot: string
@@ -21,7 +22,7 @@ export type ConversationTurnResult = {
 }
 
 export type CreateConversationOptions = {
-    systemPrompt: string
+    systemPrompt?: string
     workspaceRoot: string
     model: string | null
 }
@@ -57,7 +58,7 @@ const appendToTranscript = (
 ]
 
 export const createConversation = ({
-    systemPrompt,
+    systemPrompt = DEFAULT_SYSTEM_PROMPT,
     workspaceRoot,
     model,
 }: CreateConversationOptions): ConversationState => ({

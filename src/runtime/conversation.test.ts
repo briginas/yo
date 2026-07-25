@@ -51,6 +51,21 @@ test('creates an in-memory conversation with one system message and fixed settin
     })
 })
 
+test('uses the bounded read-only system prompt by default', () => {
+    const conversation = createConversation({
+        workspaceRoot: '/approved/workspace',
+        model: null,
+    })
+
+    assert.deepEqual(conversation.messages, [
+        {
+            role: 'system',
+            content:
+                'You are a read-only coding agent. Inspect only the approved workspace through the available read-only tools and base your final answer on tool results.',
+        },
+    ])
+})
+
 test('appends a completed turn in provider-neutral transcript order', () => {
     const conversation = createConversation({
         systemPrompt: 'Use read-only tools.',

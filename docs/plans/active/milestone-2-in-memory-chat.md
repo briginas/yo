@@ -1,7 +1,7 @@
 # Active implementation plan: Milestone 2 in-memory interactive chat
 
-- **Status:** active, 8.1–8.3 and 8.4.1–8.4.2 complete
-- **First incomplete leaf:** `8.4.3 Compose the in-memory chat loop`
+- **Status:** active, 8.1–8.3 and 8.4.1–8.4.3 complete
+- **First incomplete leaf:** `8.4.4 Verify CLI chat behavior`
 - **Source of truth for:** Milestone 2 implementation order and verification
 - **Related documents:** [implementation map](../../../IMPLEMENTATION_PLAN.md),
   [Milestone 2 requirements](../../requirements/milestone-2-in-memory-chat.md)
@@ -336,21 +336,21 @@ flowchart LR
               unchanged, and prompt again.
         - [x] Close input resources and clear active progress indicators on
               every exit path.
-    - [ ] **8.4.3 Compose the in-memory chat loop**
-        - [ ] Extract evidence collection and formatting from `cli-app.ts` into
+    - [x] **8.4.3 Compose the in-memory chat loop**
+        - [x] Extract evidence collection and formatting from `cli-app.ts` into
               `evidence-report.ts`; preserve the exact existing `yo ask` report
               while allowing chat turns to render evidence without repeating
               final-answer text.
-        - [ ] Reuse one conversation state, workspace root, model, transport,
+        - [x] Reuse one conversation state, workspace root, model, transport,
               and closed read-only registry across turns.
-        - [ ] Run one bounded turn per accepted input line and return to the
+        - [x] Run one bounded turn per accepted input line and return to the
               prompt after a completed turn.
-        - [ ] After a transport failure or step-budget exhaustion, report the
+        - [x] After a transport failure or step-budget exhaustion, report the
               sanitized turn outcome and return to the prompt without persistence or
               automatic retry.
-        - [ ] End the process only for setup or input failure, EOF, or exact
+        - [x] End the process only for setup or input failure, EOF, or exact
               `/exit`, with output cleanup on every path.
-        - [ ] Print per-turn evidence and stop reason without mixing status text
+        - [x] Print per-turn evidence and stop reason without mixing status text
               into the final-answer channel.
     - [ ] **8.4.4 Verify CLI chat behavior**
         - [ ] Test two-turn success, a tool-using turn, follow-up context, EOF,
