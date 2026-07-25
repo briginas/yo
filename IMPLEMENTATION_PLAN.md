@@ -15,10 +15,11 @@ one. Confirm the first incomplete leaf with the user before implementation.
   [requirements](docs/requirements/milestone-2-in-memory-chat.md) and
   [active implementation plan](docs/plans/active/milestone-2-in-memory-chat.md)
   are the detailed sources of truth.
-- **Next candidate leaf:** `8.4.2 Add an injectable line-input boundary`.
+- **Next candidate leaf:** `8.4.3 Compose the in-memory chat loop`.
   Milestone 2 has completed the verified public event-observer boundary,
   bounded in-memory turn continuation, the safe deterministic terminal
-  renderer, and strict parsing for the bounded `yo chat` command.
+  renderer, strict parsing for the bounded `yo chat` command, and the
+  injectable local line-input boundary.
 
 ## Permanent constraints
 

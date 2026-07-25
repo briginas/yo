@@ -1,7 +1,7 @@
 # Active implementation plan: Milestone 2 in-memory interactive chat
 
-- **Status:** active, 8.1–8.3 and 8.4.1 complete
-- **First incomplete leaf:** `8.4.2 Add an injectable line-input boundary`
+- **Status:** active, 8.1–8.3 and 8.4.1–8.4.2 complete
+- **First incomplete leaf:** `8.4.3 Compose the in-memory chat loop`
 - **Source of truth for:** Milestone 2 implementation order and verification
 - **Related documents:** [implementation map](../../../IMPLEMENTATION_PLAN.md),
   [Milestone 2 requirements](../../requirements/milestone-2-in-memory-chat.md)
@@ -327,14 +327,14 @@ flowchart LR
               parsing behavior.
         - [x] Canonicalize the workspace once before accepting the first user
               turn.
-    - [ ] **8.4.2 Add an injectable line-input boundary**
-        - [ ] Prompt for one line at a time without exposing terminal input as a
+    - [x] **8.4.2 Add an injectable line-input boundary**
+        - [x] Prompt for one line at a time without exposing terminal input as a
               model tool.
-        - [ ] Treat EOF and the exact `/exit` command as clean local termination
+        - [x] Treat EOF and the exact `/exit` command as clean local termination
               controls that are not appended to model context.
-        - [ ] Ignore whitespace-only input locally, leave the transcript
+        - [x] Ignore whitespace-only input locally, leave the transcript
               unchanged, and prompt again.
-        - [ ] Close input resources and clear active progress indicators on
+        - [x] Close input resources and clear active progress indicators on
               every exit path.
     - [ ] **8.4.3 Compose the in-memory chat loop**
         - [ ] Extract evidence collection and formatting from `cli-app.ts` into
