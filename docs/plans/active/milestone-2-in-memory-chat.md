@@ -1,7 +1,7 @@
 # Active implementation plan: Milestone 2 in-memory interactive chat
 
-- **Status:** active, 8.1–8.2.3 complete
-- **First incomplete leaf:** `8.3.1 Define the renderer boundary`
+- **Status:** active, 8.1–8.3.1 complete
+- **First incomplete leaf:** `8.3.2 Format safe status summaries`
 - **Source of truth for:** Milestone 2 implementation order and verification
 - **Related documents:** [implementation map](../../../IMPLEMENTATION_PLAN.md),
   [Milestone 2 requirements](../../requirements/milestone-2-in-memory-chat.md)
@@ -276,15 +276,15 @@ flowchart LR
               check, and whitespace check.
 
 - [ ] **8.3 Render safe interactive terminal status**
-    - [ ] **8.3.1 Define the renderer boundary**
-        - [ ] Add separate injected writers for answers, operational status, and
+    - [x] **8.3.1 Define the renderer boundary**
+        - [x] Add separate injected writers for answers, operational status, and
               errors.
-        - [ ] Add an injected terminal-capability flag rather than reading
+        - [x] Add an injected terminal-capability flag rather than reading
               global TTY state inside pure formatting code.
-        - [ ] Map existing events to waiting, running, completed, denied,
+        - [x] Map existing events to waiting, running, completed, denied,
               timeout, failed, and turn-finished states; infer running only after an
               allow decision.
-        - [ ] Keep rendering independent of the provider adapter, dispatcher,
+        - [x] Keep rendering independent of the provider adapter, dispatcher,
               and credential store.
     - [ ] **8.3.2 Format safe status summaries**
         - [ ] Format known tool arguments through their strict schemas and
