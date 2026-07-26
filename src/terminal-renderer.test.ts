@@ -153,6 +153,137 @@ test('maps model and turn lifecycle events to renderer states', () => {
     ])
 })
 
+test('settles each model request once across tool work and confirmed answer deltas', () => {
+    const { renderer, statuses } = createRendererFixture(false)
+    const call = {
+        id: 'call-1',
+        name: 'read_file',
+        arguments: {
+            path: 'src/cli.ts',
+        },
+    } as const
+    const events: RunEventSnapshot[] = [
+        {
+            type: 'model_requested',
+            step: 1,
+            metadata: {
+                model: null,
+                visibleTools: ['list_files', 'search_code', 'read_file'],
+            },
+        },
+        {
+            type: 'model_responded',
+            step: 1,
+            metadata: {
+                model: null,
+                toolCallCount: 1,
+                hasFinalAnswer: false,
+            },
+        },
+        {
+            type: 'tool_requested',
+            step: 1,
+            call,
+        },
+        {
+            type: 'tool_authorized',
+            step: 1,
+            callId: call.id,
+            decision: {
+                decision: 'allow',
+            },
+        },
+        {
+            type: 'tool_completed',
+            step: 1,
+            result: {
+                status: 'success',
+                callId: call.id,
+                content: 'file contents',
+                metadata: completeMetadata,
+            },
+        },
+        {
+            type: 'model_requested',
+            step: 2,
+            metadata: {
+                model: null,
+                visibleTools: ['list_files', 'search_code', 'read_file'],
+            },
+        },
+        {
+            type: 'final_answer_delta',
+            delta: 'Confirmed ',
+        },
+        {
+            type: 'final_answer_delta',
+            delta: 'answer.',
+        },
+        {
+            type: 'model_responded',
+            step: 2,
+            metadata: {
+                model: null,
+                toolCallCount: 0,
+                hasFinalAnswer: true,
+            },
+        },
+        {
+            type: 'run_finished',
+            status: 'completed',
+            reason: 'final_answer',
+        },
+    ]
+
+    for (const event of events) {
+        renderer.onEvent(event)
+    }
+
+    assert.deepEqual(statuses, [
+        {
+            type: 'model_waiting',
+            step: 1,
+            active: true,
+        },
+        {
+            type: 'model_waiting',
+            step: 1,
+            active: false,
+        },
+        {
+            type: 'tool_running',
+            step: 1,
+            callId: call.id,
+            toolName: 'read_file',
+            argumentSummary: 'path="src/cli.ts"',
+            truncation: null,
+        },
+        {
+            type: 'tool_completed',
+            step: 1,
+            callId: call.id,
+            toolName: 'read_file',
+            argumentSummary: 'path="src/cli.ts"',
+            truncation: null,
+        },
+        {
+            type: 'model_waiting',
+            step: 2,
+            active: true,
+        },
+        {
+            type: 'model_waiting',
+            step: 2,
+            active: false,
+        },
+        {
+            type: 'turn_finished',
+            status: 'completed',
+            reason: 'final_answer',
+        },
+    ])
+})
+
 test('starts tool running only after an allow decision and maps successful completion', () => {
     const { renderer, statuses } = createRendererFixture(false)
 

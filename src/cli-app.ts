@@ -210,16 +210,46 @@ const runLogout = async ({
     }
 }
 
-type ChatDependencies = {
-    transport: ModelTransport
-    writeOutput: CliDependencies['writeOutput']
+type TerminalDependencies = {
     writeError: CliDependencies['writeError']
-    createLineInput: () => LineInput
     writeAnswer: TerminalTextWriter
     writeStatus: TerminalTextWriter
     clearStatusLine: () => void
     moveStatusCursorToStart: () => void
     isInteractive: boolean
+}
+
+const createTerminalComposition = ({
+    writeError,
+    writeAnswer,
+    writeStatus,
+    clearStatusLine,
+    moveStatusCursorToStart,
+    isInteractive,
+}: TerminalDependencies) => {
+    const statusOutput = createTerminalStatusOutput({
+        write: writeStatus,
+        clearLine: clearStatusLine,
+        moveCursorToStart: moveStatusCursorToStart,
+        isInteractive,
+    })
+    const renderer = createTerminalRenderer({
+        writeAnswer,
+        writeStatus: statusOutput.writeStatus,
+        writeError,
+        isInteractive,
+    })
+
+    return {
+        renderer,
+        statusOutput,
+    }
+}
+
+type ChatDependencies = TerminalDependencies & {
+    transport: ModelTransport
+    writeOutput: CliDependencies['writeOutput']
+    createLineInput: () => LineInput
 }
 
 type RunChatOptions = ChatDependencies & {
@@ -242,16 +272,12 @@ const runChat = async ({
     moveStatusCursorToStart,
     isInteractive,
 }: RunChatOptions): Promise<CliResult> => {
-    const statusOutput = createTerminalStatusOutput({
-        write: writeStatus,
-        clearLine: clearStatusLine,
-        moveCursorToStart: moveStatusCursorToStart,
-        isInteractive,
-    })
-    const renderer = createTerminalRenderer({
-        writeAnswer,
-        writeStatus: statusOutput.writeStatus,
+    const { renderer, statusOutput } = createTerminalComposition({
         writeError,
+        writeAnswer,
+        writeStatus,
+        clearStatusLine,
+        moveStatusCursorToStart,
         isInteractive,
     })
     const initialConversation = createConversation({
@@ -399,6 +425,22 @@ export const runCli = async (
         })
     }
 
+    const terminalComposition =
+        writeAnswer !== undefined &&
+        writeStatus !== undefined &&
+        clearStatusLine !== undefined &&
+        moveStatusCursorToStart !== undefined &&
+        isInteractive !== undefined
+            ? createTerminalComposition({
+                  writeError,
+                  writeAnswer,
+                  writeStatus,
+                  clearStatusLine,
+                  moveStatusCursorToStart,
+                  isInteractive,
+              })
+            : null
+
     try {
         const session = await runAgent({
             task: parsed.command.task,
@@ -406,6 +448,9 @@ export const runCli = async (
             budget: RUN_BUDGET,
             model: parsed.command.model,
             transport,
+            ...(terminalComposition === null
+                ? {}
+                : { onEvent: terminalComposition.renderer.onEvent }),
         })
 
         writeOutput(formatSessionReport(session))
@@ -418,5 +463,7 @@ export const runCli = async (
         const cause = error instanceof Error ? error.message : 'Unknown runtime error'
 
         return runtimeError(`Agent run failed: ${cause}`, writeError)
+    } finally {
+        terminalComposition?.statusOutput.clearProgress()
     }
 }

@@ -57,7 +57,14 @@ test('production entrypoint reaches the Codex transport without a real credentia
                     '',
                 ].join('\n')
             )
-            assert.equal(processError.stderr, '')
+            assert.equal(
+                processError.stderr,
+                [
+                    'status: model_waiting step=1',
+                    'status: turn_finished status=failed reason=transport_error',
+                    '',
+                ].join('\n')
+            )
 
             return true
         }

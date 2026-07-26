@@ -15,7 +15,7 @@ one. Confirm the first incomplete leaf with the user before implementation.
   [requirements](docs/requirements/milestone-2-in-memory-chat.md) and
   [active implementation plan](docs/plans/active/milestone-2-in-memory-chat.md)
   are the detailed sources of truth.
-- **Next candidate leaf:** `8.5.2 Wire model and tool lifecycle feedback`.
+- **Next candidate leaf:** `8.5.3 Render the final answer exactly once`.
   Milestone 2 has completed the verified public event-observer boundary,
   bounded in-memory turn continuation, the safe deterministic terminal
   renderer, strict parsing for the bounded `yo chat` command, and the
@@ -23,7 +23,10 @@ one. Confirm the first incomplete leaf with the user before implementation.
   one verified ephemeral multi-turn chat process with per-turn evidence. The
   Codex transport now releases only indexed, provider-confirmed final-answer
   deltas through the runtime event boundary after completed-response
-  reconciliation.
+  reconciliation. Both `yo ask` and `yo chat` now render model and tool
+  lifecycle feedback when terminal dependencies are available, settling model
+  progress before a confirmed final-answer delta without rendering that text
+  yet.
 
 ## Permanent constraints
 

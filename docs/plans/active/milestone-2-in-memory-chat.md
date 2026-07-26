@@ -1,7 +1,7 @@
 # Active implementation plan: Milestone 2 in-memory interactive chat
 
-- **Status:** active, 8.1–8.4 and 8.5.1 complete
-- **First incomplete leaf:** `8.5.2 Wire model and tool lifecycle feedback`
+- **Status:** active, 8.1–8.4 and 8.5.1–8.5.2 complete
+- **First incomplete leaf:** `8.5.3 Render the final answer exactly once`
 - **Source of truth for:** Milestone 2 implementation order and verification
 - **Related documents:** [implementation map](../../../IMPLEMENTATION_PLAN.md),
   [Milestone 2 requirements](../../requirements/milestone-2-in-memory-chat.md)
@@ -390,15 +390,15 @@ flowchart LR
               missing `output_item.done` events, misordered output indices,
               stream failure, empty delta sets, and completed-response mismatch
               without real network requests.
-    - [ ] **8.5.2 Wire model and tool lifecycle feedback**
-        - [ ] Connect the runtime event observer to the terminal renderer for
+    - [x] **8.5.2 Wire model and tool lifecycle feedback**
+        - [x] Connect the runtime event observer to the terminal renderer for
               both single-turn and chat composition where approved.
-        - [ ] Keep the model-waiting indicator active only while a transport
+        - [x] Keep the model-waiting indicator active only while a transport
               request is in flight.
-        - [ ] Clear model-waiting progress before the first safe final-answer
+        - [x] Clear model-waiting progress before the first safe final-answer
               delta is written, or on model response, tool execution, or failure
               when no answer delta arrives.
-        - [ ] Transition cleanly from model waiting to tool execution, another
+        - [x] Transition cleanly from model waiting to tool execution, another
               model request, final-answer release, or failure.
     - [ ] **8.5.3 Render the final answer exactly once**
         - [ ] Connect the confirmed final-answer delta sink to the answer

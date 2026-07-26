@@ -269,10 +269,26 @@ export const createTerminalRenderer = ({
     isInteractive,
 }: CreateTerminalRendererOptions): TerminalRenderer => {
     const requestedTools = new Map<string, RequestedTool>()
+    let activeModelStep: number | null = null
+
+    const settleModelWaiting = (step: number | null = activeModelStep): void => {
+        if (activeModelStep === null || step !== activeModelStep) {
+            return
+        }
+
+        activeModelStep = null
+        writeStatus({
+            type: 'model_waiting',
+            step,
+            active: false,
+        })
+    }
 
     const onEvent: RunEventObserver = (event) => {
         switch (event.type) {
             case 'model_requested':
+                settleModelWaiting()
+                activeModelStep = event.step
                 writeStatus({
                     type: 'model_waiting',
                     step: event.step,
@@ -280,11 +296,10 @@ export const createTerminalRenderer = ({
                 })
                 return
             case 'model_responded':
-                writeStatus({
-                    type: 'model_waiting',
-                    step: event.step,
-                    active: false,
-                })
+                settleModelWaiting(event.step)
+                return
+            case 'final_answer_delta':
+                settleModelWaiting()
                 return
             case 'tool_requested': {
                 const summary = summarizeToolArguments(event.call.name, event.call.arguments)
@@ -306,6 +321,7 @@ export const createTerminalRenderer = ({
                     return
                 }
 
+                settleModelWaiting(requestedTool.step)
                 writeStatus({
                     type: 'tool_running',
                     step: requestedTool.step,
@@ -338,6 +354,7 @@ export const createTerminalRenderer = ({
                 return
             }
             case 'run_finished':
+                activeModelStep = null
                 requestedTools.clear()
                 writeStatus({
                     type: 'turn_finished',
@@ -347,7 +364,6 @@ export const createTerminalRenderer = ({
                 return
             case 'run_started':
             case 'final_answer':
-            case 'final_answer_delta':
                 return
         }
     }

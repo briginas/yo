@@ -88,8 +88,10 @@ const invokeCli = async ({
 test('runs ask with a canonical workspace, fixed budget, and no default model', async () => {
     const workspace = await mkdtemp(`${tmpdir()}/yo-cli-workspace-`)
     const requests: ModelRequest[] = []
-    const transport: ModelTransport = async (request) => {
+    const transport: ModelTransport = async (request, options) => {
         requests.push(request)
+        options?.onFinalAnswerDelta?.('Found the runtime ')
+        options?.onFinalAnswerDelta?.('entrypoint.')
 
         return {
             type: 'final_answer',
@@ -101,7 +103,7 @@ test('runs ask with a canonical workspace, fixed budget, and no default model', 
     try {
         const relativeWorkspace = relative(process.cwd(), workspace)
         const canonicalWorkspace = await realpath(workspace)
-        const { errors, outputs, result } = await invokeCli({
+        const { errors, outputs, result, statuses } = await invokeCli({
             argv: ['ask', 'Find the runtime entrypoint.', '--cwd', relativeWorkspace],
             transport,
         })
@@ -118,6 +120,11 @@ test('runs ask with a canonical workspace, fixed budget, and no default model', 
                 '- (none)',
             ].join('\n'),
         ])
+        assert.deepEqual(statuses, [
+            'status: model_waiting step=1\n',
+            'status: model_ready step=1\n',
+            'status: turn_finished status=completed reason=final_answer\n',
+        ])
         assert.equal(result.exitCode, 0)
         assert.equal(result.session?.workspaceRoot, canonicalWorkspace)
         assert.equal(result.session?.task, 'Find the runtime entrypoint.')
@@ -126,6 +133,40 @@ test('runs ask with a canonical workspace, fixed budget, and no default model', 
             perToolTimeoutMs: 5_000,
         })
         assert.equal(requests[0]?.model, null)
+    } finally {
+        await rm(workspace, { recursive: true, force: true })
+    }
+})
+
+test('preserves ask callers without optional terminal dependencies', async () => {
+    const workspace = await mkdtemp(`${tmpdir()}/yo-cli-no-terminal-`)
+    const outputs: string[] = []
+    const errors: string[] = []
+
+    try {
+        const result = await runCli(['ask', 'Inspect the workspace.', '--cwd', workspace], {
+            transport: async () => ({
+                type: 'final_answer',
+                model: null,
+                content: 'Inspection complete.',
+            }),
+            writeOutput: (message) => outputs.push(message),
+            writeError: (message) => errors.push(message),
+        })
+
+        assert.deepEqual(errors, [])
+        assert.deepEqual(outputs, [
+            [
+                'Inspection complete.',
+                '',
+                'Evidence:',
+                'Stop reason: final_answer',
+                'Tools: (none)',
+                'Files:',
+                '- (none)',
+            ].join('\n'),
+        ])
+        assert.equal(result.exitCode, 0)
     } finally {
         await rm(workspace, { recursive: true, force: true })
     }
@@ -140,7 +181,7 @@ test('passes an explicit model and returns a failed session with exit code 1', a
     }
 
     try {
-        const { errors, outputs, result } = await invokeCli({
+        const { errors, outputs, result, statuses } = await invokeCli({
             argv: ['ask', 'Inspect the workspace.', '--model', 'chosen-model', '--cwd', workspace],
             transport,
         })
@@ -156,6 +197,10 @@ test('passes an explicit model and returns a failed session with exit code 1', a
                 'Files:',
                 '- (none)',
             ].join('\n'),
+        ])
+        assert.deepEqual(statuses, [
+            'status: model_waiting step=1\n',
+            'status: turn_finished status=failed reason=transport_error\n',
         ])
         assert.equal(result.exitCode, 1)
         assert.equal(result.session?.status, 'failed')
@@ -181,7 +226,7 @@ test('composes a tool-using chat turn and retains its observations for a follow-
     let lineIndex = 0
     let closeCount = 0
     const privateTranscriptMarker = 'Bearer private-access-token'
-    const transport: ModelTransport = async (request) => {
+    const transport: ModelTransport = async (request, options) => {
         requests.push(request)
 
         if (requests.length === 1) {
@@ -199,13 +244,17 @@ test('composes a tool-using chat turn and retains its observations for a follow-
             }
         }
 
+        const content =
+            requests.length === 2
+                ? 'The default timeout is 5,000 ms.'
+                : 'The earlier observation found the definition in src/settings.ts:1.'
+
+        options?.onFinalAnswerDelta?.(content)
+
         return {
             type: 'final_answer',
             model: 'chosen-model',
-            content:
-                requests.length === 2
-                    ? 'The default timeout is 5,000 ms.'
-                    : 'The earlier observation found the definition in src/settings.ts:1.',
+            content,
         }
     }
 
