@@ -55,6 +55,7 @@ export type CreateTerminalRendererOptions = {
 export type TerminalRenderer = {
     readonly isInteractive: boolean
     readonly onEvent: RunEventObserver
+    readonly finishAnswer: (answer: string | null) => void
     readonly writeAnswer: TerminalTextWriter
     readonly writeError: TerminalTextWriter
 }
@@ -270,6 +271,8 @@ export const createTerminalRenderer = ({
 }: CreateTerminalRendererOptions): TerminalRenderer => {
     const requestedTools = new Map<string, RequestedTool>()
     let activeModelStep: number | null = null
+    let answerReleaseAttempted = false
+    let answerFinished = false
 
     const settleModelWaiting = (step: number | null = activeModelStep): void => {
         if (activeModelStep === null || step !== activeModelStep) {
@@ -284,8 +287,31 @@ export const createTerminalRenderer = ({
         })
     }
 
+    const finishAnswer = (answer: string | null): void => {
+        if (answerFinished) {
+            return
+        }
+
+        answerFinished = true
+
+        if (answer === null) {
+            return
+        }
+
+        if (answerReleaseAttempted) {
+            writeAnswer('\n\n')
+            return
+        }
+
+        writeAnswer(`${answer}\n\n`)
+    }
+
     const onEvent: RunEventObserver = (event) => {
         switch (event.type) {
+            case 'run_started':
+                answerReleaseAttempted = false
+                answerFinished = false
+                return
             case 'model_requested':
                 settleModelWaiting()
                 activeModelStep = event.step
@@ -300,6 +326,13 @@ export const createTerminalRenderer = ({
                 return
             case 'final_answer_delta':
                 settleModelWaiting()
+
+                if (event.delta.length === 0) {
+                    return
+                }
+
+                answerReleaseAttempted = true
+                writeAnswer(event.delta)
                 return
             case 'tool_requested': {
                 const summary = summarizeToolArguments(event.call.name, event.call.arguments)
@@ -362,7 +395,6 @@ export const createTerminalRenderer = ({
                     reason: event.reason,
                 })
                 return
-            case 'run_started':
             case 'final_answer':
                 return
         }
@@ -371,6 +403,7 @@ export const createTerminalRenderer = ({
     return {
         isInteractive,
         onEvent,
+        finishAnswer,
         writeAnswer,
         writeError,
     }

@@ -312,10 +312,7 @@ const runChat = async ({
                     conversation = result.conversation
                     lastSession = session
 
-                    if (session.finalAnswer !== null) {
-                        renderer.writeAnswer(`${session.finalAnswer}\n\n`)
-                    }
-
+                    renderer.finishAnswer(session.finalAnswer)
                     writeOutput(formatEvidenceReport(session))
                 } catch {
                     throw new ChatTurnError()
@@ -453,7 +450,12 @@ export const runCli = async (
                 : { onEvent: terminalComposition.renderer.onEvent }),
         })
 
-        writeOutput(formatSessionReport(session))
+        if (terminalComposition === null) {
+            writeOutput(formatSessionReport(session))
+        } else {
+            terminalComposition.renderer.finishAnswer(session.finalAnswer)
+            writeOutput(formatEvidenceReport(session))
+        }
 
         return {
             exitCode: session.status === 'completed' ? 0 : 1,

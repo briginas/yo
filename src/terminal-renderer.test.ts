@@ -153,6 +153,67 @@ test('maps model and turn lifecycle events to renderer states', () => {
     ])
 })
 
+test('writes confirmed answer deltas immediately without repeating the completed answer', () => {
+    const { answers, renderer } = createRendererFixture(false)
+
+    renderer.onEvent({
+        type: 'run_started',
+        task: 'Inspect the workspace.',
+        workspaceRoot: '/approved/workspace',
+        budget: {
+            maxSteps: 2,
+            perToolTimeoutMs: 1_000,
+        },
+    })
+    renderer.onEvent({
+        type: 'final_answer_delta',
+        delta: 'Confirmed ',
+    })
+    renderer.onEvent({
+        type: 'final_answer_delta',
+        delta: '',
+    })
+    renderer.onEvent({
+        type: 'final_answer_delta',
+        delta: 'answer.',
+    })
+    renderer.finishAnswer('Confirmed answer.')
+    renderer.finishAnswer('Confirmed answer.')
+
+    assert.deepEqual(answers, ['Confirmed ', 'answer.', '\n\n'])
+})
+
+test('falls back to the completed answer and resets release state for the next turn', () => {
+    const { answers, renderer } = createRendererFixture(false)
+    const startTurn = (task: string): void => {
+        renderer.onEvent({
+            type: 'run_started',
+            task,
+            workspaceRoot: '/approved/workspace',
+            budget: {
+                maxSteps: 2,
+                perToolTimeoutMs: 1_000,
+            },
+        })
+    }
+
+    startTurn('First turn.')
+    renderer.onEvent({
+        type: 'final_answer_delta',
+        delta: '',
+    })
+    renderer.finishAnswer('First complete answer.')
+
+    startTurn('Second turn.')
+    renderer.onEvent({
+        type: 'final_answer_delta',
+        delta: 'Second answer.',
+    })
+    renderer.finishAnswer('Second answer.')
+
+    assert.deepEqual(answers, ['First complete answer.\n\n', 'Second answer.', '\n\n'])
+})
+
 test('settles each model request once across tool work and confirmed answer deltas', () => {
     const { renderer, statuses } = createRendererFixture(false)
     const call = {

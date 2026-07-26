@@ -103,22 +103,17 @@ test('runs ask with a canonical workspace, fixed budget, and no default model', 
     try {
         const relativeWorkspace = relative(process.cwd(), workspace)
         const canonicalWorkspace = await realpath(workspace)
-        const { errors, outputs, result, statuses } = await invokeCli({
+        const { answers, errors, outputs, result, statuses } = await invokeCli({
             argv: ['ask', 'Find the runtime entrypoint.', '--cwd', relativeWorkspace],
             transport,
         })
 
+        assert.deepEqual(answers, ['Found the runtime ', 'entrypoint.', '\n\n'])
         assert.deepEqual(errors, [])
         assert.deepEqual(outputs, [
-            [
-                'Found the runtime entrypoint.',
-                '',
-                'Evidence:',
-                'Stop reason: final_answer',
-                'Tools: (none)',
-                'Files:',
-                '- (none)',
-            ].join('\n'),
+            ['Evidence:', 'Stop reason: final_answer', 'Tools: (none)', 'Files:', '- (none)'].join(
+                '\n'
+            ),
         ])
         assert.deepEqual(statuses, [
             'status: model_waiting step=1\n',
@@ -133,6 +128,32 @@ test('runs ask with a canonical workspace, fixed budget, and no default model', 
             perToolTimeoutMs: 5_000,
         })
         assert.equal(requests[0]?.model, null)
+    } finally {
+        await rm(workspace, { recursive: true, force: true })
+    }
+})
+
+test('falls back to the completed answer for terminal-enabled ask without deltas', async () => {
+    const workspace = await mkdtemp(`${tmpdir()}/yo-cli-answer-fallback-`)
+
+    try {
+        const { answers, errors, outputs, result } = await invokeCli({
+            argv: ['ask', 'Inspect the workspace.', '--cwd', workspace],
+            transport: async () => ({
+                type: 'final_answer',
+                model: null,
+                content: 'Inspection complete.',
+            }),
+        })
+
+        assert.deepEqual(answers, ['Inspection complete.\n\n'])
+        assert.deepEqual(errors, [])
+        assert.deepEqual(outputs, [
+            ['Evidence:', 'Stop reason: final_answer', 'Tools: (none)', 'Files:', '- (none)'].join(
+                '\n'
+            ),
+        ])
+        assert.equal(result.exitCode, 0)
     } finally {
         await rm(workspace, { recursive: true, force: true })
     }
@@ -181,16 +202,15 @@ test('passes an explicit model and returns a failed session with exit code 1', a
     }
 
     try {
-        const { errors, outputs, result, statuses } = await invokeCli({
+        const { answers, errors, outputs, result, statuses } = await invokeCli({
             argv: ['ask', 'Inspect the workspace.', '--model', 'chosen-model', '--cwd', workspace],
             transport,
         })
 
+        assert.deepEqual(answers, [])
         assert.deepEqual(errors, [])
         assert.deepEqual(outputs, [
             [
-                'No final answer.',
-                '',
                 'Evidence:',
                 'Stop reason: transport_error',
                 'Tools: (none)',
@@ -276,8 +296,10 @@ test('composes a tool-using chat turn and retains its observations for a follow-
 
         assert.deepEqual(errors, [])
         assert.deepEqual(answers, [
-            'The default timeout is 5,000 ms.\n\n',
-            'The earlier observation found the definition in src/settings.ts:1.\n\n',
+            'The default timeout is 5,000 ms.',
+            '\n\n',
+            'The earlier observation found the definition in src/settings.ts:1.',
+            '\n\n',
         ])
         assert.deepEqual(outputs, [
             [
@@ -1123,17 +1145,16 @@ test('prints ordered, deduplicated tool and file evidence from successful observ
         await mkdir(`${workspace}/src`)
         await writeFile(`${workspace}/src/agent.ts`, 'export const needle = 42\n')
 
-        const { errors, outputs, result } = await invokeCli({
+        const { answers, errors, outputs, result } = await invokeCli({
             argv: ['ask', 'Find the answer.', '--cwd', workspace],
             transport,
         })
 
+        assert.deepEqual(answers, ['The answer is in src/agent.ts.\n\n'])
         assert.deepEqual(errors, [])
         assert.equal(result.exitCode, 0)
         assert.deepEqual(outputs, [
             [
-                'The answer is in src/agent.ts.',
-                '',
                 'Evidence:',
                 'Stop reason: final_answer',
                 'Tools: list_files, search_code, read_file',
@@ -1195,16 +1216,15 @@ test('completes a fixture-repository research task with a faux transport', async
         await mkdir(sourceDirectory, { recursive: true })
         await writeFile(sourcePath, source)
 
-        const { errors, outputs, result } = await invokeCli({
+        const { answers, errors, outputs, result } = await invokeCli({
             argv: ['ask', 'Find the default timeout and cite its definition.', '--cwd', workspace],
             transport,
         })
 
+        assert.deepEqual(answers, ['The default timeout is 5,000 ms in src/settings.ts:1.\n\n'])
         assert.deepEqual(errors, [])
         assert.deepEqual(outputs, [
             [
-                'The default timeout is 5,000 ms in src/settings.ts:1.',
-                '',
                 'Evidence:',
                 'Stop reason: final_answer',
                 'Tools: search_code, read_file',
@@ -1264,18 +1284,17 @@ test('prints a failed report after step-budget exhaustion without authorized evi
     })
 
     try {
-        const { errors, outputs, result } = await invokeCli({
+        const { answers, errors, outputs, result } = await invokeCli({
             argv: ['ask', 'Inspect the workspace.', '--cwd', workspace],
             transport,
         })
 
+        assert.deepEqual(answers, [])
         assert.deepEqual(errors, [])
         assert.equal(result.exitCode, 1)
         assert.equal(result.session?.stopReason, 'step_budget_exhausted')
         assert.deepEqual(outputs, [
             [
-                'No final answer.',
-                '',
                 'Evidence:',
                 'Stop reason: step_budget_exhausted',
                 'Tools: (none)',

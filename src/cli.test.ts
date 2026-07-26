@@ -47,8 +47,6 @@ test('production entrypoint reaches the Codex transport without a real credentia
             assert.equal(
                 processError.stdout,
                 [
-                    'No final answer.',
-                    '',
                     'Evidence:',
                     'Stop reason: transport_error',
                     'Tools: (none)',

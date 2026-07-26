@@ -1,7 +1,7 @@
 # Active implementation plan: Milestone 2 in-memory interactive chat
 
-- **Status:** active, 8.1–8.4 and 8.5.1–8.5.2 complete
-- **First incomplete leaf:** `8.5.3 Render the final answer exactly once`
+- **Status:** active, 8.1–8.4 and 8.5.1–8.5.3 complete
+- **First incomplete leaf:** `8.5.4 Verify output composition`
 - **Source of truth for:** Milestone 2 implementation order and verification
 - **Related documents:** [implementation map](../../../IMPLEMENTATION_PLAN.md),
   [Milestone 2 requirements](../../requirements/milestone-2-in-memory-chat.md)
@@ -400,19 +400,19 @@ flowchart LR
               when no answer delta arrives.
         - [x] Transition cleanly from model waiting to tool execution, another
               model request, final-answer release, or failure.
-    - [ ] **8.5.3 Render the final answer exactly once**
-        - [ ] Connect the confirmed final-answer delta sink to the answer
+    - [x] **8.5.3 Render the final answer exactly once**
+        - [x] Connect the confirmed final-answer delta sink to the answer
               renderer so received deltas are written without additional
               renderer buffering.
-        - [ ] Avoid reprinting the completed answer after deltas have already
+        - [x] Avoid reprinting the completed answer after deltas have already
               been emitted; track whether any deltas were emitted and suppress
               the completed-answer write when safe release was active.
-        - [ ] Fall back to the completed final answer when a transport produces
+        - [x] Fall back to the completed final answer when a transport produces
               no deltas, including faux transports and transports that suppressed
               deltas due to unresolved output identity.
-        - [ ] Keep assistant preamble text and hidden reasoning out of the
+        - [x] Keep assistant preamble text and hidden reasoning out of the
               final-answer stream.
-        - [ ] Ensure the per-turn evidence summary (stop reason, tools, files)
+        - [x] Ensure the per-turn evidence summary (stop reason, tools, files)
               does not repeat answer text; the answer channel is the sole
               source of answer output.
     - [ ] **8.5.4 Verify output composition**
