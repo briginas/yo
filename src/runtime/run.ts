@@ -29,7 +29,14 @@ export type ModelResponse =
           toolCalls: readonly [ToolCall, ...ToolCall[]]
       }
 
-export type ModelTransport = (request: ModelRequest) => Promise<ModelResponse>
+export type ModelTransportOptions = {
+    onFinalAnswerDelta?: (delta: string) => void
+}
+
+export type ModelTransport = (
+    request: ModelRequest,
+    options?: ModelTransportOptions
+) => Promise<ModelResponse>
 
 export type ModelRequestMetadata = {
     model: string | null

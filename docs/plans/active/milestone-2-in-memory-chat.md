@@ -1,7 +1,7 @@
 # Active implementation plan: Milestone 2 in-memory interactive chat
 
-- **Status:** active, 8.1–8.4 complete
-- **First incomplete leaf:** `8.5.1 Release safe final-answer deltas after output-item confirmation`
+- **Status:** active, 8.1–8.4 and 8.5.1 complete
+- **First incomplete leaf:** `8.5.2 Wire model and tool lifecycle feedback`
 - **Source of truth for:** Milestone 2 implementation order and verification
 - **Related documents:** [implementation map](../../../IMPLEMENTATION_PLAN.md),
   [Milestone 2 requirements](../../requirements/milestone-2-in-memory-chat.md)
@@ -364,29 +364,29 @@ flowchart LR
               and whitespace check.
 
 - [ ] **8.5 Compose safe final-answer release with terminal feedback**
-    - [ ] **8.5.1 Release safe final-answer deltas after output-item confirmation**
-        - [ ] Extend the Codex SSE parser to require and retain the
+    - [x] **8.5.1 Release safe final-answer deltas after output-item confirmation**
+        - [x] Extend the Codex SSE parser to require and retain the
               `output_index` carried by each `output_text.delta`, then associate
               it with the `response.output_item.done` event carrying the same
               index, which declares the output item's role (message vs reasoning
               vs refusal).
-        - [ ] Buffer output-text deltas until the matching output-item completion
+        - [x] Buffer output-text deltas until the matching output-item completion
               event confirms the item is a final-answer message; silently discard
               deltas whose confirmed item is reasoning, refusal, or unclassified.
-        - [ ] Release only confirmed final-answer deltas through the per-request
+        - [x] Release only confirmed final-answer deltas through the per-request
               `onFinalAnswerDelta` callback once the output item is complete;
               do not promise byte-by-byte rendering while the item is still in
               flight. Never emit commentary, hidden reasoning, unlabeled text,
               or raw provider events through the answer sink.
-        - [ ] If output identity cannot be resolved — due to malformed streams,
+        - [x] If output identity cannot be resolved — due to malformed streams,
               missing `output_item.done` events, or ambiguous output ordering —
               suppress all delayed delta releases and fall back to the completed
               `ModelResponse` so the answer still reaches the user without
               leaking unclassified text.
-        - [ ] Keep the completed `ModelResponse` authoritative, reconcile
+        - [x] Keep the completed `ModelResponse` authoritative, reconcile
               emitted deltas with its final content, and use complete-answer
               fallback when no safe live deltas were available.
-        - [ ] Verify interleaved reasoning and final-answer output items,
+        - [x] Verify interleaved reasoning and final-answer output items,
               missing `output_item.done` events, misordered output indices,
               stream failure, empty delta sets, and completed-response mismatch
               without real network requests.

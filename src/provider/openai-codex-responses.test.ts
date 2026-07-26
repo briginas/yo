@@ -425,6 +425,7 @@ describe('parseOpenAICodexResponsesSse', () => {
             serializeSseEvent(
                 {
                     type: 'response.output_text.delta',
+                    output_index: 1,
                     delta: 'Grounded ',
                 },
                 '\r\n'
@@ -432,7 +433,34 @@ describe('parseOpenAICodexResponsesSse', () => {
             serializeSseEvent(
                 {
                     type: 'response.output_text.delta',
+                    output_index: 1,
                     delta: '✅ answer.',
+                },
+                '\r\n'
+            ),
+            serializeSseEvent(
+                {
+                    type: 'response.output_item.done',
+                    output_index: 0,
+                    item: {
+                        type: 'reasoning',
+                        summary: [{ text: privateReasoning }],
+                    },
+                },
+                '\r\n'
+            ),
+            serializeSseEvent(
+                {
+                    type: 'response.output_item.done',
+                    output_index: 1,
+                    item: {
+                        type: 'message',
+                        content: [
+                            { type: 'output_text', text: 'Grounded ' },
+                            { type: 'refusal', refusal: hiddenRefusal },
+                            { type: 'output_text', text: '✅ answer.' },
+                        ],
+                    },
                 },
                 '\r\n'
             ),
@@ -492,7 +520,16 @@ describe('parseOpenAICodexResponsesSse', () => {
         const payload = [
             serializeSseEvent({
                 type: 'response.output_text.delta',
+                output_index: 0,
                 delta: 'I need two files.',
+            }),
+            serializeSseEvent({
+                type: 'response.output_item.done',
+                output_index: 0,
+                item: {
+                    type: 'message',
+                    content: [{ type: 'output_text', text: 'I need two files.' }],
+                },
             }),
             serializeSseEvent({
                 type: 'response.function_call_arguments.delta',
@@ -606,6 +643,7 @@ describe('parseOpenAICodexResponsesSse', () => {
             const payload = [
                 serializeSseEvent({
                     type: 'response.output_text.delta',
+                    output_index: 0,
                     delta: 'Grounded answer.',
                 }),
                 serializeSseEvent({
@@ -636,6 +674,282 @@ describe('parseOpenAICodexResponsesSse', () => {
                 content: 'Grounded answer.',
             })
             assert.deepEqual(deltas, ['Grounded answer.'])
+        })
+    })
+
+    test('reconciles indexed answer deltas before releasing them', async (t) => {
+        await t.test('orders interleaved confirmed message items by output index', async () => {
+            const deltas: string[] = []
+            const payload = [
+                serializeSseEvent({
+                    type: 'response.output_text.delta',
+                    output_index: 2,
+                    delta: 'answer.',
+                }),
+                serializeSseEvent({
+                    type: 'response.output_text.delta',
+                    output_index: 0,
+                    delta: 'Grounded ',
+                }),
+                serializeSseEvent({
+                    type: 'response.output_item.done',
+                    output_index: 1,
+                    item: {
+                        type: 'reasoning',
+                        summary: [{ text: 'private-reasoning' }],
+                    },
+                }),
+                serializeSseEvent({
+                    type: 'response.output_item.done',
+                    output_index: 2,
+                    item: {
+                        type: 'message',
+                        content: [{ type: 'output_text', text: 'answer.' }],
+                    },
+                }),
+                serializeSseEvent({
+                    type: 'response.output_item.done',
+                    output_index: 0,
+                    item: {
+                        type: 'message',
+                        content: [{ type: 'output_text', text: 'Grounded ' }],
+                    },
+                }),
+                serializeSseEvent({
+                    type: 'response.completed',
+                    response: {
+                        model: 'test-model',
+                        output: [
+                            {
+                                type: 'message',
+                                content: [{ type: 'output_text', text: 'Grounded ' }],
+                            },
+                            {
+                                type: 'reasoning',
+                                summary: [{ text: 'private-reasoning' }],
+                            },
+                            {
+                                type: 'message',
+                                content: [{ type: 'output_text', text: 'answer.' }],
+                            },
+                        ],
+                    },
+                }),
+            ].join('')
+
+            const response = await parseOpenAICodexResponsesSse(
+                createChunkedSseResponse({ payload, chunkSize: 3 }),
+                (delta) => deltas.push(delta)
+            )
+
+            assert.deepEqual(response, {
+                type: 'final_answer',
+                model: 'test-model',
+                content: 'Grounded answer.',
+            })
+            assert.deepEqual(deltas, ['Grounded ', 'answer.'])
+        })
+
+        const unresolvedCases = [
+            {
+                name: 'missing output-item completion',
+                events: [
+                    {
+                        type: 'response.output_text.delta',
+                        output_index: 0,
+                        delta: 'Completed answer.',
+                    },
+                ],
+                completedOutput: [
+                    {
+                        type: 'message',
+                        content: [{ type: 'output_text', text: 'Completed answer.' }],
+                    },
+                ],
+                expectedContent: 'Completed answer.',
+            },
+            {
+                name: 'missing delta output index',
+                events: [
+                    {
+                        type: 'response.output_text.delta',
+                        delta: 'Completed answer.',
+                    },
+                    {
+                        type: 'response.output_item.done',
+                        output_index: 0,
+                        item: {
+                            type: 'message',
+                            content: [{ type: 'output_text', text: 'Completed answer.' }],
+                        },
+                    },
+                ],
+                completedOutput: [
+                    {
+                        type: 'message',
+                        content: [{ type: 'output_text', text: 'Completed answer.' }],
+                    },
+                ],
+                expectedContent: 'Completed answer.',
+            },
+            {
+                name: 'duplicate output-item completion',
+                events: [
+                    {
+                        type: 'response.output_text.delta',
+                        output_index: 0,
+                        delta: 'Completed answer.',
+                    },
+                    {
+                        type: 'response.output_item.done',
+                        output_index: 0,
+                        item: {
+                            type: 'message',
+                            content: [{ type: 'output_text', text: 'Completed answer.' }],
+                        },
+                    },
+                    {
+                        type: 'response.output_item.done',
+                        output_index: 0,
+                        item: {
+                            type: 'message',
+                            content: [{ type: 'output_text', text: 'Completed answer.' }],
+                        },
+                    },
+                ],
+                completedOutput: [
+                    {
+                        type: 'message',
+                        content: [{ type: 'output_text', text: 'Completed answer.' }],
+                    },
+                ],
+                expectedContent: 'Completed answer.',
+            },
+            {
+                name: 'misordered completed output identity',
+                events: [
+                    {
+                        type: 'response.output_text.delta',
+                        output_index: 0,
+                        delta: 'Completed answer.',
+                    },
+                    {
+                        type: 'response.output_item.done',
+                        output_index: 0,
+                        item: {
+                            type: 'message',
+                            content: [{ type: 'output_text', text: 'Completed answer.' }],
+                        },
+                    },
+                ],
+                completedOutput: [
+                    {
+                        type: 'reasoning',
+                        summary: [],
+                    },
+                    {
+                        type: 'message',
+                        content: [{ type: 'output_text', text: 'Completed answer.' }],
+                    },
+                ],
+                expectedContent: 'Completed answer.',
+            },
+            {
+                name: 'completed-response mismatch',
+                events: [
+                    {
+                        type: 'response.output_text.delta',
+                        output_index: 0,
+                        delta: 'Streamed answer.',
+                    },
+                    {
+                        type: 'response.output_item.done',
+                        output_index: 0,
+                        item: {
+                            type: 'message',
+                            content: [{ type: 'output_text', text: 'Streamed answer.' }],
+                        },
+                    },
+                ],
+                completedOutput: [
+                    {
+                        type: 'message',
+                        content: [{ type: 'output_text', text: 'Completed answer.' }],
+                    },
+                ],
+                expectedContent: 'Completed answer.',
+            },
+        ] as const
+
+        for (const testCase of unresolvedCases) {
+            await t.test(`${testCase.name} falls back without releasing text`, async () => {
+                const deltas: string[] = []
+                const payload = [
+                    ...testCase.events.map((event) => serializeSseEvent(event)),
+                    serializeSseEvent({
+                        type: 'response.completed',
+                        response: {
+                            model: 'test-model',
+                            output: testCase.completedOutput,
+                        },
+                    }),
+                ].join('')
+
+                const response = await parseOpenAICodexResponsesSse(
+                    createChunkedSseResponse({ payload, chunkSize: 5 }),
+                    (delta) => deltas.push(delta)
+                )
+
+                assert.deepEqual(response, {
+                    type: 'final_answer',
+                    model: 'test-model',
+                    content: testCase.expectedContent,
+                })
+                assert.deepEqual(deltas, [])
+            })
+        }
+
+        await t.test('ignores empty deltas', async () => {
+            const deltas: string[] = []
+            const payload = [
+                serializeSseEvent({
+                    type: 'response.output_text.delta',
+                    output_index: 0,
+                    delta: '',
+                }),
+                serializeSseEvent({
+                    type: 'response.output_item.done',
+                    output_index: 0,
+                    item: {
+                        type: 'message',
+                        content: [{ type: 'output_text', text: '' }],
+                    },
+                }),
+                serializeSseEvent({
+                    type: 'response.completed',
+                    response: {
+                        model: 'test-model',
+                        output: [
+                            {
+                                type: 'message',
+                                content: [{ type: 'output_text', text: '' }],
+                            },
+                        ],
+                    },
+                }),
+            ].join('')
+
+            const response = await parseOpenAICodexResponsesSse(
+                createChunkedSseResponse({ payload, chunkSize: 4 }),
+                (delta) => deltas.push(delta)
+            )
+
+            assert.deepEqual(response, {
+                type: 'final_answer',
+                model: 'test-model',
+                content: '',
+            })
+            assert.deepEqual(deltas, [])
         })
     })
 
@@ -720,6 +1034,7 @@ describe('parseOpenAICodexResponsesSse', () => {
                     createChunkedSseResponse({
                         payload: serializeSseEvent({
                             type: 'response.output_text.delta',
+                            output_index: 0,
                             delta: { text: privatePayload },
                         }),
                         chunkSize: 6,
@@ -741,18 +1056,40 @@ describe('parseOpenAICodexResponsesSse', () => {
         for (const type of ['error', 'response.failed'] as const) {
             await t.test(type, async () => {
                 const privatePayload = `private-${type}-payload`
+                const deltas: string[] = []
 
                 await assert.rejects(
                     parseOpenAICodexResponsesSse(
                         createChunkedSseResponse({
-                            payload: serializeSseEvent({
-                                type,
-                                error: {
-                                    message: privatePayload,
-                                },
-                            }),
+                            payload: [
+                                serializeSseEvent({
+                                    type: 'response.output_text.delta',
+                                    output_index: 0,
+                                    delta: 'Unfinished answer.',
+                                }),
+                                serializeSseEvent({
+                                    type: 'response.output_item.done',
+                                    output_index: 0,
+                                    item: {
+                                        type: 'message',
+                                        content: [
+                                            {
+                                                type: 'output_text',
+                                                text: 'Unfinished answer.',
+                                            },
+                                        ],
+                                    },
+                                }),
+                                serializeSseEvent({
+                                    type,
+                                    error: {
+                                        message: privatePayload,
+                                    },
+                                }),
+                            ].join(''),
                             chunkSize: 5,
-                        })
+                        }),
+                        (delta) => deltas.push(delta)
                     ),
                     (error: unknown) => {
                         assert.equal(
@@ -763,6 +1100,7 @@ describe('parseOpenAICodexResponsesSse', () => {
                         return true
                     }
                 )
+                assert.deepEqual(deltas, [])
             })
         }
     })
@@ -829,6 +1167,71 @@ describe('createOpenAICodexResponsesTransport', () => {
             JSON.stringify({ response, sentBody }).includes(credential.refreshToken),
             false
         )
+    })
+
+    test('delivers confirmed answer text through request-scoped options', async () => {
+        const credential = {
+            type: 'oauth',
+            accessToken: 'private-access-token',
+            refreshToken: 'private-refresh-token',
+            expiresAt: 1_700_003_600_000,
+            accountId: 'account-id',
+        } as const satisfies Credential
+        const deltas: string[] = []
+        const answerItem = {
+            type: 'message',
+            content: [{ type: 'output_text', text: 'Final answer.' }],
+        } as const
+        const transport = createOpenAICodexResponsesTransport({
+            credentialStore: unusedCredentialStore,
+            resolveCredential: async () => credential,
+            fetch: async () =>
+                createChunkedSseResponse({
+                    payload: [
+                        serializeSseEvent({
+                            type: 'response.output_text.delta',
+                            output_index: 0,
+                            delta: 'Final ',
+                        }),
+                        serializeSseEvent({
+                            type: 'response.output_text.delta',
+                            output_index: 0,
+                            delta: 'answer.',
+                        }),
+                        serializeSseEvent({
+                            type: 'response.output_item.done',
+                            output_index: 0,
+                            item: answerItem,
+                        }),
+                        serializeSseEvent({
+                            type: 'response.completed',
+                            response: {
+                                model: 'test-model',
+                                output: [answerItem],
+                            },
+                        }),
+                    ].join(''),
+                    chunkSize: 6,
+                }),
+        })
+
+        const response = await transport(
+            {
+                model: 'test-model',
+                messages: [{ role: 'user', content: 'Inspect the workspace.' }],
+                visibleTools: ['read_file'],
+            },
+            {
+                onFinalAnswerDelta: (delta) => deltas.push(delta),
+            }
+        )
+
+        assert.deepEqual(response, {
+            type: 'final_answer',
+            model: 'test-model',
+            content: 'Final answer.',
+        })
+        assert.deepEqual(deltas, ['Final ', 'answer.'])
     })
 
     test('normalizes single and multiple tool calls in provider order', async (t) => {

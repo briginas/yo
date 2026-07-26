@@ -140,6 +140,7 @@ const openAICodexCompletedEventSchema = z.object({
 
 const openAICodexOutputTextDeltaEventSchema = z.object({
     type: z.literal('response.output_text.delta'),
+    output_index: z.number().int().nonnegative(),
     delta: z.string(),
 })
 
@@ -370,6 +371,12 @@ export const sendOpenAICodexResponsesRequest = async ({
 
 export type OpenAICodexFinalAnswerTextSink = (delta: string) => void
 
+type OpenAICodexSseState = {
+    textDeltasByOutputIndex: Map<number, string[]>
+    outputItemsByIndex: Map<number, OpenAICodexResponseOutputItem>
+    hasAmbiguousOutputIdentity: boolean
+}
+
 type ParsedSseRecord =
     | {
           type: 'event'
@@ -426,8 +433,7 @@ const findSseRecordBoundary = (
 
 const processOpenAICodexSseEvent = (
     event: unknown,
-    bufferedTextDeltas: string[],
-    bufferedOutputItems: Map<number, OpenAICodexResponseOutputItem>,
+    state: OpenAICodexSseState,
     onFinalAnswerTextDelta: OpenAICodexFinalAnswerTextSink | undefined
 ): ModelResponse | null => {
     const envelope = openAICodexSseEventEnvelopeSchema.safeParse(event)
@@ -444,10 +450,28 @@ const processOpenAICodexSseEvent = (
         const parsed = openAICodexOutputTextDeltaEventSchema.safeParse(event)
 
         if (!parsed.success) {
+            const identity = z
+                .looseObject({
+                    output_index: z.number().int().nonnegative(),
+                })
+                .safeParse(event)
+
+            if (!identity.success) {
+                state.hasAmbiguousOutputIdentity = true
+                return null
+            }
+
             throw new Error('OpenAI Codex SSE protocol error.')
         }
 
-        bufferedTextDeltas.push(parsed.data.delta)
+        if (parsed.data.delta.length === 0) {
+            return null
+        }
+
+        const deltas = state.textDeltasByOutputIndex.get(parsed.data.output_index) ?? []
+
+        deltas.push(parsed.data.delta)
+        state.textDeltasByOutputIndex.set(parsed.data.output_index, deltas)
         return null
     }
 
@@ -455,10 +479,16 @@ const processOpenAICodexSseEvent = (
         const parsed = openAICodexOutputItemDoneEventSchema.safeParse(event)
 
         if (!parsed.success) {
-            throw new Error('OpenAI Codex SSE protocol error.')
+            state.hasAmbiguousOutputIdentity = true
+            return null
         }
 
-        bufferedOutputItems.set(parsed.data.output_index, parsed.data.item)
+        if (state.outputItemsByIndex.has(parsed.data.output_index)) {
+            state.hasAmbiguousOutputIdentity = true
+            return null
+        }
+
+        state.outputItemsByIndex.set(parsed.data.output_index, parsed.data.item)
         return null
     }
 
@@ -473,22 +503,68 @@ const processOpenAICodexSseEvent = (
     }
 
     const completedOutput = parsed.data.response.output
+    const orderedOutputItemEntries = [...state.outputItemsByIndex.entries()].sort(
+        ([leftIndex], [rightIndex]) => leftIndex - rightIndex
+    )
+    const hasContiguousBufferedOutput = orderedOutputItemEntries.every(
+        ([outputIndex], position) => outputIndex === position
+    )
     const output =
         completedOutput.length > 0
             ? completedOutput
-            : [...bufferedOutputItems.entries()]
-                  .sort(([leftIndex], [rightIndex]) => leftIndex - rightIndex)
-                  .map(([, item]) => item)
+            : orderedOutputItemEntries.map(([, item]) => item)
     const response = convertOpenAICodexOutputToModelResponse(output, parsed.data.response.model)
 
-    if (response.type === 'final_answer') {
-        const streamedText = bufferedTextDeltas.join('')
+    // Delay every callback until all indexed text can be reconciled; emitted text cannot be
+    // retracted if a later provider event makes the output identity ambiguous.
+    if (
+        response.type === 'final_answer' &&
+        !state.hasAmbiguousOutputIdentity &&
+        (completedOutput.length > 0 || hasContiguousBufferedOutput) &&
+        state.textDeltasByOutputIndex.size > 0
+    ) {
+        const confirmedDeltas: string[] = []
+        const orderedDeltaEntries = [...state.textDeltasByOutputIndex.entries()].sort(
+            ([leftIndex], [rightIndex]) => leftIndex - rightIndex
+        )
+        let canRelease = true
 
-        if (streamedText.length > 0 && streamedText !== response.content) {
-            throw new Error('OpenAI Codex SSE protocol error.')
+        for (const [outputIndex, deltas] of orderedDeltaEntries) {
+            const completedItem = state.outputItemsByIndex.get(outputIndex)
+            const authoritativeItem = completedOutput[outputIndex] ?? completedItem
+
+            if (
+                completedItem === undefined ||
+                authoritativeItem === undefined ||
+                JSON.stringify(completedItem) !== JSON.stringify(authoritativeItem)
+            ) {
+                canRelease = false
+                break
+            }
+
+            if (completedItem.type !== 'message') {
+                continue
+            }
+
+            const outputText = completedItem.content
+                .filter(
+                    (content): content is Extract<typeof content, { type: 'output_text' }> =>
+                        content.type === 'output_text'
+                )
+                .map((content) => content.text)
+                .join('')
+
+            if (deltas.join('') !== outputText) {
+                canRelease = false
+                break
+            }
+
+            confirmedDeltas.push(...deltas)
         }
 
-        bufferedTextDeltas.forEach((delta) => onFinalAnswerTextDelta?.(delta))
+        if (canRelease && confirmedDeltas.join('') === response.content) {
+            confirmedDeltas.forEach((delta) => onFinalAnswerTextDelta?.(delta))
+        }
     }
 
     return response
@@ -504,8 +580,11 @@ export const parseOpenAICodexResponsesSse = async (
 
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
-    const bufferedTextDeltas: string[] = []
-    const bufferedOutputItems = new Map<number, OpenAICodexResponseOutputItem>()
+    const state: OpenAICodexSseState = {
+        textDeltasByOutputIndex: new Map(),
+        outputItemsByIndex: new Map(),
+        hasAmbiguousOutputIdentity: false,
+    }
     let buffer = ''
 
     const processRecord = (record: string): ModelResponse | null => {
@@ -519,12 +598,7 @@ export const parseOpenAICodexResponsesSse = async (
             return null
         }
 
-        return processOpenAICodexSseEvent(
-            parsedRecord.event,
-            bufferedTextDeltas,
-            bufferedOutputItems,
-            onFinalAnswerTextDelta
-        )
+        return processOpenAICodexSseEvent(parsedRecord.event, state, onFinalAnswerTextDelta)
     }
 
     try {
@@ -580,7 +654,6 @@ export type OpenAICodexResponsesTransportOptions = {
     credentialStore: CredentialStore
     fetch?: typeof globalThis.fetch
     resolveCredential?: OpenAICodexCredentialResolver
-    onFinalAnswerTextDelta?: OpenAICodexFinalAnswerTextSink
 }
 
 const createOpenAICodexHttpError = (status: number): Error => {
@@ -599,9 +672,8 @@ export const createOpenAICodexResponsesTransport = ({
     credentialStore,
     fetch,
     resolveCredential,
-    onFinalAnswerTextDelta,
 }: OpenAICodexResponsesTransportOptions): ModelTransport => {
-    return async (request) => {
+    return async (request, options) => {
         const response = await sendOpenAICodexResponsesRequest({
             body: buildOpenAICodexResponsesRequestBody(request),
             credentialStore,
@@ -613,6 +685,6 @@ export const createOpenAICodexResponsesTransport = ({
             throw createOpenAICodexHttpError(response.status)
         }
 
-        return parseOpenAICodexResponsesSse(response, onFinalAnswerTextDelta)
+        return parseOpenAICodexResponsesSse(response, options?.onFinalAnswerDelta)
     }
 }

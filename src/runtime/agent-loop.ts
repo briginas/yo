@@ -160,7 +160,14 @@ export const runAgentWithDispatcher = async (
         let response
 
         try {
-            response = await transport(request)
+            response = await transport(request, {
+                onFinalAnswerDelta: (delta) => {
+                    recordAndNotify(session, onEvent, {
+                        type: 'final_answer_delta',
+                        delta,
+                    })
+                },
+            })
         } catch {
             return finishRun(session, 'failed', 'transport_error', onEvent)
         }

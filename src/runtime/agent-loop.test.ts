@@ -122,11 +122,15 @@ test('isolates nested observer snapshots from runtime events and transcript', as
 
 test('swallows observer errors without changing the completed run', async () => {
     let notifications = 0
-    const transport: ModelTransport = async () => ({
-        type: 'final_answer',
-        model: 'faux-model',
-        content: 'Done.',
-    })
+    const transport: ModelTransport = async (_request, options) => {
+        options?.onFinalAnswerDelta?.('Done.')
+
+        return {
+            type: 'final_answer',
+            model: 'faux-model',
+            content: 'Done.',
+        }
+    }
 
     const session = await runAgent({
         task: 'Finish.',
@@ -144,6 +148,50 @@ test('swallows observer errors without changing the completed run', async () => 
     assert.equal(session.status, 'completed')
     assert.equal(session.finalAnswer, 'Done.')
     assert.equal(session.messages.filter((message) => message.role === 'assistant').length, 1)
+    assert.equal(session.events.filter((event) => event.type === 'final_answer_delta').length, 1)
+})
+
+test('records confirmed answer deltas before the completed model response', async () => {
+    const observed: RunEventSnapshot[] = []
+    const transport: ModelTransport = async (_request, options) => {
+        options?.onFinalAnswerDelta?.('Grounded ')
+        options?.onFinalAnswerDelta?.('answer.')
+
+        return {
+            type: 'final_answer',
+            model: 'faux-model',
+            content: 'Grounded answer.',
+        }
+    }
+
+    const session = await runAgent({
+        task: 'Finish.',
+        workspaceRoot: '/approved/workspace',
+        budget,
+        model: 'faux-model',
+        transport,
+        onEvent: (event) => observed.push(event),
+    })
+
+    assert.deepEqual(observed, session.events)
+    assert.deepEqual(
+        session.events.map((event) => event.type),
+        [
+            'run_started',
+            'model_requested',
+            'final_answer_delta',
+            'final_answer_delta',
+            'model_responded',
+            'final_answer',
+            'run_finished',
+        ]
+    )
+    assert.deepEqual(
+        session.events
+            .filter((event) => event.type === 'final_answer_delta')
+            .map((event) => event.delta),
+        ['Grounded ', 'answer.']
+    )
 })
 
 test('records and notifies each tool outcome exactly once in lifecycle order', async () => {
