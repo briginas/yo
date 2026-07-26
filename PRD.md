@@ -89,6 +89,9 @@ The public CLI also exposes:
 - [Milestone 2: in-memory interactive chat](docs/requirements/milestone-2-in-memory-chat.md)
   is complete. Read it for interactive-chat behavior, regressions, or
   compatibility.
+- [Milestone 3: approval-gated patch application](docs/requirements/milestone-3-approval-gated-patches.md)
+  requirements are approved. Read them when planning or implementing the
+  workspace-mutation boundary.
 
 Current milestone status and the next planning boundary are indexed from
 [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md).
@@ -96,7 +99,9 @@ Current milestone status and the next planning boundary are indexed from
 ## Next planning boundary
 
 Milestone 3 may propose and apply patches behind explicit terminal approval.
-Its requirements and implementation plan have not been approved or created, so
+Its requirements are approved and its
+[active implementation plan](docs/plans/active/milestone-3-approval-gated-patches.md)
+defines the bounded work. No runtime leaf has been approved or implemented, so
 the current harness remains read-only.
 
 ## Later direction
