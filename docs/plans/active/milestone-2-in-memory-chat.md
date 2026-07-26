@@ -1,7 +1,7 @@
 # Active implementation plan: Milestone 2 in-memory interactive chat
 
-- **Status:** active, 8.1–8.4 and 8.5.1–8.5.3 complete
-- **First incomplete leaf:** `8.5.4 Verify output composition`
+- **Status:** active, 8.1–8.5 complete
+- **First incomplete leaf:** `8.6 Verify Milestone 2`
 - **Source of truth for:** Milestone 2 implementation order and verification
 - **Related documents:** [implementation map](../../../IMPLEMENTATION_PLAN.md),
   [Milestone 2 requirements](../../requirements/milestone-2-in-memory-chat.md)
@@ -363,7 +363,7 @@ flowchart LR
         - [x] Run focused CLI tests, the full test suite, build, format check,
               and whitespace check.
 
-- [ ] **8.5 Compose safe final-answer release with terminal feedback**
+- [x] **8.5 Compose safe final-answer release with terminal feedback**
     - [x] **8.5.1 Release safe final-answer deltas after output-item confirmation**
         - [x] Extend the Codex SSE parser to require and retain the
               `output_index` carried by each `output_text.delta`, then associate
@@ -415,16 +415,16 @@ flowchart LR
         - [x] Ensure the per-turn evidence summary (stop reason, tools, files)
               does not repeat answer text; the answer channel is the sole
               source of answer output.
-    - [ ] **8.5.4 Verify output composition**
-        - [ ] Test chunked safe release after output-item confirmation,
+    - [x] **8.5.4 Verify output composition**
+        - [x] Test chunked safe release after output-item confirmation,
               commentary exclusion, no-delta fallback, empty deltas, tool calls
               before a final answer, malformed streams, authentication failure,
               usage limits, and transport failure.
-        - [ ] Verify TTY progress is cleared before final text and non-TTY
+        - [x] Verify TTY progress is cleared before final text and non-TTY
               output contains no control sequences.
-        - [ ] Verify final answer, evidence, status, and error channels contain
+        - [x] Verify final answer, evidence, status, and error channels contain
               only their approved content.
-        - [ ] Run focused provider/CLI tests, the full test suite, build, format
+        - [x] Run focused provider/CLI tests, the full test suite, build, format
               check, and whitespace check.
 
 - [ ] **8.6 Verify Milestone 2**

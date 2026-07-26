@@ -15,7 +15,7 @@ one. Confirm the first incomplete leaf with the user before implementation.
   [requirements](docs/requirements/milestone-2-in-memory-chat.md) and
   [active implementation plan](docs/plans/active/milestone-2-in-memory-chat.md)
   are the detailed sources of truth.
-- **Next candidate leaf:** `8.5.4 Verify output composition`.
+- **Next candidate leaf:** `8.6 Verify Milestone 2`.
   Milestone 2 has completed the verified public event-observer boundary,
   bounded in-memory turn continuation, the safe deterministic terminal
   renderer, strict parsing for the bounded `yo chat` command, and the
@@ -27,7 +27,11 @@ one. Confirm the first incomplete leaf with the user before implementation.
   lifecycle feedback when terminal dependencies are available, settling model
   progress before writing confirmed final-answer deltas directly. If no safe
   delta is available, they render the authoritative completed answer instead;
-  answer-free evidence prevents duplicate final text.
+  answer-free evidence prevents duplicate final text. Synthetic provider-to-CLI
+  coverage now verifies chunked safe release after tool work, commentary and
+  reasoning exclusion, TTY cleanup before answer text, deterministic non-TTY
+  status, failure paths, and strict separation of answer, evidence, status, and
+  error channels.
 
 ## Permanent constraints
 

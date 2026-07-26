@@ -24,6 +24,7 @@ import {
     type CredentialStore,
 } from './auth/credential.ts'
 import { CHAT_PROMPT, type LineInput } from './line-input.ts'
+import { createOpenAICodexResponsesTransport } from './provider/openai-codex-responses.ts'
 import type { ModelRequest, ModelTransport } from './runtime/run.ts'
 
 type CliInvocation = {
@@ -83,6 +84,28 @@ const invokeCli = async ({
     })
 
     return { answers, errors, outputs, result, statuses }
+}
+
+const serializeSseEvent = (event: unknown): string => `data: ${JSON.stringify(event)}\n\n`
+
+const createChunkedSseResponse = (payload: string, chunkSize: number): Response => {
+    const bytes = new TextEncoder().encode(payload)
+
+    return new Response(
+        new ReadableStream<Uint8Array>({
+            start(controller) {
+                for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+                    controller.enqueue(bytes.slice(offset, offset + chunkSize))
+                }
+
+                controller.close()
+            },
+        }),
+        {
+            status: 200,
+            headers: { 'content-type': 'text/event-stream' },
+        }
+    )
 }
 
 test('runs ask with a canonical workspace, fixed budget, and no default model', async () => {
@@ -377,6 +400,163 @@ test('composes a tool-using chat turn and retains its observations for a follow-
         assert.deepEqual(await readdir(sourceDirectory), ['settings.ts'])
     } finally {
         await rm(fixtureRoot, { recursive: true, force: true })
+    }
+})
+
+test('composes confirmed Codex answer chunks after tool work without crossing terminal channels', async () => {
+    const workspace = await mkdtemp(`${tmpdir()}/yo-cli-output-composition-`)
+    const sourcePath = join(workspace, 'answer.ts')
+    const privatePreamble = 'private assistant preamble'
+    const privateReasoning = 'private reasoning summary'
+    const credential = {
+        type: 'oauth',
+        accessToken: 'private-access-token',
+        refreshToken: 'private-refresh-token',
+        expiresAt: 4_000_000_000_000,
+        accountId: 'account-id',
+    } as const satisfies Credential
+    const providerPayloads = [
+        serializeSseEvent({
+            type: 'response.completed',
+            response: {
+                model: 'test-model',
+                output: [
+                    {
+                        type: 'message',
+                        content: [{ type: 'output_text', text: privatePreamble }],
+                    },
+                    {
+                        type: 'function_call',
+                        call_id: 'call-read',
+                        name: 'read_file',
+                        arguments: '{"path":"answer.ts"}',
+                    },
+                ],
+            },
+        }),
+        [
+            serializeSseEvent({
+                type: 'response.reasoning_summary_text.delta',
+                delta: privateReasoning,
+            }),
+            serializeSseEvent({
+                type: 'response.output_text.delta',
+                output_index: 1,
+                delta: 'Confirmed ',
+            }),
+            serializeSseEvent({
+                type: 'response.output_text.delta',
+                output_index: 1,
+                delta: 'answer.',
+            }),
+            serializeSseEvent({
+                type: 'response.output_item.done',
+                output_index: 0,
+                item: {
+                    type: 'reasoning',
+                    summary: [{ text: privateReasoning }],
+                },
+            }),
+            serializeSseEvent({
+                type: 'response.output_item.done',
+                output_index: 1,
+                item: {
+                    type: 'message',
+                    content: [{ type: 'output_text', text: 'Confirmed answer.' }],
+                },
+            }),
+            serializeSseEvent({
+                type: 'response.completed',
+                response: {
+                    model: 'test-model',
+                    output: [
+                        {
+                            type: 'reasoning',
+                            summary: [{ text: privateReasoning }],
+                        },
+                        {
+                            type: 'message',
+                            content: [{ type: 'output_text', text: 'Confirmed answer.' }],
+                        },
+                    ],
+                },
+            }),
+        ].join(''),
+    ]
+    let providerRequestIndex = 0
+    const transport = createOpenAICodexResponsesTransport({
+        credentialStore: {
+            read: async () => credential,
+            modify: async () => credential,
+            delete: async () => undefined,
+        },
+        resolveCredential: async () => credential,
+        fetch: async () => createChunkedSseResponse(providerPayloads[providerRequestIndex++]!, 3),
+    })
+    const answers: string[] = []
+    const outputs: string[] = []
+    const statuses: string[] = []
+    const errors: string[] = []
+    const terminalOperations: string[] = []
+
+    try {
+        await writeFile(sourcePath, 'export const answer = 42\n')
+
+        const result = await runCli(['ask', 'Read the answer.', '--cwd', workspace], {
+            transport,
+            writeOutput: (message) => outputs.push(message),
+            writeError: (message) => errors.push(message),
+            writeAnswer: (message) => {
+                answers.push(message)
+                terminalOperations.push(`answer:${message}`)
+            },
+            writeStatus: (message) => {
+                statuses.push(message)
+                terminalOperations.push(`status:${message}`)
+            },
+            clearStatusLine: () => terminalOperations.push('clear'),
+            moveStatusCursorToStart: () => terminalOperations.push('cursor-start'),
+            isInteractive: true,
+        })
+
+        assert.deepEqual(answers, ['Confirmed ', 'answer.', '\n\n'])
+        assert.deepEqual(outputs, [
+            [
+                'Evidence:',
+                'Stop reason: final_answer',
+                'Tools: read_file',
+                'Files:',
+                '- answer.ts',
+            ].join('\n'),
+        ])
+        assert.deepEqual(statuses, [
+            'status: model_waiting step=1',
+            'status: tool_running step=1 tool=read_file path="answer.ts"',
+            'status: tool_completed step=1 tool=read_file path="answer.ts"\n',
+            'status: model_waiting step=2',
+            'status: turn_finished status=completed reason=final_answer\n',
+        ])
+        assert.deepEqual(errors, [])
+        assert.equal(result.exitCode, 0)
+        assert.equal(providerRequestIndex, 2)
+
+        const firstAnswerIndex = terminalOperations.indexOf('answer:Confirmed ')
+
+        assert.notEqual(firstAnswerIndex, -1)
+        assert.deepEqual(terminalOperations.slice(firstAnswerIndex - 2, firstAnswerIndex), [
+            'clear',
+            'cursor-start',
+        ])
+
+        const visibleOutput = [...answers, ...outputs, ...statuses, ...errors].join('')
+
+        assert.equal(visibleOutput.includes(privatePreamble), false)
+        assert.equal(visibleOutput.includes(privateReasoning), false)
+        assert.equal(visibleOutput.includes(credential.accessToken), false)
+        assert.equal(visibleOutput.includes(credential.refreshToken), false)
+        assert.equal(visibleOutput.match(/Confirmed answer\./gu)?.length, 1)
+    } finally {
+        await rm(workspace, { recursive: true, force: true })
     }
 })
 
