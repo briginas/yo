@@ -274,6 +274,15 @@ export const createTerminalRenderer = ({
     let answerReleaseAttempted = false
     let answerFinished = false
 
+    const finishReleasedAnswer = (): void => {
+        if (answerFinished || !answerReleaseAttempted) {
+            return
+        }
+
+        answerFinished = true
+        writeAnswer('\n\n')
+    }
+
     const settleModelWaiting = (step: number | null = activeModelStep): void => {
         if (activeModelStep === null || step !== activeModelStep) {
             return
@@ -292,14 +301,14 @@ export const createTerminalRenderer = ({
             return
         }
 
-        answerFinished = true
-
-        if (answer === null) {
+        if (answerReleaseAttempted) {
+            finishReleasedAnswer()
             return
         }
 
-        if (answerReleaseAttempted) {
-            writeAnswer('\n\n')
+        answerFinished = true
+
+        if (answer === null) {
             return
         }
 
@@ -389,6 +398,7 @@ export const createTerminalRenderer = ({
             case 'run_finished':
                 activeModelStep = null
                 requestedTools.clear()
+                finishReleasedAnswer()
                 writeStatus({
                     type: 'turn_finished',
                     status: event.status,

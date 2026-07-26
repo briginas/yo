@@ -6,11 +6,14 @@ The project takes architectural inspiration from [`pi`](../pi), especially its s
 
 ## Current status
 
-Milestone 1 is complete: `yo ask` supports a bounded read-only task through ChatGPT Plus OAuth.
-Milestone 2 is in progress: live lifecycle events and bounded turn continuation are implemented.
-The remaining work covers terminal status rendering, the `yo chat` command, and safe final-answer
-release. [See the active plan →](IMPLEMENTATION_PLAN.md)
-It does not add persistence, write tools, shell execution, MCP, or subagents.
+Milestone 1 is complete: `yo ask` supports a bounded read-only task through
+ChatGPT Plus OAuth. Milestone 2 is also complete: `yo chat` supports an
+ephemeral multi-turn conversation with live model/tool status and safe
+final-answer delivery. [See the current project state →](IMPLEMENTATION_PLAN.md)
+
+The next planning candidate is approval-gated patch proposal and application.
+No write tools, shell execution, persistence, MCP, or subagents are currently
+implemented.
 
 ## Requirements and setup
 
@@ -45,6 +48,15 @@ Override the default model when needed:
 ```bash
 node dist/cli.js ask "Explain the runtime loop" --cwd /path/to/workspace --model <name>
 ```
+
+Start an in-memory interactive chat:
+
+```bash
+node dist/cli.js chat --cwd /path/to/workspace
+```
+
+Use the exact `/exit` command or EOF to leave chat. The transcript is discarded
+when the process exits.
 
 Remove the stored credential:
 

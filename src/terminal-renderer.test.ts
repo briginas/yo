@@ -177,6 +177,11 @@ test('writes confirmed answer deltas immediately without repeating the completed
         type: 'final_answer_delta',
         delta: 'answer.',
     })
+    renderer.onEvent({
+        type: 'run_finished',
+        status: 'completed',
+        reason: 'final_answer',
+    })
     renderer.finishAnswer('Confirmed answer.')
     renderer.finishAnswer('Confirmed answer.')
 

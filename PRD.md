@@ -87,20 +87,25 @@ The public CLI also exposes:
 - [Milestone 1: read-only `yo ask`](docs/requirements/milestone-1-read-only-ask.md)
   is complete. Read it for baseline behavior, regressions, or compatibility.
 - [Milestone 2: in-memory interactive chat](docs/requirements/milestone-2-in-memory-chat.md)
-  is the active product requirement. Read it before planning or implementing
-  Milestone 2 work.
+  is complete. Read it for interactive-chat behavior, regressions, or
+  compatibility.
 
-Current milestone status and the detailed active plan are indexed from
+Current milestone status and the next planning boundary are indexed from
 [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md).
+
+## Next planning boundary
+
+Milestone 3 may propose and apply patches behind explicit terminal approval.
+Its requirements and implementation plan have not been approved or created, so
+the current harness remains read-only.
 
 ## Later direction
 
-Later milestones may:
+After separate planning and approval, later milestones may:
 
-1. Propose and apply patches behind explicit terminal approval.
-2. Add allowlisted validation commands with fixed working directory, timeout,
+1. Add allowlisted validation commands with fixed working directory, timeout,
    and output limits.
-3. Add append-only JSONL sessions, then compaction that preserves task, approval
+2. Add append-only JSONL sessions, then compaction that preserves task, approval
    state, changed files, and validation evidence.
-4. Add richer interactive UX, then skills/extensions and provider portability
+3. Add richer interactive UX, then skills/extensions and provider portability
    after the in-memory chat loop has been validated.

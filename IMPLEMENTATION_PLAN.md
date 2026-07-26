@@ -1,37 +1,24 @@
 # Implementation plan
 
-This file is the current project-state map. Read the linked active plan before
-proposing or implementing work on its milestone.
+This file is the current project-state map. Read linked completed requirements
+only for behavior, regression, or compatibility work.
 
-Run and review the scoped checks for each leaf item before moving to the next
-one. Confirm the first incomplete leaf with the user before implementation.
+Before starting a new milestone, create and approve its requirements and
+detailed implementation plan, then confirm its first bounded leaf.
 
 ## Current state
 
 - **Completed baseline:** Milestone 1, the read-only `yo ask` harness, was
   completed and verified on 2026-07-24. See the
   [completed Milestone 1 summary](docs/plans/completed/milestone-1-read-only-ask.md).
-- **Active milestone:** Milestone 2, in-memory interactive chat. Its
+- **Completed interactive chat:** Milestone 2 was completed and verified on
+  2026-07-26. See its
   [requirements](docs/requirements/milestone-2-in-memory-chat.md) and
-  [active implementation plan](docs/plans/active/milestone-2-in-memory-chat.md)
-  are the detailed sources of truth.
-- **Next candidate leaf:** `8.6 Verify Milestone 2`.
-  Milestone 2 has completed the verified public event-observer boundary,
-  bounded in-memory turn continuation, the safe deterministic terminal
-  renderer, strict parsing for the bounded `yo chat` command, and the
-  injectable local line-input boundary. The CLI now composes those pieces into
-  one verified ephemeral multi-turn chat process with per-turn evidence. The
-  Codex transport now releases only indexed, provider-confirmed final-answer
-  deltas through the runtime event boundary after completed-response
-  reconciliation. Both `yo ask` and `yo chat` now render model and tool
-  lifecycle feedback when terminal dependencies are available, settling model
-  progress before writing confirmed final-answer deltas directly. If no safe
-  delta is available, they render the authoritative completed answer instead;
-  answer-free evidence prevents duplicate final text. Synthetic provider-to-CLI
-  coverage now verifies chunked safe release after tool work, commentary and
-  reasoning exclusion, TTY cleanup before answer text, deterministic non-TTY
-  status, failure paths, and strict separation of answer, evidence, status, and
-  error channels.
+  [completed Milestone 2 summary](docs/plans/completed/milestone-2-in-memory-chat.md).
+- **Next planning candidate:** Milestone 3, approval-gated patch proposal and
+  application. It has no approved requirements, implementation plan, or
+  candidate leaf yet; the harness remains read-only until those documents and
+  a bounded leaf are separately approved.
 
 ## Permanent constraints
 
@@ -44,6 +31,6 @@ one. Confirm the first incomplete leaf with the user before implementation.
   workspace.
 - No API-key fallback, persistent sessions, JSONL, compaction, TUI, project
   configuration file, device-code login, multi-provider support, skills, MCP,
-  or subagents in Milestone 2.
-- Do not mark a leaf complete until its scoped checks pass and its result is
-  reviewed.
+  or subagents exist in the current verified harness.
+- Do not implement Milestone 3 behavior until its requirements, detailed plan,
+  and first bounded leaf are approved.

@@ -547,6 +547,10 @@ test('composes confirmed Codex answer chunks after tool work without crossing te
             'clear',
             'cursor-start',
         ])
+        assert.deepEqual(terminalOperations.slice(-2), [
+            'answer:\n\n',
+            'status:status: turn_finished status=completed reason=final_answer\n',
+        ])
 
         const visibleOutput = [...answers, ...outputs, ...statuses, ...errors].join('')
 

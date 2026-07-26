@@ -1,11 +1,14 @@
 # Milestone 2 requirements: in-memory interactive chat
 
-- **Status:** active, implementation not started
+- **Status:** complete
 - **Source of truth for:** Milestone 2 scope and acceptance criteria
 - **Related documents:** [product map](../../PRD.md),
-  [active implementation plan](../plans/active/milestone-2-in-memory-chat.md)
+  [completed plan summary](../plans/completed/milestone-2-in-memory-chat.md)
 
-Milestone 2 adds an in-memory multi-turn CLI command:
+Read this document when investigating interactive-chat behavior, regressions, or
+compatibility with Milestone 2.
+
+Milestone 2 added an in-memory multi-turn CLI command:
 
 ```text
 yo chat --cwd <approved-workspace> [--model <name>]
