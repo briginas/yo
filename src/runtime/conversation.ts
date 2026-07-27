@@ -8,6 +8,7 @@ import type {
     SessionState,
     SystemMessage,
 } from './run.ts'
+import type { PatchApprover } from './patch-contracts.ts'
 import { DEFAULT_SYSTEM_PROMPT } from './system-prompt.ts'
 
 export type ConversationState = {
@@ -33,6 +34,7 @@ export type RunConversationTurnOptions = {
     budget: RunBudget
     transport: ModelTransport
     onEvent?: RunEventObserver
+    patchApprover?: PatchApprover
 }
 
 export type RunConversationTurnResult = {
@@ -104,6 +106,7 @@ export const runConversationTurn = async ({
     budget,
     transport,
     onEvent,
+    patchApprover,
 }: RunConversationTurnOptions): Promise<RunConversationTurnResult> => {
     const session = await runAgent({
         task,
@@ -113,6 +116,7 @@ export const runConversationTurn = async ({
         transport,
         initialMessages: conversation.messages,
         ...(onEvent === undefined ? {} : { onEvent }),
+        ...(patchApprover === undefined ? {} : { patchApprover }),
     })
     const turn = createTurnResultFromSuffix(session, conversation.messages.length)
 

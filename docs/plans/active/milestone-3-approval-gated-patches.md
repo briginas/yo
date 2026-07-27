@@ -526,17 +526,17 @@ dependency.
     approver is injected, but normal model requests still cannot see or request
     the tool.
 
-- [ ] **9.7 Propagate approval through the agent loop and conversation**
+- [x] **9.7 Propagate approval through the agent loop and conversation**
 
-    - [ ] Extend `RunAgentOptions`, internal dispatcher signature, and
+    - [x] Extend `RunAgentOptions`, internal dispatcher signature, and
           `RunConversationTurnOptions` with optional approval injection.
-    - [ ] Record safe patch events in deterministic order while retaining one
+    - [x] Record safe patch events in deterministic order while retaining one
           transcript result and one `tool_completed` event.
-    - [ ] Verify sequential multiple calls, denial followed by model recovery,
+    - [x] Verify sequential multiple calls, denial followed by model recovery,
           conflict followed by re-read/reproposal, step-budget behavior, transport
           failure, and observer isolation.
-    - [ ] Preserve current callers by defaulting missing approval to denial.
-    - [ ] Keep `propose_patch` absent from `VISIBLE_TOOLS`.
+    - [x] Preserve current callers by defaulting missing approval to denial.
+    - [x] Keep `propose_patch` absent from `VISIBLE_TOOLS`.
 
     **Leaf acceptance:** the loop can exercise the controlled dispatcher in tests
     without making the capability model-visible; existing read-only loop and

@@ -10,7 +10,8 @@ import type {
     SessionState,
     StopReason,
 } from './run.ts'
-import { dispatchToolCall } from './tool-dispatcher.ts'
+import { dispatchToolCall, type PatchDispatchOptions } from './tool-dispatcher.ts'
+import type { PatchApprover } from './patch-contracts.ts'
 import { DEFAULT_SYSTEM_PROMPT } from './system-prompt.ts'
 import type { ToolCall, ToolName, ToolResult } from './tools.ts'
 
@@ -28,14 +29,18 @@ export type RunAgentOptions = {
     transport: ModelTransport
     onEvent?: RunEventObserver
     initialMessages?: readonly SessionMessage[]
+    patchApprover?: PatchApprover
 }
 
 type ToolDispatcher = (
     workspaceRoot: string,
     call: ToolCall,
     perToolTimeoutMs: number,
-    onPermissionDecision?: (decision: PermissionDecision) => void
+    onPermissionDecision?: (decision: PermissionDecision) => void,
+    patchOptions?: PatchDispatchOptions
 ) => Promise<ToolResult>
+
+type PatchLifecycleObserver = NonNullable<PatchDispatchOptions['onLifecycleEvent']>
 
 const finishRun = (
     session: SessionState,
@@ -110,10 +115,72 @@ const createUnexpectedDispatcherErrorResult = (call: ToolCall, error: unknown): 
     }
 }
 
+const createPatchLifecycleObserver =
+    (
+        session: SessionState,
+        onEvent: RunEventObserver | undefined,
+        step: number,
+        callId: string
+    ): PatchLifecycleObserver =>
+    (event) => {
+        switch (event.type) {
+            case 'prepared':
+                recordAndNotify(session, onEvent, {
+                    type: 'patch_prepared',
+                    step,
+                    callId,
+                    metadata: event.metadata,
+                })
+                return
+            case 'approval_requested':
+                recordAndNotify(session, onEvent, {
+                    type: 'patch_approval_requested',
+                    step,
+                    callId,
+                    metadata: event.metadata,
+                })
+                return
+            case 'approval_resolved':
+                recordAndNotify(session, onEvent, {
+                    type: 'patch_approval_resolved',
+                    step,
+                    callId,
+                    metadata: event.metadata,
+                    decision: event.decision,
+                })
+                return
+            case 'conflicted':
+                recordAndNotify(session, onEvent, {
+                    type: 'patch_conflicted',
+                    step,
+                    callId,
+                    metadata: event.metadata,
+                    conflict: event.conflict,
+                })
+                return
+            case 'applied':
+                recordAndNotify(session, onEvent, {
+                    type: 'patch_applied',
+                    step,
+                    callId,
+                    metadata: event.metadata,
+                })
+        }
+    }
+
 // Exported only from this internal module so the loop can be tested with a controlled dispatcher.
 // The public runtime barrel exposes runAgent with the closed read-only registry.
 export const runAgentWithDispatcher = async (
-    { task, workspaceRoot, budget, model, transport, onEvent, initialMessages }: RunAgentOptions,
+    {
+        task,
+        workspaceRoot,
+        budget,
+        model,
+        transport,
+        onEvent,
+        initialMessages,
+        patchApprover,
+    }: RunAgentOptions,
     dispatch: ToolDispatcher
 ): Promise<SessionState> => {
     const session: SessionState = {
@@ -230,6 +297,15 @@ export const runAgentWithDispatcher = async (
                             callId: call.id,
                             decision,
                         })
+                    },
+                    {
+                        ...(patchApprover === undefined ? {} : { approver: patchApprover }),
+                        onLifecycleEvent: createPatchLifecycleObserver(
+                            session,
+                            onEvent,
+                            session.stepCount,
+                            call.id
+                        ),
                     }
                 )
             } catch (error) {

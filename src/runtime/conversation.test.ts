@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, readdir, realpath, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, readdir, realpath, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -12,6 +12,7 @@ import {
     type ModelTransport,
     type ModelRequest,
     type SessionState,
+    canonicalizeWorkspaceRoot,
 } from './index.ts'
 
 const createSession = (
@@ -419,4 +420,64 @@ test('retains a failed or budget-exhausted bounded turn without recovery', async
     assert.equal(exhausted.conversation.messages[1]?.role, 'user')
     assert.equal(exhausted.conversation.messages[2]?.role, 'assistant')
     assert.equal(exhausted.conversation.messages[3]?.role, 'tool')
+})
+
+test('passes a patch approver through a turn without adding approval input to the conversation', async () => {
+    const fixtureRoot = await mkdtemp(join(tmpdir(), 'yo-conversation-patch-'))
+    const workspaceRoot = await canonicalizeWorkspaceRoot(fixtureRoot)
+    await writeFile(join(workspaceRoot, 'entry.ts'), 'export const value = 1\n')
+    const conversation = createConversation({
+        systemPrompt: 'Use read-only tools.',
+        workspaceRoot,
+        model: 'faux-model',
+    })
+    let requestCount = 0
+    let approvalCount = 0
+
+    const result = await runConversationTurn({
+        conversation,
+        task: 'Update the entry.',
+        budget: { maxSteps: 2, perToolTimeoutMs: 1_000 },
+        transport: async () => {
+            requestCount += 1
+
+            return requestCount === 1
+                ? {
+                      type: 'tool_calls' as const,
+                      model: 'faux-model',
+                      toolCalls: [
+                          {
+                              id: 'patch-entry',
+                              name: 'propose_patch',
+                              arguments: {
+                                  path: 'entry.ts',
+                                  edits: [{ oldText: 'value = 1', newText: 'value = 2' }],
+                              },
+                          },
+                      ],
+                  }
+                : { type: 'final_answer' as const, model: 'faux-model', content: 'Updated.' }
+        },
+        patchApprover: async () => {
+            approvalCount += 1
+
+            return 'approved'
+        },
+    })
+
+    assert.equal(approvalCount, 1)
+    assert.equal(
+        await readFile(join(workspaceRoot, 'entry.ts'), 'utf8'),
+        'export const value = 2\n'
+    )
+    assert.deepEqual(
+        result.conversation.messages.map((message) => message.role),
+        ['system', 'user', 'assistant', 'tool', 'assistant']
+    )
+    assert.equal(
+        result.conversation.messages.some(
+            (message) => message.role === 'user' && message.content === 'yes'
+        ),
+        false
+    )
 })

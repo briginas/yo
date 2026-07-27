@@ -20,10 +20,11 @@ detailed implementation plan, then confirm its first bounded leaf.
   [requirements](docs/requirements/milestone-3-approval-gated-patches.md) are
   approved and its
   [active implementation plan](docs/plans/active/milestone-3-approval-gated-patches.md)
-  has completed **9.1–9.6, patch contracts, pure transform, immutable proposal
-  preparation, approval vocabulary, guarded atomic application, and controlled
-  dispatcher integration**. The next candidate is **9.7, approval propagation
-  through the agent loop and conversation**.
+  has completed **9.1–9.7, patch contracts, pure transform, immutable proposal
+  preparation, approval vocabulary, guarded atomic application, controlled
+  dispatcher integration, and approval propagation through the agent loop and
+  conversation**. The next candidate is **9.8, terminal diff rendering and
+  explicit approval input**.
 
 ## Permanent constraints
 

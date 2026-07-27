@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -1304,4 +1304,239 @@ test('returns a failed session when the model transport rejects', async () => {
         },
     ])
     assert.deepEqual(observed, session.events)
+})
+
+test('propagates approved sequential patch calls as safe ordered lifecycle events', async () => {
+    const fixtureRoot = await mkdtemp(join(tmpdir(), 'yo-agent-patch-approved-'))
+    const workspaceRoot = await canonicalizeWorkspaceRoot(fixtureRoot)
+    const sourcePath = join(workspaceRoot, 'example.ts')
+    await writeFile(sourcePath, 'const first = 1\nconst second = 2\n')
+    let requestCount = 0
+
+    const session = await runAgent({
+        task: 'Apply the exact updates.',
+        workspaceRoot,
+        budget: { maxSteps: 2, perToolTimeoutMs: 1_000 },
+        model: 'faux-model',
+        transport: async (request) => {
+            requestCount += 1
+            assert.deepEqual(request.visibleTools, ['list_files', 'search_code', 'read_file'])
+
+            return requestCount === 1
+                ? {
+                      type: 'tool_calls' as const,
+                      model: 'faux-model',
+                      toolCalls: [
+                          {
+                              id: 'first-patch',
+                              name: 'propose_patch',
+                              arguments: {
+                                  path: 'example.ts',
+                                  edits: [{ oldText: 'first = 1', newText: 'first = 3' }],
+                              },
+                          },
+                          {
+                              id: 'second-patch',
+                              name: 'propose_patch',
+                              arguments: {
+                                  path: 'example.ts',
+                                  edits: [{ oldText: 'second = 2', newText: 'second = 4' }],
+                              },
+                          },
+                      ],
+                  }
+                : { type: 'final_answer' as const, model: 'faux-model', content: 'Updated.' }
+        },
+        patchApprover: async () => 'approved',
+    })
+
+    assert.equal(await readFile(sourcePath, 'utf8'), 'const first = 3\nconst second = 4\n')
+    assert.deepEqual(
+        session.events.map((event) => event.type),
+        [
+            'run_started',
+            'model_requested',
+            'model_responded',
+            'tool_requested',
+            'tool_authorized',
+            'patch_prepared',
+            'patch_approval_requested',
+            'patch_approval_resolved',
+            'patch_applied',
+            'tool_completed',
+            'tool_requested',
+            'tool_authorized',
+            'patch_prepared',
+            'patch_approval_requested',
+            'patch_approval_resolved',
+            'patch_applied',
+            'tool_completed',
+            'model_requested',
+            'model_responded',
+            'final_answer',
+            'run_finished',
+        ]
+    )
+    assert.equal(toolResultCount(session, 'first-patch'), 1)
+    assert.equal(toolResultCount(session, 'second-patch'), 1)
+    assert.equal(toolCompletedCount(session, 'first-patch'), 1)
+    assert.equal(toolCompletedCount(session, 'second-patch'), 1)
+    assert.ok(
+        session.events
+            .filter((event) => event.type === 'patch_prepared')
+            .every((event) => !('diff' in event.metadata) && !('nextContent' in event.metadata))
+    )
+})
+
+test('denies an unapproved patch and lets the model recover with a read-only result', async () => {
+    const fixtureRoot = await mkdtemp(join(tmpdir(), 'yo-agent-patch-denied-'))
+    const workspaceRoot = await canonicalizeWorkspaceRoot(fixtureRoot)
+    const sourcePath = join(workspaceRoot, 'example.ts')
+    await writeFile(sourcePath, 'export const value = 1\n')
+    let requestCount = 0
+
+    const session = await runAgent({
+        task: 'Try the change, then inspect it.',
+        workspaceRoot,
+        budget: { maxSteps: 3, perToolTimeoutMs: 1_000 },
+        model: 'faux-model',
+        transport: async () => {
+            requestCount += 1
+            if (requestCount === 1) {
+                return {
+                    type: 'tool_calls' as const,
+                    model: 'faux-model',
+                    toolCalls: [
+                        {
+                            id: 'denied-patch',
+                            name: 'propose_patch',
+                            arguments: {
+                                path: 'example.ts',
+                                edits: [{ oldText: 'value = 1', newText: 'value = 2' }],
+                            },
+                        },
+                    ],
+                }
+            }
+            if (requestCount === 2) {
+                return {
+                    type: 'tool_calls' as const,
+                    model: 'faux-model',
+                    toolCalls: [
+                        {
+                            id: 'read-after-denial',
+                            name: 'read_file',
+                            arguments: { path: 'example.ts' },
+                        },
+                    ],
+                }
+            }
+
+            return { type: 'final_answer' as const, model: 'faux-model', content: 'Not changed.' }
+        },
+    })
+
+    assert.equal(await readFile(sourcePath, 'utf8'), 'export const value = 1\n')
+    const denial = session.messages.find(
+        (message) => message.role === 'tool' && message.result.callId === 'denied-patch'
+    )
+    assert.deepEqual(denial, {
+        role: 'tool',
+        result: {
+            status: 'denied',
+            callId: 'denied-patch',
+            content: 'Patch approval denied',
+            metadata: { truncated: false, truncation: null },
+            error: { code: 'approval_denied', message: 'Patch approval denied' },
+        },
+    })
+    assert.equal(session.status, 'completed')
+    assert.equal(toolResultCount(session, 'denied-patch'), 1)
+    assert.equal(toolCompletedCount(session, 'denied-patch'), 1)
+})
+
+test('records a conflict before a read and approved reproposal while isolating lifecycle observers', async () => {
+    const fixtureRoot = await mkdtemp(join(tmpdir(), 'yo-agent-patch-conflict-'))
+    const workspaceRoot = await canonicalizeWorkspaceRoot(fixtureRoot)
+    const sourcePath = join(workspaceRoot, 'example.ts')
+    await writeFile(sourcePath, 'export const value = 1\n')
+    let requestCount = 0
+    let approvalCount = 0
+
+    const session = await runAgent({
+        task: 'Rebase the update after a conflict.',
+        workspaceRoot,
+        budget: { maxSteps: 4, perToolTimeoutMs: 1_000 },
+        model: 'faux-model',
+        transport: async () => {
+            requestCount += 1
+            if (requestCount === 1) {
+                return {
+                    type: 'tool_calls' as const,
+                    model: 'faux-model',
+                    toolCalls: [
+                        {
+                            id: 'stale-patch',
+                            name: 'propose_patch',
+                            arguments: {
+                                path: 'example.ts',
+                                edits: [{ oldText: 'value = 1', newText: 'value = 2' }],
+                            },
+                        },
+                    ],
+                }
+            }
+            if (requestCount === 2) {
+                return {
+                    type: 'tool_calls' as const,
+                    model: 'faux-model',
+                    toolCalls: [
+                        {
+                            id: 'read-after-conflict',
+                            name: 'read_file',
+                            arguments: { path: 'example.ts' },
+                        },
+                    ],
+                }
+            }
+            if (requestCount === 3) {
+                return {
+                    type: 'tool_calls' as const,
+                    model: 'faux-model',
+                    toolCalls: [
+                        {
+                            id: 'rebased-patch',
+                            name: 'propose_patch',
+                            arguments: {
+                                path: 'example.ts',
+                                edits: [{ oldText: 'value = 3', newText: 'value = 4' }],
+                            },
+                        },
+                    ],
+                }
+            }
+
+            return { type: 'final_answer' as const, model: 'faux-model', content: 'Rebased.' }
+        },
+        patchApprover: async () => {
+            approvalCount += 1
+            if (approvalCount === 1) {
+                await writeFile(sourcePath, 'export const value = 3\n')
+            }
+
+            return 'approved'
+        },
+        onEvent: (event) => {
+            if (event.type.startsWith('patch_')) {
+                throw new Error('observer failure')
+            }
+        },
+    })
+
+    assert.equal(await readFile(sourcePath, 'utf8'), 'export const value = 4\n')
+    assert.equal(session.status, 'completed')
+    assert.ok(session.events.some((event) => event.type === 'patch_conflicted'))
+    assert.ok(session.events.some((event) => event.type === 'patch_applied'))
+    assert.equal(toolResultCount(session, 'stale-patch'), 1)
+    assert.equal(toolCompletedCount(session, 'stale-patch'), 1)
 })
