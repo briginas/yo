@@ -58,6 +58,17 @@ export type PatchApprovalView = Readonly<{
     removedLineCount: number
 }>
 
+export type PatchApprover = (request: PatchApprovalView) => Promise<PatchApprovalDecision>
+
+export type PatchLifecycleMetadata = Readonly<{
+    proposalId: string
+    relativePath: string
+    baseHash: string
+    nextHash: string
+    addedLineCount: number
+    removedLineCount: number
+}>
+
 export type PatchProposal = PatchApprovalView &
     Readonly<{
         absolutePath: string

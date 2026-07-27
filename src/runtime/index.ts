@@ -11,6 +11,15 @@ export {
     type RunConversationTurnResult,
 } from './conversation.ts'
 export * from './filesystem.ts'
+export { requestPatchApproval } from './patch-approval.ts'
+export type {
+    PatchApprovalDecision,
+    PatchApprovalView,
+    PatchApprover,
+    PatchConflict,
+    PatchLifecycleMetadata,
+    PatchProposal,
+} from './patch-contracts.ts'
 export * from './permissions.ts'
 export * from './run.ts'
 export type { RunEventObserver, RunEventSnapshot } from './run.ts'

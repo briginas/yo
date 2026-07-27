@@ -29,7 +29,7 @@ const completeMetadata = {
     truncation: null,
 } as const
 
-test('exports only the approved read-only runtime capabilities', () => {
+test('exports only approved read-only capabilities and the approval port', () => {
     assert.deepEqual(Object.keys(runtime).sort(), [
         'appendTurnToConversation',
         'canonicalizeWorkspaceRoot',
@@ -41,6 +41,7 @@ test('exports only the approved read-only runtime capabilities', () => {
         'listFilesArgumentsSchema',
         'readFile',
         'readFileArgumentsSchema',
+        'requestPatchApproval',
         'resolveWorkspacePath',
         'runAgent',
         'runConversationTurn',

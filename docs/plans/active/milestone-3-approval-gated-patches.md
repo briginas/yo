@@ -1,6 +1,6 @@
 # Active implementation plan: Milestone 3 approval-gated patches
 
-- **Status:** active; 9.1–9.3 complete
+- **Status:** active; 9.1–9.4 complete
 - **Source of truth for:** Milestone 3 implementation order and completion state
 - **Related documents:** [implementation map](../../../IMPLEMENTATION_PLAN.md),
   [approved requirements](../../requirements/milestone-3-approval-gated-patches.md),
@@ -473,17 +473,17 @@ dependency.
     **Leaf acceptance:** trusted code can prepare but not apply a proposal; all
     tests confirm the target workspace remains byte-for-byte unchanged.
 
-- [ ] **9.4 Add the approval port and safe lifecycle vocabulary**
+- [x] **9.4 Add the approval port and safe lifecycle vocabulary**
 
-    - [ ] Define optional `PatchApprover` injection with
+    - [x] Define optional `PatchApprover` injection with
           `approved`/`denied`/`aborted` decisions and fail-closed absence.
-    - [ ] Define patch-prepared, approval-requested, approval-resolved, conflict,
+    - [x] Define patch-prepared, approval-requested, approval-resolved, conflict,
           and applied event metadata without source content or full diffs.
-    - [ ] Verify event snapshots are cloned/frozen and an observer cannot mutate
+    - [x] Verify event snapshots are cloned/frozen and an observer cannot mutate
           proposal state.
-    - [ ] Add controlled callback tests for approval, denial, absence, abort,
+    - [x] Add controlled callback tests for approval, denial, absence, abort,
           throw/failure sanitization, and no persistence.
-    - [ ] Do not add the patch tool to the dispatcher or model-visible registry.
+    - [x] Do not add the patch tool to the dispatcher or model-visible registry.
 
     **Leaf acceptance:** approval and observability contracts exist independently
     of terminal code and mutation; the runtime still exposes only read tools.

@@ -1,4 +1,9 @@
 import type { PermissionDecision } from './permissions'
+import type {
+    PatchApprovalDecision,
+    PatchConflict,
+    PatchLifecycleMetadata,
+} from './patch-contracts'
 import type { ToolCall, ToolName, ToolResult } from './tools'
 
 export type RunStatus = 'pending' | 'running' | 'completed' | 'aborted' | 'failed'
@@ -81,6 +86,38 @@ export type RunEvent =
           type: 'tool_completed'
           step: number
           result: ToolResult
+      }
+    | {
+          type: 'patch_prepared'
+          step: number
+          callId: string
+          metadata: PatchLifecycleMetadata
+      }
+    | {
+          type: 'patch_approval_requested'
+          step: number
+          callId: string
+          metadata: PatchLifecycleMetadata
+      }
+    | {
+          type: 'patch_approval_resolved'
+          step: number
+          callId: string
+          metadata: PatchLifecycleMetadata
+          decision: PatchApprovalDecision
+      }
+    | {
+          type: 'patch_conflicted'
+          step: number
+          callId: string
+          metadata: PatchLifecycleMetadata
+          conflict: PatchConflict['code']
+      }
+    | {
+          type: 'patch_applied'
+          step: number
+          callId: string
+          metadata: PatchLifecycleMetadata
       }
     | {
           type: 'final_answer'

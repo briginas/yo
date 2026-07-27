@@ -20,9 +20,9 @@ detailed implementation plan, then confirm its first bounded leaf.
   [requirements](docs/requirements/milestone-3-approval-gated-patches.md) are
   approved and its
   [active implementation plan](docs/plans/active/milestone-3-approval-gated-patches.md)
-  has completed **9.1–9.3, patch contracts, pure transform, and immutable
-  proposal preparation**. The next candidate is **9.4, the approval port and
-  safe lifecycle vocabulary**.
+  has completed **9.1–9.4, patch contracts, pure transform, immutable proposal
+  preparation, and the approval port with safe lifecycle vocabulary**. The next
+  candidate is **9.5, the guarded atomic applier**.
 
 ## Permanent constraints
 

@@ -4,8 +4,14 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
-import { runAgent, runAgentWithDispatcher } from './agent-loop.ts'
-import type { ModelRequest, ModelTransport, RunEventSnapshot, SessionState } from './run.ts'
+import { createRunEventSnapshot, runAgent, runAgentWithDispatcher } from './agent-loop.ts'
+import type {
+    ModelRequest,
+    ModelTransport,
+    RunEvent,
+    RunEventSnapshot,
+    SessionState,
+} from './run.ts'
 import type { ToolCall, ToolResult } from './tools.ts'
 import { canonicalizeWorkspaceRoot } from './workspace.ts'
 
@@ -53,6 +59,39 @@ test('delivers detached read-only events after recording them', async () => {
     assert.notEqual(observed[0], session.events[0])
     assert.ok(Object.isFrozen(observed[0]))
     assert.ok(Object.isFrozen(observed[1]?.type === 'model_requested' ? observed[1].metadata : {}))
+})
+
+test('creates detached frozen snapshots for safe patch lifecycle metadata', () => {
+    const event: RunEvent = {
+        type: 'patch_approval_resolved',
+        step: 1,
+        callId: 'patch-call',
+        metadata: {
+            proposalId: 'proposal-1',
+            relativePath: 'src/example.ts',
+            baseHash: 'base-hash',
+            nextHash: 'next-hash',
+            addedLineCount: 1,
+            removedLineCount: 1,
+        },
+        decision: 'approved',
+    }
+
+    const snapshot = createRunEventSnapshot(event)
+    if (snapshot.type !== 'patch_approval_resolved') {
+        throw new Error('Expected patch approval event snapshot')
+    }
+
+    assert.notEqual(snapshot, event)
+    assert.notEqual(snapshot.metadata, event.metadata)
+    assert.ok(Object.isFrozen(snapshot))
+    assert.ok(Object.isFrozen(snapshot.metadata))
+    assert.equal('diff' in snapshot.metadata, false)
+    assert.equal('nextContent' in snapshot.metadata, false)
+    assert.throws(() => {
+        ;(snapshot.metadata as { relativePath: string }).relativePath = 'mutated.ts'
+    }, TypeError)
+    assert.equal(event.metadata.relativePath, 'src/example.ts')
 })
 
 test('isolates nested observer snapshots from runtime events and transcript', async () => {

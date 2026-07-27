@@ -4,6 +4,7 @@ import type {
     RunBudget,
     RunEvent,
     RunEventObserver,
+    RunEventSnapshot,
     RunStatus,
     SessionMessage,
     SessionState,
@@ -65,6 +66,13 @@ const freezeSnapshot = (value: unknown): void => {
     }
 }
 
+export const createRunEventSnapshot = (event: RunEvent): RunEventSnapshot => {
+    const snapshot = structuredClone(event)
+    freezeSnapshot(snapshot)
+
+    return snapshot
+}
+
 const recordAndNotify = (
     session: SessionState,
     onEvent: RunEventObserver | undefined,
@@ -77,9 +85,7 @@ const recordAndNotify = (
     }
 
     try {
-        const snapshot = structuredClone(event)
-        freezeSnapshot(snapshot)
-        onEvent(snapshot)
+        onEvent(createRunEventSnapshot(event))
     } catch {
         // Observers are non-owning UI hooks and must not affect the agent run.
     }
