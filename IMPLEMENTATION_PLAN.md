@@ -8,11 +8,13 @@ detailed implementation plan, then confirm its first bounded leaf.
 
 ## Current state
 
-- **Completed baseline:** Milestone 1, the read-only `yo ask` harness, was
-  completed and verified on 2026-07-24. See the
-  [completed Milestone 1 summary](docs/plans/completed/milestone-1-read-only-ask.md).
+- **Historical baseline:** Milestone 1, the read-only `yo ask` harness, was
+  completed and verified on 2026-07-24, then its one-shot CLI command was
+  retired after chat became the single agent workflow. See the
+  [completed Milestone 1 summary](docs/plans/completed/milestone-1-read-only-ask.md)
+  for the historical implementation.
 - **Completed interactive chat:** Milestone 2 was completed and verified on
-  2026-07-26. See its
+  2026-07-26. `yo chat` is now the only public agent command. See its
   [requirements](docs/requirements/milestone-2-in-memory-chat.md) and
   [completed Milestone 2 summary](docs/plans/completed/milestone-2-in-memory-chat.md).
 - **Completed approval-gated patches:** Milestone 3, approval-gated patch proposal

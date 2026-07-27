@@ -111,6 +111,3 @@ export const formatEvidenceReport = (session: SessionState): string => {
         ...(patches.length === 0 ? [] : ['Patches:', ...patches.map((patch) => `- ${patch}`)]),
     ].join('\n')
 }
-
-export const formatSessionReport = (session: SessionState): string =>
-    [session.finalAnswer ?? 'No final answer.', '', formatEvidenceReport(session)].join('\n')

@@ -97,16 +97,15 @@ test('rejects invalid bounded chat arguments', async (context) => {
     }
 })
 
-test('preserves existing command parsing', () => {
-    assert.deepEqual(parseCliCommand(['ask', 'Inspect.', '--cwd', '.', '--model', 'model']), {
-        status: 'success',
-        command: {
-            name: 'ask',
-            task: 'Inspect.',
-            cwd: '.',
-            model: 'model',
-        },
+test('rejects the removed ask command', () => {
+    assert.deepEqual(parseCliCommand(['ask', 'Inspect.', '--cwd', '.']), {
+        status: 'error',
+        message: 'Expected the chat, login, auth status, or logout command',
     })
+    assert.doesNotMatch(USAGE, /yo ask/)
+})
+
+test('preserves authentication command parsing', () => {
     assert.deepEqual(parseCliCommand(['login']), {
         status: 'success',
         command: { name: 'login' },

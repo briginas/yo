@@ -56,7 +56,7 @@ The verified Milestone 3 runtime has these relevant properties:
 
 ## Target behavior
 
-`yo ask` and `yo chat` share the same provider-neutral validation flow:
+`yo chat` uses the provider-neutral validation flow:
 
 1. The model requests `run_validation` with `{ command: 'test' | 'build' }`.
 2. The dispatcher rejects missing, extra, or unknown fields before process
@@ -276,8 +276,8 @@ Keep call order, deduplicate only identical repeated evidence if the current
 report policy requires it, and never infer that an unrequested validation
 passed.
 
-The CLI does not add a new command, flag, prompt, or streaming panel. `yo ask`
-and `yo chat` use the existing terminal renderer and evidence report.
+The CLI does not add a new command, flag, prompt, or streaming panel. `yo chat`
+uses the existing terminal renderer and evidence report.
 
 ### Provider adapter and system prompt
 
@@ -301,8 +301,7 @@ and dispatcher remain authoritative.
 Use faux model transports and injected validation execution for deterministic
 CLI tests. Cover:
 
-- `ask`: read, approved patch, `test`, final evidence;
-- `chat`: tool-backed validation followed by another turn;
+- `chat`: read, approved patch, `test`, final evidence, then a follow-up turn;
 - `test` pass and failure;
 - `build` pass and failure;
 - timeout and abort;
@@ -507,7 +506,7 @@ new tool and two identifiers; malformed or broader calls still fail closed.
 
 ### 10.6 Deterministic CLI and controlled real-process coverage
 
-- [ ] Add ask/chat faux-transport flows for test and build pass/failure.
+- [ ] Add chat faux-transport flows for test and build pass/failure.
 - [ ] Add patch-then-validation evidence coverage without extra approval input.
 - [ ] Add one controlled temporary npm fixture for exact script selection,
       lifecycle-hook suppression, environment isolation, output bounds,

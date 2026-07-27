@@ -10,12 +10,11 @@ import {
 import { createFileCredentialStore } from './auth/file-credential-store.ts'
 import { OPENAI_CODEX_PROVIDER_ID, type CredentialStore } from './auth/credential.ts'
 import { parseCliCommand, USAGE } from './cli-command.ts'
-import { formatEvidenceReport, formatSessionReport } from './evidence-report.ts'
+import { formatEvidenceReport } from './evidence-report.ts'
 import { runChatInput, type LineInput } from './line-input.ts'
 import {
     canonicalizeWorkspaceRoot,
     createConversation,
-    runAgent,
     runConversationTurn,
     type ModelTransport,
     type SessionState,
@@ -402,95 +401,28 @@ export const runCli = async (
         return runtimeError(`Cannot use workspace: ${cause}`, writeError)
     }
 
-    if (parsed.command.name === 'chat') {
-        if (
-            createLineInput === undefined ||
-            writeAnswer === undefined ||
-            writeStatus === undefined ||
-            clearStatusLine === undefined ||
-            moveStatusCursorToStart === undefined ||
-            isInteractive === undefined
-        ) {
-            return runtimeError('Chat I/O is not configured.', writeError)
-        }
-
-        return runChat({
-            workspaceRoot,
-            model: parsed.command.model,
-            transport,
-            writeOutput,
-            writeError,
-            createLineInput,
-            writeAnswer,
-            writeStatus,
-            clearStatusLine,
-            moveStatusCursorToStart,
-            isInteractive,
-        })
+    if (
+        createLineInput === undefined ||
+        writeAnswer === undefined ||
+        writeStatus === undefined ||
+        clearStatusLine === undefined ||
+        moveStatusCursorToStart === undefined ||
+        isInteractive === undefined
+    ) {
+        return runtimeError('Chat I/O is not configured.', writeError)
     }
 
-    const terminalComposition =
-        writeAnswer !== undefined &&
-        writeStatus !== undefined &&
-        clearStatusLine !== undefined &&
-        moveStatusCursorToStart !== undefined &&
-        isInteractive !== undefined
-            ? createTerminalComposition({
-                  writeError,
-                  writeAnswer,
-                  writeStatus,
-                  clearStatusLine,
-                  moveStatusCursorToStart,
-                  isInteractive,
-              })
-            : null
-
-    let input: LineInput | undefined
-    if (terminalComposition !== null && createLineInput !== undefined) {
-        try {
-            input = createLineInput()
-        } catch {
-            return runtimeError('Cannot start approval input.', writeError)
-        }
-    }
-
-    try {
-        const session = await runAgent({
-            task: parsed.command.task,
-            workspaceRoot,
-            budget: RUN_BUDGET,
-            model: parsed.command.model,
-            transport,
-            ...(terminalComposition === null
-                ? {}
-                : {
-                      onEvent: terminalComposition.renderer.onEvent,
-                      patchApprover: createTerminalPatchApprover({
-                          ...(input === undefined ? {} : { input }),
-                          write: terminalComposition.renderer.writeAnswer,
-                          clearProgress: terminalComposition.statusOutput.clearProgress,
-                          isInteractive: terminalComposition.renderer.isInteractive,
-                      }),
-                  }),
-        })
-
-        if (terminalComposition === null) {
-            writeOutput(formatSessionReport(session))
-        } else {
-            terminalComposition.renderer.finishAnswer(session.finalAnswer)
-            writeOutput(formatEvidenceReport(session))
-        }
-
-        return {
-            exitCode: session.status === 'completed' ? 0 : 1,
-            session,
-        }
-    } catch (error) {
-        const cause = error instanceof Error ? error.message : 'Unknown runtime error'
-
-        return runtimeError(`Agent run failed: ${cause}`, writeError)
-    } finally {
-        input?.close()
-        terminalComposition?.statusOutput.clearProgress()
-    }
+    return runChat({
+        workspaceRoot,
+        model: parsed.command.model,
+        transport,
+        writeOutput,
+        writeError,
+        createLineInput,
+        writeAnswer,
+        writeStatus,
+        clearStatusLine,
+        moveStatusCursorToStart,
+        isInteractive,
+    })
 }

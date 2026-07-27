@@ -1,17 +1,9 @@
 export const USAGE = [
-    'Usage: yo ask "<task>" --cwd <workspace> [--model <name>]',
-    '       yo chat --cwd <workspace> [--model <name>]',
+    'Usage: yo chat --cwd <workspace> [--model <name>]',
     '       yo login',
     '       yo auth status',
     '       yo logout',
 ].join('\n')
-
-export type AskCommand = {
-    name: 'ask'
-    task: string
-    cwd: string
-    model: string | null
-}
 
 export type ChatCommand = {
     name: 'chat'
@@ -31,7 +23,7 @@ export type LogoutCommand = {
     name: 'logout'
 }
 
-export type CliCommand = AskCommand | ChatCommand | LoginCommand | AuthStatusCommand | LogoutCommand
+export type CliCommand = ChatCommand | LoginCommand | AuthStatusCommand | LogoutCommand
 
 export type ParseResult =
     | {
@@ -43,13 +35,7 @@ export type ParseResult =
           message: string
       }
 
-type WorkspaceCommandName = 'ask' | 'chat'
-
-const parseWorkspaceCommand = (
-    name: WorkspaceCommandName,
-    argv: readonly string[]
-): ParseResult => {
-    let task: string | undefined
+const parseChatCommand = (argv: readonly string[]): ParseResult => {
     let cwd: string | undefined
     let model: string | undefined
 
@@ -97,46 +83,9 @@ const parseWorkspaceCommand = (
             }
         }
 
-        if (name === 'chat') {
-            return {
-                status: 'error',
-                message: 'chat does not accept positional arguments',
-            }
-        }
-
-        if (task !== undefined) {
-            return {
-                status: 'error',
-                message: 'Expected exactly one task',
-            }
-        }
-
-        task = argument
-    }
-
-    if (name === 'ask') {
-        if (task === undefined || task.trim().length === 0) {
-            return {
-                status: 'error',
-                message: 'Task must not be empty',
-            }
-        }
-
-        if (cwd === undefined) {
-            return {
-                status: 'error',
-                message: '--cwd is required',
-            }
-        }
-
         return {
-            status: 'success',
-            command: {
-                name,
-                task,
-                cwd,
-                model: model ?? null,
-            },
+            status: 'error',
+            message: 'chat does not accept positional arguments',
         }
     }
 
@@ -150,7 +99,7 @@ const parseWorkspaceCommand = (
     return {
         status: 'success',
         command: {
-            name,
+            name: 'chat',
             cwd,
             model: model ?? null,
         },
@@ -207,12 +156,12 @@ export const parseCliCommand = (argv: readonly string[]): ParseResult => {
         }
     }
 
-    if (argv[0] === 'ask' || argv[0] === 'chat') {
-        return parseWorkspaceCommand(argv[0], argv)
+    if (argv[0] === 'chat') {
+        return parseChatCommand(argv)
     }
 
     return {
         status: 'error',
-        message: 'Expected the ask, chat, login, auth status, or logout command',
+        message: 'Expected the chat, login, auth status, or logout command',
     }
 }

@@ -1,11 +1,36 @@
 import assert from 'node:assert/strict'
-import { execFile } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { promisify } from 'node:util'
 import { test } from 'node:test'
 
 const execFileAsync = promisify(execFile)
+
+const runCliProcess = async (
+    args: readonly string[],
+    input: string,
+    env: NodeJS.ProcessEnv
+): Promise<{ exitCode: number | null; stderr: string; stdout: string }> =>
+    new Promise((resolve, reject) => {
+        const child = spawn(process.execPath, ['src/cli.ts', ...args], { env })
+        let stdout = ''
+        let stderr = ''
+
+        child.stdout.setEncoding('utf8')
+        child.stdout.on('data', (chunk: string) => {
+            stdout += chunk
+        })
+        child.stderr.setEncoding('utf8')
+        child.stderr.on('data', (chunk: string) => {
+            stderr += chunk
+        })
+        child.on('error', reject)
+        child.on('close', (exitCode) => {
+            resolve({ exitCode, stderr, stdout })
+        })
+        child.stdin.end(input)
+    })
 
 test('exposes the bundled entrypoint as the yo executable', async () => {
     const packageJson = JSON.parse(await readFile('package.json', 'utf8')) as {
@@ -24,54 +49,42 @@ test('production entrypoint reaches the Codex transport without a real credentia
 
     t.after(() => rm(temporaryHome, { recursive: true, force: true }))
 
-    await assert.rejects(
-        execFileAsync(
-            process.execPath,
-            ['src/cli.ts', 'ask', 'Inspect the workspace.', '--cwd', '.'],
-            {
-                env: {
-                    ...process.env,
-                    HOME: temporaryHome,
-                },
-            }
-        ),
-        (error: unknown) => {
-            assert.ok(error instanceof Error)
-            const processError = error as Error & {
-                code: number
-                stdout: string
-                stderr: string
-            }
+    const result = await runCliProcess(['chat', '--cwd', '.'], 'Inspect the workspace.\n', {
+        ...process.env,
+        HOME: temporaryHome,
+    })
 
-            assert.equal(processError.code, 1)
-            assert.equal(
-                processError.stdout,
-                [
-                    'Evidence:',
-                    'Stop reason: transport_error',
-                    'Tools: (none)',
-                    'Files:',
-                    '- (none)',
-                    '',
-                ].join('\n')
-            )
-            assert.equal(
-                processError.stderr,
-                [
-                    'status: model_waiting step=1',
-                    'status: turn_finished status=failed reason=transport_error',
-                    '',
-                ].join('\n')
-            )
-
-            return true
-        }
+    assert.equal(result.exitCode, 0)
+    assert.equal(
+        result.stdout,
+        [
+            'yo> Evidence:',
+            'Stop reason: transport_error',
+            'Tools: (none)',
+            'Files:',
+            '- (none)',
+            'yo> ',
+        ].join('\n')
+    )
+    assert.equal(
+        result.stderr,
+        [
+            'status: model_waiting step=1',
+            'status: turn_finished status=failed reason=transport_error',
+            '',
+        ].join('\n')
     )
 })
 
-test('production entrypoint returns usage exit code 2 for invalid arguments', async () => {
+test('production entrypoint rejects the removed ask command with usage exit code 2', async () => {
     await assert.rejects(
-        execFileAsync(process.execPath, ['src/cli.ts', 'ask', 'Inspect the workspace.']),
+        execFileAsync(process.execPath, [
+            'src/cli.ts',
+            'ask',
+            'Inspect the workspace.',
+            '--cwd',
+            '.',
+        ]),
         (error: unknown) => {
             assert.ok(error instanceof Error)
             const processError = error as Error & {
@@ -82,8 +95,12 @@ test('production entrypoint returns usage exit code 2 for invalid arguments', as
 
             assert.equal(processError.code, 2)
             assert.equal(processError.stdout, '')
-            assert.match(processError.stderr, /--cwd is required/)
-            assert.match(processError.stderr, /Usage: yo ask/)
+            assert.match(
+                processError.stderr,
+                /Expected the chat, login, auth status, or logout command/
+            )
+            assert.match(processError.stderr, /Usage: yo chat/)
+            assert.doesNotMatch(processError.stderr, /yo ask/)
 
             return true
         }

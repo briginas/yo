@@ -109,9 +109,10 @@ const createChunkedSseResponse = (payload: string, chunkSize: number): Response 
     )
 }
 
-test('runs ask with a canonical workspace, fixed budget, and no default model', async () => {
+test('runs a chat turn with a canonical workspace, fixed budget, and no default model', async () => {
     const workspace = await mkdtemp(`${tmpdir()}/yo-cli-workspace-`)
     const requests: ModelRequest[] = []
+    const lines = ['Find the runtime entrypoint.', '/exit']
     const transport: ModelTransport = async (request, options) => {
         requests.push(request)
         options?.onFinalAnswerDelta?.('Found the runtime ')
@@ -128,8 +129,12 @@ test('runs ask with a canonical workspace, fixed budget, and no default model', 
         const relativeWorkspace = relative(process.cwd(), workspace)
         const canonicalWorkspace = await realpath(workspace)
         const { answers, errors, outputs, result, statuses } = await invokeCli({
-            argv: ['ask', 'Find the runtime entrypoint.', '--cwd', relativeWorkspace],
+            argv: ['chat', '--cwd', relativeWorkspace],
             transport,
+            createLineInput: () => ({
+                readLine: async () => lines.shift() ?? null,
+                close: () => undefined,
+            }),
         })
 
         assert.deepEqual(answers, ['Found the runtime ', 'entrypoint.', '\n\n'])
@@ -157,16 +162,21 @@ test('runs ask with a canonical workspace, fixed budget, and no default model', 
     }
 })
 
-test('falls back to the completed answer for terminal-enabled ask without deltas', async () => {
+test('falls back to the completed answer for a chat turn without deltas', async () => {
     const workspace = await mkdtemp(`${tmpdir()}/yo-cli-answer-fallback-`)
+    const lines = ['Inspect the workspace.', '/exit']
 
     try {
         const { answers, errors, outputs, result } = await invokeCli({
-            argv: ['ask', 'Inspect the workspace.', '--cwd', workspace],
+            argv: ['chat', '--cwd', workspace],
             transport: async () => ({
                 type: 'final_answer',
                 model: null,
                 content: 'Inspection complete.',
+            }),
+            createLineInput: () => ({
+                readLine: async () => lines.shift() ?? null,
+                close: () => undefined,
             }),
         })
 
@@ -183,43 +193,10 @@ test('falls back to the completed answer for terminal-enabled ask without deltas
     }
 })
 
-test('preserves ask callers without optional terminal dependencies', async () => {
-    const workspace = await mkdtemp(`${tmpdir()}/yo-cli-no-terminal-`)
-    const outputs: string[] = []
-    const errors: string[] = []
-
-    try {
-        const result = await runCli(['ask', 'Inspect the workspace.', '--cwd', workspace], {
-            transport: async () => ({
-                type: 'final_answer',
-                model: null,
-                content: 'Inspection complete.',
-            }),
-            writeOutput: (message) => outputs.push(message),
-            writeError: (message) => errors.push(message),
-        })
-
-        assert.deepEqual(errors, [])
-        assert.deepEqual(outputs, [
-            [
-                'Inspection complete.',
-                '',
-                'Evidence:',
-                'Stop reason: final_answer',
-                'Tools: (none)',
-                'Files:',
-                '- (none)',
-            ].join('\n'),
-        ])
-        assert.equal(result.exitCode, 0)
-    } finally {
-        await rm(workspace, { recursive: true, force: true })
-    }
-})
-
-test('passes an explicit model and returns a failed session with exit code 1', async () => {
+test('passes an explicit model and retains a failed chat turn', async () => {
     const workspace = await mkdtemp(`${tmpdir()}/yo-cli-model-`)
     const requests: ModelRequest[] = []
+    const lines = ['Inspect the workspace.', '/exit']
     const transport: ModelTransport = async (request) => {
         requests.push(request)
         throw new Error('transport unavailable')
@@ -227,8 +204,12 @@ test('passes an explicit model and returns a failed session with exit code 1', a
 
     try {
         const { answers, errors, outputs, result, statuses } = await invokeCli({
-            argv: ['ask', 'Inspect the workspace.', '--model', 'chosen-model', '--cwd', workspace],
+            argv: ['chat', '--model', 'chosen-model', '--cwd', workspace],
             transport,
+            createLineInput: () => ({
+                readLine: async () => lines.shift() ?? null,
+                close: () => undefined,
+            }),
         })
 
         assert.deepEqual(answers, [])
@@ -246,7 +227,7 @@ test('passes an explicit model and returns a failed session with exit code 1', a
             'status: model_waiting step=1\n',
             'status: turn_finished status=failed reason=transport_error\n',
         ])
-        assert.equal(result.exitCode, 1)
+        assert.equal(result.exitCode, 0)
         assert.equal(result.session?.status, 'failed')
         assert.equal(result.session?.stopReason, 'transport_error')
         assert.equal(requests[0]?.model, 'chosen-model')
@@ -407,6 +388,7 @@ test('composes a tool-using chat turn and retains its observations for a follow-
 test('composes confirmed Codex answer chunks after tool work without crossing terminal channels', async () => {
     const workspace = await mkdtemp(`${tmpdir()}/yo-cli-output-composition-`)
     const sourcePath = join(workspace, 'answer.ts')
+    const lines = ['Read the answer.', '/exit']
     const privatePreamble = 'private assistant preamble'
     const privateReasoning = 'private reasoning summary'
     const credential = {
@@ -503,10 +485,14 @@ test('composes confirmed Codex answer chunks after tool work without crossing te
     try {
         await writeFile(sourcePath, 'export const answer = 42\n')
 
-        const result = await runCli(['ask', 'Read the answer.', '--cwd', workspace], {
+        const result = await runCli(['chat', '--cwd', workspace], {
             transport,
             writeOutput: (message) => outputs.push(message),
             writeError: (message) => errors.push(message),
+            createLineInput: () => ({
+                readLine: async () => lines.shift() ?? null,
+                close: () => undefined,
+            }),
             writeAnswer: (message) => {
                 answers.push(message)
                 terminalOperations.push(`answer:${message}`)
@@ -807,33 +793,17 @@ test('rejects chat before the input boundary when its workspace cannot be canoni
 test('rejects invalid command-line arguments with usage exit code 2', async (context) => {
     const cases = [
         { name: 'chat positional argument', argv: ['chat', 'task', '--cwd', '.'] },
+        { name: 'chat missing cwd', argv: ['chat'] },
+        { name: 'chat missing cwd value', argv: ['chat', '--cwd'] },
+        { name: 'chat empty cwd', argv: ['chat', '--cwd', ''] },
+        { name: 'chat missing model value', argv: ['chat', '--cwd', '.', '--model'] },
+        { name: 'chat unknown option', argv: ['chat', '--cwd', '.', '--verbose'] },
+        { name: 'removed ask command', argv: ['ask', 'task', '--cwd', '.'] },
         { name: 'login arguments', argv: ['login', 'extra'] },
         { name: 'missing auth subcommand', argv: ['auth'] },
         { name: 'unknown auth subcommand', argv: ['auth', 'logout'] },
         { name: 'auth status arguments', argv: ['auth', 'status', 'extra'] },
         { name: 'logout arguments', argv: ['logout', 'extra'] },
-        { name: 'missing task', argv: ['ask', '--cwd', '.'] },
-        { name: 'empty task', argv: ['ask', '', '--cwd', '.'] },
-        { name: 'whitespace task', argv: ['ask', '   ', '--cwd', '.'] },
-        { name: 'missing cwd', argv: ['ask', 'task'] },
-        { name: 'empty cwd', argv: ['ask', 'task', '--cwd', ''] },
-        { name: 'whitespace cwd', argv: ['ask', 'task', '--cwd', '   '] },
-        { name: 'missing cwd value', argv: ['ask', 'task', '--cwd'] },
-        { name: 'empty model', argv: ['ask', 'task', '--cwd', '.', '--model', ''] },
-        {
-            name: 'whitespace model',
-            argv: ['ask', 'task', '--cwd', '.', '--model', '   '],
-        },
-        { name: 'missing model value', argv: ['ask', 'task', '--cwd', '.', '--model'] },
-        { name: 'option as cwd value', argv: ['ask', 'task', '--cwd', '-v'] },
-        { name: 'unknown option', argv: ['ask', 'task', '--cwd', '.', '--verbose'] },
-        { name: 'short option', argv: ['ask', 'task', '--cwd', '.', '-v'] },
-        { name: 'extra task', argv: ['ask', 'task', 'extra', '--cwd', '.'] },
-        { name: 'repeated cwd', argv: ['ask', 'task', '--cwd', '.', '--cwd', '.'] },
-        {
-            name: 'repeated model',
-            argv: ['ask', 'task', '--cwd', '.', '--model', 'one', '--model', 'two'],
-        },
     ] as const
 
     for (const testCase of cases) {
@@ -844,7 +814,8 @@ test('rejects invalid command-line arguments with usage exit code 2', async (con
             assert.equal(result.session, null)
             assert.deepEqual(outputs, [])
             assert.equal(errors.length, 1)
-            assert.match(errors[0]!, /Usage: yo ask/)
+            assert.match(errors[0]!, /Usage: yo chat/)
+            assert.doesNotMatch(errors[0]!, /yo ask/)
         })
     }
 })
@@ -1271,7 +1242,7 @@ test('reports workspace canonicalization failures as runtime errors', async () =
         content: 'unused',
     })
     const { errors, outputs, result } = await invokeCli({
-        argv: ['ask', 'Inspect the workspace.', '--cwd', '/missing/yo-workspace'],
+        argv: ['chat', '--cwd', '/missing/yo-workspace'],
         transport,
     })
 
@@ -1286,6 +1257,7 @@ test('reports workspace canonicalization failures as runtime errors', async () =
 
 test('prints ordered, deduplicated tool and file evidence from successful observations', async () => {
     const workspace = await mkdtemp(`${tmpdir()}/yo-cli-evidence-`)
+    const lines = ['Find the answer.', '/exit']
     let requestCount = 0
     const transport: ModelTransport = async () => {
         requestCount += 1
@@ -1331,8 +1303,12 @@ test('prints ordered, deduplicated tool and file evidence from successful observ
         await writeFile(`${workspace}/src/agent.ts`, 'export const needle = 42\n')
 
         const { answers, errors, outputs, result } = await invokeCli({
-            argv: ['ask', 'Find the answer.', '--cwd', workspace],
+            argv: ['chat', '--cwd', workspace],
             transport,
+            createLineInput: () => ({
+                readLine: async () => lines.shift() ?? null,
+                close: () => undefined,
+            }),
         })
 
         assert.deepEqual(answers, ['The answer is in src/agent.ts.\n\n'])
@@ -1358,6 +1334,7 @@ test('completes a fixture-repository research task with a faux transport', async
     const sourceDirectory = `${workspace}/src`
     const sourcePath = `${sourceDirectory}/settings.ts`
     const source = 'export const defaultTimeoutMs = 5_000\n'
+    const lines = ['Find the default timeout and cite its definition.', '/exit']
     const requests: ModelRequest[] = []
     const searchCall = {
         id: 'search-call',
@@ -1402,8 +1379,12 @@ test('completes a fixture-repository research task with a faux transport', async
         await writeFile(sourcePath, source)
 
         const { answers, errors, outputs, result } = await invokeCli({
-            argv: ['ask', 'Find the default timeout and cite its definition.', '--cwd', workspace],
+            argv: ['chat', '--cwd', workspace],
             transport,
+            createLineInput: () => ({
+                readLine: async () => lines.shift() ?? null,
+                close: () => undefined,
+            }),
         })
 
         assert.deepEqual(answers, ['The default timeout is 5,000 ms in src/settings.ts:1.\n\n'])
@@ -1454,13 +1435,14 @@ test('completes a fixture-repository research task with a faux transport', async
     }
 })
 
-test('completes an inspected, approved patch through ask and reports its exact outcome', async () => {
+test('completes an inspected, approved patch through chat and reports its exact outcome', async () => {
     const fixtureRoot = await mkdtemp(`${tmpdir()}/yo-cli-patch-e2e-`)
     const workspace = join(fixtureRoot, 'workspace')
     const sourceDirectory = join(workspace, 'src')
     const sourcePath = join(sourceDirectory, 'settings.ts')
     const source = 'export const defaultTimeoutMs = 5_000\n'
     const nextSource = 'export const defaultTimeoutMs = 10_000\n'
+    const lines = ['Increase the timeout after inspecting its definition.', 'yes', '/exit']
     const requests: ModelRequest[] = []
     let approvalPromptCount = 0
     let inputClosed = false
@@ -1531,19 +1513,20 @@ test('completes an inspected, approved patch through ask and reports its exact o
         await writeFile(sourcePath, source)
 
         const { answers, errors, outputs, result } = await invokeCli({
-            argv: [
-                'ask',
-                'Increase the timeout after inspecting its definition.',
-                '--cwd',
-                workspace,
-            ],
+            argv: ['chat', '--cwd', workspace],
             transport,
             isInteractive: true,
             createLineInput: () => ({
                 readLine: async (prompt) => {
-                    assert.equal(prompt, PATCH_APPROVAL_PROMPT)
-                    approvalPromptCount += 1
-                    return 'yes'
+                    const line = lines.shift() ?? null
+
+                    if (prompt === PATCH_APPROVAL_PROMPT) {
+                        approvalPromptCount += 1
+                    } else {
+                        assert.equal(prompt, CHAT_PROMPT)
+                    }
+
+                    return line
                 },
                 close: () => {
                     inputClosed = true
@@ -1587,6 +1570,7 @@ test('completes an inspected, approved patch through ask and reports its exact o
 
 test('prints a failed report after step-budget exhaustion without authorized evidence', async () => {
     const workspace = await mkdtemp(`${tmpdir()}/yo-cli-budget-`)
+    const lines = ['Inspect the workspace.', '/exit']
     const transport: ModelTransport = async () => ({
         type: 'tool_calls',
         model: null,
@@ -1601,13 +1585,17 @@ test('prints a failed report after step-budget exhaustion without authorized evi
 
     try {
         const { answers, errors, outputs, result } = await invokeCli({
-            argv: ['ask', 'Inspect the workspace.', '--cwd', workspace],
+            argv: ['chat', '--cwd', workspace],
             transport,
+            createLineInput: () => ({
+                readLine: async () => lines.shift() ?? null,
+                close: () => undefined,
+            }),
         })
 
         assert.deepEqual(answers, [])
         assert.deepEqual(errors, [])
-        assert.equal(result.exitCode, 1)
+        assert.equal(result.exitCode, 0)
         assert.equal(result.session?.stopReason, 'step_budget_exhausted')
         assert.deepEqual(outputs, [
             [
@@ -1623,83 +1611,10 @@ test('prints a failed report after step-budget exhaustion without authorized evi
     }
 })
 
-test('uses a dedicated approval input for ask and closes it after the run', async () => {
-    const workspace = await mkdtemp(`${tmpdir()}/yo-cli-ask-approval-`)
+test('renders a chat patch preview but denies it in non-interactive mode', async () => {
+    const workspace = await mkdtemp(`${tmpdir()}/yo-cli-chat-non-interactive-`)
     const sourcePath = join(workspace, 'example.ts')
-    const requests: ModelRequest[] = []
-    let createdInputs = 0
-    let closeCount = 0
-    const input: LineInput = {
-        readLine: async (prompt) => {
-            assert.equal(prompt, PATCH_APPROVAL_PROMPT)
-            return 'yes'
-        },
-        close: () => {
-            closeCount += 1
-        },
-    }
-    const transport: ModelTransport = async (request) => {
-        requests.push(request)
-
-        if (requests.length === 1) {
-            return {
-                type: 'tool_calls',
-                model: null,
-                toolCalls: [
-                    {
-                        id: 'patch-call',
-                        name: 'propose_patch',
-                        arguments: {
-                            path: 'example.ts',
-                            edits: [{ oldText: 'value = 1', newText: 'value = 2' }],
-                        },
-                    },
-                ],
-            }
-        }
-
-        return {
-            type: 'final_answer',
-            model: null,
-            content: 'Patch applied.',
-        }
-    }
-
-    try {
-        await writeFile(sourcePath, 'export const value = 1\n')
-        const { answers, errors, result } = await invokeCli({
-            argv: ['ask', 'Update the value.', '--cwd', workspace],
-            transport,
-            createLineInput: () => {
-                createdInputs += 1
-                return input
-            },
-            isInteractive: true,
-        })
-
-        assert.deepEqual(errors, [])
-        assert.equal(createdInputs, 1)
-        assert.equal(closeCount, 1)
-        assert.equal(result.exitCode, 0)
-        assert.equal(await readFile(sourcePath, 'utf8'), 'export const value = 2\n')
-        assert.ok(answers[0]?.includes('Patch proposal: example.ts'))
-        assert.ok(answers[0]?.includes('-export const value = 1'))
-        assert.ok(answers[0]?.includes('+export const value = 2'))
-        assert.equal(answers[0]?.includes(PATCH_APPROVAL_PROMPT), false)
-        assert.deepEqual(requests[0]?.visibleTools, [
-            'list_files',
-            'search_code',
-            'read_file',
-            'propose_patch',
-        ])
-    } finally {
-        await rm(workspace, { recursive: true, force: true })
-    }
-})
-
-test('renders an ask patch preview but denies it in non-interactive mode', async () => {
-    const workspace = await mkdtemp(`${tmpdir()}/yo-cli-ask-non-interactive-`)
-    const sourcePath = join(workspace, 'example.ts')
+    const lines = ['Update the value.', '/exit']
     let requestCount = 0
     const transport: ModelTransport = async () => {
         requestCount += 1
@@ -1729,16 +1644,21 @@ test('renders an ask patch preview but denies it in non-interactive mode', async
     try {
         await writeFile(sourcePath, 'export const value = 1\n')
         const { answers, errors, result } = await invokeCli({
-            argv: ['ask', 'Update the value.', '--cwd', workspace],
+            argv: ['chat', '--cwd', workspace],
             transport,
             isInteractive: false,
+            createLineInput: () => ({
+                readLine: async () => lines.shift() ?? null,
+                close: () => undefined,
+            }),
         })
 
         assert.deepEqual(errors, [])
         assert.equal(result.exitCode, 0)
         assert.equal(await readFile(sourcePath, 'utf8'), 'export const value = 1\n')
-        assert.ok(answers[0]?.includes('Patch proposal: example.ts'))
-        assert.ok(answers[0]?.endsWith('Apply this patch? [y/N] \n'))
+        const renderedAnswer = answers.join('')
+        assert.ok(renderedAnswer.includes('Patch proposal: example.ts'))
+        assert.ok(renderedAnswer.includes('Apply this patch? [y/N] \n'))
         assert.equal(
             result.session?.messages.some(
                 (message) => message.role === 'tool' && message.result.status === 'denied'

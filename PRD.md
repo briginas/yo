@@ -6,8 +6,8 @@ when the task concerns that milestone.
 ## Objective
 
 Build a small TypeScript command-line coding agent for learning how an agent
-harness works. Given a task and an approved workspace, the agent may inspect
-repository files and return an evidence-backed answer or plan.
+harness works. In an interactive chat over an approved workspace, the agent may
+inspect repository files and return evidence-backed answers or plans.
 
 The project takes architectural inspiration from [`pi`](../pi): a model invokes
 typed tools through a controlled loop, and the harness validates, executes,
@@ -18,8 +18,8 @@ independently verifiable slices of that design.
 
 ### Agent loop
 
-1. Parse the CLI task and canonicalize `--cwd` as the sole allowed workspace
-   root.
+1. Canonicalize `--cwd` as the sole allowed workspace root and read one chat
+   task at a time.
 2. Build the model context from a stable system prompt, the user task, visible
    tool schemas, and prior structured observations.
 3. Ask the model for either a final response or one or more tool calls.
@@ -81,6 +81,7 @@ same boundary for tests.
 
 The public CLI also exposes:
 
+- `yo chat` as the only agent workflow;
 - `yo login` to complete browser OAuth through the OpenAI website;
 - `yo auth status` to report non-secret authentication state;
 - `yo logout` to remove the stored OAuth credential.
@@ -88,7 +89,8 @@ The public CLI also exposes:
 ## Requirement map
 
 - [Milestone 1: read-only `yo ask`](docs/requirements/milestone-1-read-only-ask.md)
-  is complete. Read it for baseline behavior, regressions, or compatibility.
+  is complete and records the historical one-shot baseline; the command has
+  since been retired. Read it for regressions or historical compatibility.
 - [Milestone 2: in-memory interactive chat](docs/requirements/milestone-2-in-memory-chat.md)
   is complete. Read it for interactive-chat behavior, regressions, or
   compatibility.
@@ -108,6 +110,9 @@ Milestone 3 is complete. `yo` may propose one exact patch to an existing file,
 but trusted terminal approval remains required before any workspace write. Its
 [completed plan summary](docs/plans/completed/milestone-3-approval-gated-patches.md)
 records deterministic and real OAuth-backed verification.
+
+The public agent workflow is now chat-only. Authentication commands remain
+separate trusted CLI operations.
 
 Milestone 4 is now drafted for review:
 [requirements](docs/requirements/milestone-4-allowlisted-validation.md) and

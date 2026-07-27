@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { formatEvidenceReport, formatSessionReport } from './evidence-report.ts'
+import { formatEvidenceReport } from './evidence-report.ts'
 import type { SessionState } from './runtime/run.ts'
 
 const createSession = (): SessionState => ({
@@ -17,21 +17,6 @@ const createSession = (): SessionState => ({
     events: [],
     finalAnswer: 'Found the runtime entrypoint.',
     stopReason: 'final_answer',
-})
-
-test('preserves the exact ask report shape', () => {
-    assert.equal(
-        formatSessionReport(createSession()),
-        [
-            'Found the runtime entrypoint.',
-            '',
-            'Evidence:',
-            'Stop reason: final_answer',
-            'Tools: (none)',
-            'Files:',
-            '- (none)',
-        ].join('\n')
-    )
 })
 
 test('formats answer-free chat evidence from authorized successful observations', () => {

@@ -6,12 +6,13 @@ The project takes architectural inspiration from [`pi`](../pi), especially its s
 
 ## Current status
 
-Milestone 1 is complete: `yo ask` supports a bounded read-only task through
-ChatGPT Plus OAuth. Milestone 2 is also complete: `yo chat` supports an
-ephemeral multi-turn conversation with live model/tool status and safe
-final-answer delivery. Milestone 3 is complete: the model may propose an exact
-replacement patch for one existing workspace file, but the harness displays the
-complete diff and writes only after explicit terminal approval.
+Milestone 1 established the original bounded read-only harness. Its one-shot
+`yo ask` command has since been retired in favor of the single agent workflow:
+`yo chat`. The chat supports an ephemeral multi-turn conversation through
+ChatGPT Plus OAuth with live model/tool status and safe final-answer delivery.
+Milestone 3 is complete: the model may propose an exact replacement patch for
+one existing workspace file, but the harness displays the complete diff and
+writes only after explicit terminal approval.
 [See the current project state →](IMPLEMENTATION_PLAN.md)
 
 Milestone 4 is drafted for review: one proposed `run_validation` tool would
@@ -42,22 +43,16 @@ The resulting OAuth credential is trusted CLI state stored at `~/.yo/auth.json`.
 
 ## Usage
 
-Run a task against an explicitly approved workspace:
+Start an in-memory interactive chat against an explicitly approved workspace:
 
 ```bash
-node dist/cli.js ask "Find where CLI arguments are parsed" --cwd /path/to/workspace
+node dist/cli.js chat --cwd /path/to/workspace
 ```
 
 Override the default model when needed:
 
 ```bash
-node dist/cli.js ask "Explain the runtime loop" --cwd /path/to/workspace --model <name>
-```
-
-Start an in-memory interactive chat:
-
-```bash
-node dist/cli.js chat --cwd /path/to/workspace
+node dist/cli.js chat --cwd /path/to/workspace --model <name>
 ```
 
 Use the exact `/exit` command or EOF to leave chat. The transcript is discarded

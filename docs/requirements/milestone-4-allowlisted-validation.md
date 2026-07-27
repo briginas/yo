@@ -35,10 +35,10 @@ structured results, operational events, and final evidence.
 
 ## Current and target behavior
 
-Today, `yo ask` and `yo chat` can inspect an approved workspace and can apply
-one exact patch after explicit terminal approval. The model cannot run tests or
-builds. It must ask the user to perform validation separately, so it cannot
-ground its final answer in executable post-change evidence.
+Today, `yo chat` can inspect an approved workspace and can apply one exact patch
+after explicit terminal approval. The model cannot run tests or builds. It must
+ask the user to perform validation separately, so it cannot ground its final
+answer in executable post-change evidence.
 
 After Milestone 4, the model may request one `run_validation` tool:
 
@@ -448,8 +448,7 @@ Milestone 4 is complete only when:
    error data.
 10. The provider exposes only the strict `run_validation` enum schema after all
     runtime enforcement exists.
-11. `yo ask` and `yo chat` can use both validations through deterministic faux
-    transports.
+11. `yo chat` can use both validations through deterministic faux transports.
 12. Existing read, patch, approval, OAuth, chat, renderer, and final-answer
     tests remain green.
 13. Focused tests, `npm test`, `npm run build`, `npm run format:check`, and
