@@ -15,17 +15,18 @@ detailed implementation plan, then confirm its first bounded leaf.
   2026-07-26. See its
   [requirements](docs/requirements/milestone-2-in-memory-chat.md) and
   [completed Milestone 2 summary](docs/plans/completed/milestone-2-in-memory-chat.md).
-- **Current implementation:** Milestone 3, approval-gated patch proposal and
-  application. Its
+- **Completed approval-gated patches:** Milestone 3, approval-gated patch proposal
+  and application, was verified on 2026-07-27. Its
   [requirements](docs/requirements/milestone-3-approval-gated-patches.md) are
   approved and its
-  [active implementation plan](docs/plans/active/milestone-3-approval-gated-patches.md)
-  has completed **9.1–9.9, patch contracts, pure transform, immutable proposal
+  [completed plan summary](docs/plans/completed/milestone-3-approval-gated-patches.md)
+  records **9.1–9.10, patch contracts, pure transform, immutable proposal
   preparation, approval vocabulary, guarded atomic application, controlled
   dispatcher integration, approval propagation through the agent loop and
-  conversation, terminal diff rendering, and model-visible CLI/provider
-  composition**. The next candidate is **9.10, verification and Milestone 3
-  closure**.
+  conversation, terminal diff rendering, model-visible CLI/provider composition,
+  deterministic end-to-end coverage, and a real OAuth-backed approval flow**.
+  The next planning candidate is **Milestone 4: narrowly allowlisted validation
+  commands**; no implementation is authorized yet.
 
 ## Permanent constraints
 

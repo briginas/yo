@@ -5,11 +5,11 @@
 - **Source of truth for:** Milestone 3 scope and acceptance criteria
 - **Related documents:** [product map](../../PRD.md),
   [implementation-state map](../../IMPLEMENTATION_PLAN.md),
-  [active implementation plan](../plans/active/milestone-3-approval-gated-patches.md)
+  [completed plan summary](../plans/completed/milestone-3-approval-gated-patches.md)
 
-Read this document when planning or implementing Milestone 3. It defines the
-approved product boundary. The active implementation plan and each bounded
-runtime leaf still require separate approval before behavior changes.
+Read this document when planning Milestone 3 regressions or compatibility. It
+defines the approved product boundary; the completed plan records its verified
+implementation and closure.
 
 ## Objective
 

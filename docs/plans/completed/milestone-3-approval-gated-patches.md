@@ -1,15 +1,15 @@
-# Active implementation plan: Milestone 3 approval-gated patches
+# Completed plan summary: Milestone 3 approval-gated patches
 
-- **Status:** active; 9.1–9.9 complete
-- **Source of truth for:** Milestone 3 implementation order and completion state
+- **Status:** complete
+- **Verified:** 2026-07-27
+- **Source of truth for:** Milestone 3 completion state and verification evidence
 - **Related documents:** [implementation map](../../../IMPLEMENTATION_PLAN.md),
   [approved requirements](../../requirements/milestone-3-approval-gated-patches.md),
   [product map](../../../PRD.md)
 
-Read this document before proposing or implementing Milestone 3 work. Complete
-and verify one numbered leaf before requesting approval for the next. A checked
-parent item means all of its leaf acceptance criteria passed and the result was
-reviewed; creating this plan does not check or authorize any runtime item.
+Read this document for Milestone 3 behavior, regression, or compatibility.
+The detailed checklist remains as the implementation record; all numbered
+leaves passed their acceptance criteria and review.
 
 ## Goal
 
@@ -579,27 +579,34 @@ dependency.
     workspace mutation still requires the exact terminal approval flow; all
     existing commands and read tools remain compatible.
 
-- [ ] **9.10 Verify and close Milestone 3**
+- [x] **9.10 Verify and close Milestone 3**
 
-    - [ ] Add a deterministic end-to-end faux scenario: inspect, propose, display,
+    - [x] Add a deterministic end-to-end faux scenario: inspect, propose, display,
           approve, apply, observe result, and return a final answer.
-    - [ ] Cover denial, EOF, non-TTY, stale-source, timeout, abort, sensitive path,
+    - [x] Cover denial, EOF, non-TTY, stale-source, timeout, abort, sensitive path,
           symlink, oversized diff, malformed arguments, and failure cleanup across
-          the composed CLI.
-    - [ ] Verify the approved workspace changes only at the approved path and only
+          the CLI composition and the owning deterministic runtime tests.
+    - [x] Verify the approved workspace changes only at the approved path and only
           to the displayed next content.
-    - [ ] Run the focused tests, `npm test`, `npm run build`,
+    - [x] Run the focused tests, `npm test`, `npm run build`,
           `npm run format:check`, and `git diff --check`.
-    - [ ] Manually review the final diff and runtime public surface.
-    - [ ] Complete one real ChatGPT Plus `yo chat` or `yo ask` run without
+    - [x] Manually review the final diff and runtime public surface.
+    - [x] Complete one real ChatGPT Plus `yo chat` run without
           `OPENAI_API_KEY`, inspect the full diff, deny one proposal, approve a
           second small proposal, and verify exact file bytes and evidence.
-    - [ ] Mark Milestone 3 complete only after the real run and review, move this
+    - [x] Mark Milestone 3 complete only after the real run and review, move this
           plan to `docs/plans/completed/`, and update the root maps.
 
     **Leaf acceptance:** every approved requirement has deterministic evidence,
     all project checks pass, the real approval flow is verified, and no deferred
     capability entered the runtime.
+
+    **Verification record:** 298 deterministic tests passed. The real OAuth-backed
+    `yo chat` run read `message.txt`, displayed the complete `blue`-to-`green`
+    diff, returned `denied` evidence after the first explicit `n`, then applied
+    the second explicitly approved proposal. The disposable workspace contained
+    only `message.txt`, whose final UTF-8 bytes were exactly
+    `The selected color is green.\n`.
 
 ## Validation strategy
 

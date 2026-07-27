@@ -1453,6 +1453,137 @@ test('completes a fixture-repository research task with a faux transport', async
     }
 })
 
+test('completes an inspected, approved patch through ask and reports its exact outcome', async () => {
+    const fixtureRoot = await mkdtemp(`${tmpdir()}/yo-cli-patch-e2e-`)
+    const workspace = join(fixtureRoot, 'workspace')
+    const sourceDirectory = join(workspace, 'src')
+    const sourcePath = join(sourceDirectory, 'settings.ts')
+    const source = 'export const defaultTimeoutMs = 5_000\n'
+    const nextSource = 'export const defaultTimeoutMs = 10_000\n'
+    const requests: ModelRequest[] = []
+    let approvalPromptCount = 0
+    let inputClosed = false
+
+    const transport: ModelTransport = async (request) => {
+        requests.push(request)
+
+        if (requests.length === 1) {
+            return {
+                type: 'tool_calls',
+                model: 'faux-model',
+                toolCalls: [
+                    {
+                        id: 'read-settings',
+                        name: 'read_file',
+                        arguments: { path: 'src/settings.ts' },
+                    },
+                ],
+            }
+        }
+
+        if (requests.length === 2) {
+            assert.deepEqual(request.messages.at(-1), {
+                role: 'tool',
+                result: {
+                    status: 'success',
+                    callId: 'read-settings',
+                    content: '1:export const defaultTimeoutMs = 5_000',
+                    metadata: { truncated: false, truncation: null },
+                },
+            })
+
+            return {
+                type: 'tool_calls',
+                model: 'faux-model',
+                toolCalls: [
+                    {
+                        id: 'patch-settings',
+                        name: 'propose_patch',
+                        arguments: {
+                            path: 'src/settings.ts',
+                            edits: [{ oldText: '5_000', newText: '10_000' }],
+                        },
+                    },
+                ],
+            }
+        }
+
+        assert.deepEqual(request.messages.at(-1), {
+            role: 'tool',
+            result: {
+                status: 'success',
+                callId: 'patch-settings',
+                content: 'Patch applied: src/settings.ts',
+                metadata: { truncated: false, truncation: null },
+            },
+        })
+
+        return {
+            type: 'final_answer',
+            model: 'faux-model',
+            content: 'Updated src/settings.ts after approval.',
+        }
+    }
+
+    try {
+        await mkdir(sourceDirectory, { recursive: true })
+        await writeFile(sourcePath, source)
+
+        const { answers, errors, outputs, result } = await invokeCli({
+            argv: [
+                'ask',
+                'Increase the timeout after inspecting its definition.',
+                '--cwd',
+                workspace,
+            ],
+            transport,
+            isInteractive: true,
+            createLineInput: () => ({
+                readLine: async (prompt) => {
+                    assert.equal(prompt, '')
+                    approvalPromptCount += 1
+                    return 'yes'
+                },
+                close: () => {
+                    inputClosed = true
+                },
+            }),
+        })
+
+        assert.deepEqual(errors, [])
+        assert.equal(result.exitCode, 0)
+        assert.equal(result.session?.status, 'completed')
+        assert.equal(result.session?.stopReason, 'final_answer')
+        assert.equal(approvalPromptCount, 1)
+        assert.equal(inputClosed, true)
+        assert.equal(requests.length, 3)
+        const renderedAnswer = answers.join('')
+        assert.ok(renderedAnswer.includes('Patch proposal: src/settings.ts'))
+        assert.ok(renderedAnswer.includes('--- src/settings.ts'))
+        assert.ok(renderedAnswer.includes('+++ src/settings.ts'))
+        assert.ok(renderedAnswer.includes('-export const defaultTimeoutMs = 5_000'))
+        assert.ok(renderedAnswer.includes('+export const defaultTimeoutMs = 10_000'))
+        assert.ok(renderedAnswer.includes('Apply this patch? [y/N] '))
+        assert.ok(renderedAnswer.includes('Updated src/settings.ts after approval.'))
+        assert.deepEqual(outputs, [
+            [
+                'Evidence:',
+                'Stop reason: final_answer',
+                'Tools: read_file, propose_patch',
+                'Files:',
+                '- src/settings.ts',
+                'Patches:',
+                '- src/settings.ts: applied',
+            ].join('\n'),
+        ])
+        assert.equal(await readFile(sourcePath, 'utf8'), nextSource)
+        assert.deepEqual(await readdir(workspace), ['src'])
+        assert.deepEqual(await readdir(sourceDirectory), ['settings.ts'])
+    } finally {
+        await rm(fixtureRoot, { recursive: true, force: true })
+    }
+})
+
 test('prints a failed report after step-budget exhaustion without authorized evidence', async () => {
     const workspace = await mkdtemp(`${tmpdir()}/yo-cli-budget-`)
     const transport: ModelTransport = async () => ({
