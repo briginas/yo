@@ -436,19 +436,19 @@ dependency.
     **Leaf acceptance:** contracts compile and focused tests pass; the model still
     sees only the three read tools and no code can write a workspace file.
 
-- [ ] **9.2 Implement the pure exact-replacement and diff engine**
+- [x] **9.2 Implement the pure exact-replacement and diff engine**
 
-    - [ ] Add the maintained `diff` runtime dependency and review the lockfile
+    - [x] Add the maintained `diff` runtime dependency and review the lockfile
           change.
-    - [ ] Decode UTF-8 fatally, reject NUL, split and restore BOM, normalize line
+    - [x] Decode UTF-8 fatally, reject NUL, split and restore BOM, normalize line
           endings for matching, and preserve the original dominant ending.
-    - [ ] Match all replacements against one original, require exactly one match,
+    - [x] Match all replacements against one original, require exactly one match,
           reject overlaps, apply in reverse offset order, and reject unchanged
           output.
-    - [ ] Generate deterministic display and unified diffs with canonical relative
+    - [x] Generate deterministic display and unified diffs with canonical relative
           path labels; reject a diff beyond 50 KiB instead of truncating it.
-    - [ ] Generate base and next-content SHA-256 hashes.
-    - [ ] Add pure tests for multiple disjoint edits, duplicate/missing/overlap,
+    - [x] Generate base and next-content SHA-256 hashes.
+    - [x] Add pure tests for multiple disjoint edits, duplicate/missing/overlap,
           BOM, LF/CRLF, Unicode bytes, binary content, no-op, file/result/diff
           boundaries, and deterministic hashes.
 
