@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, test } from 'node:test'
 import { z } from 'zod'
 
 import type { PermissionDecision } from './permissions.ts'
-import { dispatchToolCall, registerTool } from './tool-dispatcher.ts'
+import { dispatchToolCall, registerTool, type PatchDispatchOptions } from './tool-dispatcher.ts'
 import { canonicalizeWorkspaceRoot } from './workspace.ts'
 
 const completeMetadata = {
@@ -344,5 +344,223 @@ describe('dispatchToolCall', () => {
             await new Promise<void>((resolve) => setImmediate(resolve))
             assert.equal(result.status, 'timeout')
         }
+    })
+
+    test('dispatches an approved patch with separate safe authorization and lifecycle evidence', async () => {
+        const permissionDecisions: PermissionDecision[] = []
+        const lifecycle: object[] = []
+        let approvalRequest: Record<string, unknown> | undefined
+        const options: PatchDispatchOptions = {
+            approver: async (request) => {
+                approvalRequest = request
+                return 'approved'
+            },
+            onLifecycleEvent: (event) => lifecycle.push(event),
+        }
+
+        const result = await dispatchToolCall(
+            workspaceRoot,
+            {
+                id: 'patch-call',
+                name: 'propose_patch',
+                arguments: {
+                    path: 'src/agent.ts',
+                    edits: [{ oldText: 'found', newText: 'applied' }],
+                },
+            },
+            perToolTimeoutMs,
+            (decision) => permissionDecisions.push(decision),
+            options
+        )
+
+        assert.deepEqual(result, {
+            status: 'success',
+            callId: 'patch-call',
+            content: 'Patch applied: src/agent.ts',
+            metadata: completeMetadata,
+        })
+        assert.deepEqual(permissionDecisions, [{ decision: 'allow' }])
+        assert.deepEqual(
+            lifecycle.map((event) => (event as { type: string }).type),
+            ['prepared', 'approval_requested', 'approval_resolved', 'applied']
+        )
+        for (const event of lifecycle) {
+            assert.equal(JSON.stringify(event).includes('found'), false)
+            assert.equal('diff' in event, false)
+            assert.equal('unifiedPatch' in event, false)
+            assert.equal('nextContent' in event, false)
+            assert.equal('oldText' in event, false)
+        }
+        assert.ok(approvalRequest)
+        assert.equal('nextContent' in approvalRequest, false)
+        assert.equal('absolutePath' in approvalRequest, false)
+        assert.equal(
+            await readFile(join(workspaceRoot, 'src', 'agent.ts'), 'utf8'),
+            "export const needle = 'applied'\n"
+        )
+    })
+
+    test('fails closed after preparation when approval is absent, denied, or aborted', async () => {
+        for (const decision of [undefined, 'denied', 'aborted'] as const) {
+            const result = await dispatchToolCall(
+                workspaceRoot,
+                {
+                    id: `patch-${decision ?? 'absent'}`,
+                    name: 'propose_patch',
+                    arguments: {
+                        path: 'src/agent.ts',
+                        edits: [{ oldText: 'found', newText: 'blocked' }],
+                    },
+                },
+                perToolTimeoutMs,
+                undefined,
+                decision === undefined
+                    ? {}
+                    : {
+                          approver: async () => decision,
+                      }
+            )
+
+            assert.equal(result.callId, `patch-${decision ?? 'absent'}`)
+            assert.equal(result.status, decision === 'aborted' ? 'aborted' : 'denied')
+            assert.equal(
+                await readFile(join(workspaceRoot, 'src', 'agent.ts'), 'utf8'),
+                "export const needle = 'found'\n"
+            )
+        }
+    })
+
+    test('does not prepare a patch after invalid arguments or a path-policy denial', async () => {
+        const permissionDecisions: PermissionDecision[] = []
+        let approvalCount = 0
+        const options: PatchDispatchOptions = {
+            approver: async () => {
+                approvalCount += 1
+                return 'approved'
+            },
+        }
+
+        const invalid = await dispatchToolCall(
+            workspaceRoot,
+            {
+                id: 'invalid-patch',
+                name: 'propose_patch',
+                arguments: { path: 'src/agent.ts', edits: [], unexpected: true },
+            },
+            perToolTimeoutMs,
+            (decision) => permissionDecisions.push(decision),
+            options
+        )
+        const denied = await dispatchToolCall(
+            workspaceRoot,
+            {
+                id: 'outside-patch',
+                name: 'propose_patch',
+                arguments: {
+                    path: '../outside.ts',
+                    edits: [{ oldText: 'found', newText: 'blocked' }],
+                },
+            },
+            perToolTimeoutMs,
+            (decision) => permissionDecisions.push(decision),
+            options
+        )
+
+        assert.equal(invalid.status, 'invalid_arguments')
+        assert.equal(denied.status, 'denied')
+        assert.deepEqual(permissionDecisions, [{ decision: 'deny', reason: 'outside_workspace' }])
+        assert.equal(approvalCount, 0)
+        assert.equal(
+            await readFile(join(workspaceRoot, 'src', 'agent.ts'), 'utf8'),
+            "export const needle = 'found'\n"
+        )
+    })
+
+    test('keeps propose_patch unknown without the controlled patch-dispatch option', async () => {
+        const result = await dispatchToolCall(
+            workspaceRoot,
+            {
+                id: 'uncontrolled-patch',
+                name: 'propose_patch',
+                arguments: {
+                    path: 'src/agent.ts',
+                    edits: [{ oldText: 'found', newText: 'blocked' }],
+                },
+            },
+            perToolTimeoutMs
+        )
+
+        assert.equal(result.status, 'unknown_tool')
+        assert.equal(
+            await readFile(join(workspaceRoot, 'src', 'agent.ts'), 'utf8'),
+            "export const needle = 'found'\n"
+        )
+    })
+
+    test('maps conflicts, timeouts, and failures without writing an unapproved result', async () => {
+        const sourcePath = join(workspaceRoot, 'src', 'agent.ts')
+        const call = {
+            id: 'controlled-patch',
+            name: 'propose_patch',
+            arguments: {
+                path: 'src/agent.ts',
+                edits: [{ oldText: 'found', newText: 'applied' }],
+            },
+        }
+
+        const conflictEvents: object[] = []
+        const conflict = await dispatchToolCall(workspaceRoot, call, perToolTimeoutMs, undefined, {
+            approver: async () => {
+                await writeFile(sourcePath, "export const needle = 'newer'\n")
+                return 'approved'
+            },
+            onLifecycleEvent: (event) => conflictEvents.push(event),
+        })
+        assert.equal(conflict.status, 'execution_error')
+        assert.equal(conflict.error?.code, 'base_changed')
+        assert.deepEqual(
+            conflictEvents.map((event) => (event as { type: string }).type),
+            ['prepared', 'approval_requested', 'approval_resolved', 'conflicted']
+        )
+        assert.equal(await readFile(sourcePath, 'utf8'), "export const needle = 'newer'\n")
+
+        await writeFile(sourcePath, "export const needle = 'found'\n")
+        const timeout = await dispatchToolCall(workspaceRoot, call, perToolTimeoutMs, undefined, {
+            approver: async () => 'approved',
+            operations: {
+                applyProposal: async () => ({ status: 'timeout' }),
+            },
+        })
+        assert.equal(timeout.status, 'timeout')
+        assert.equal(await readFile(sourcePath, 'utf8'), "export const needle = 'found'\n")
+
+        const failed = await dispatchToolCall(workspaceRoot, call, perToolTimeoutMs, undefined, {
+            approver: async () => 'approved',
+            operations: {
+                applyProposal: async () => {
+                    throw new Error('do not expose filesystem detail')
+                },
+            },
+        })
+        assert.equal(failed.status, 'execution_error')
+        assert.equal(failed.content.includes('filesystem detail'), false)
+        assert.equal(await readFile(sourcePath, 'utf8'), "export const needle = 'found'\n")
+
+        let approvalCount = 0
+        const preparationTimeout = await dispatchToolCall(workspaceRoot, call, 1, undefined, {
+            approver: async () => {
+                approvalCount += 1
+                return 'approved'
+            },
+            operations: {
+                prepareProposal: async () => {
+                    await new Promise((resolve) => setTimeout(resolve, 20))
+                    throw new Error('late preparation failure')
+                },
+            },
+        })
+        assert.equal(preparationTimeout.status, 'timeout')
+        assert.equal(approvalCount, 0)
+        assert.equal(await readFile(sourcePath, 'utf8'), "export const needle = 'found'\n")
     })
 })

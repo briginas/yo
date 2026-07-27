@@ -1,6 +1,18 @@
 import type { ZodType } from 'zod'
 
 import { listFiles, readFile, searchCode } from './filesystem.ts'
+import { applyPatchProposalWithTimeout, type PatchApplicationOutcome } from './patch-applier.ts'
+import { requestPatchApproval } from './patch-approval.ts'
+import {
+    type PatchApprovalDecision,
+    type PatchApprover,
+    type PatchConflict,
+    type PatchLifecycleMetadata,
+    type PatchProposal,
+    proposePatchArgumentsSchema,
+} from './patch-contracts.ts'
+import { PatchPreparationError, preparePatchProposal } from './patch-preparer.ts'
+import { PatchTransformError } from './patch-transform.ts'
 import type { PermissionDecision, WorkspacePathPermissionDecision } from './permissions.ts'
 import {
     listFilesArgumentsSchema,
@@ -34,14 +46,59 @@ type RegisteredTool = (
     onPermissionDecision?: (decision: PermissionDecision) => void
 ) => Promise<ToolResult>
 
-type ToolExecutionOutcome =
+type ExecutionOutcome<Value> =
     | {
           status: 'completed'
-          result: ToolExecutionResult
+          result: Value
       }
     | {
           status: 'timeout'
       }
+
+type PatchLifecycleEvent =
+    | Readonly<{
+          type: 'prepared'
+          metadata: PatchLifecycleMetadata
+      }>
+    | Readonly<{
+          type: 'approval_requested'
+          metadata: PatchLifecycleMetadata
+      }>
+    | Readonly<{
+          type: 'approval_resolved'
+          metadata: PatchLifecycleMetadata
+          decision: PatchApprovalDecision
+      }>
+    | Readonly<{
+          type: 'conflicted'
+          metadata: PatchLifecycleMetadata
+          conflict: PatchConflict['code']
+      }>
+    | Readonly<{
+          type: 'applied'
+          metadata: PatchLifecycleMetadata
+      }>
+
+type PatchPreparation = (
+    workspaceRoot: string,
+    path: string,
+    edits: readonly { oldText: string; newText: string }[]
+) => Promise<PatchProposal>
+
+type PatchApplication = (
+    workspaceRoot: string,
+    proposal: PatchProposal,
+    timeoutMs: number
+) => Promise<PatchApplicationOutcome | Readonly<{ status: 'timeout' }>>
+
+export type PatchDispatchOptions = Readonly<{
+    approver?: PatchApprover
+    onLifecycleEvent?: (event: PatchLifecycleEvent) => void
+    operations?: Readonly<{
+        prepareProposal?: PatchPreparation
+        applyProposal?: PatchApplication
+    }>
+}>
 
 const completeMetadata = (): ToolResultMetadata => ({
     truncated: false,
@@ -73,19 +130,19 @@ const formatValidationIssues = (issues: readonly { path: PropertyKey[]; message:
         })
         .join('; ')
 
-const executeWithTimeout = async (
-    execute: () => Promise<ToolExecutionResult>,
+const executeWithTimeout = async <Value>(
+    execute: () => Promise<Value>,
     timeoutMs: number
-): Promise<ToolExecutionOutcome> => {
+): Promise<ExecutionOutcome<Value>> => {
     let timeout: ReturnType<typeof setTimeout> | undefined
-    const timeoutOutcome = new Promise<Extract<ToolExecutionOutcome, { status: 'timeout' }>>(
+    const timeoutOutcome = new Promise<Extract<ExecutionOutcome<Value>, { status: 'timeout' }>>(
         (resolve) => {
             timeout = setTimeout(() => resolve({ status: 'timeout' }), timeoutMs)
         }
     )
     const executionOutcome = Promise.resolve()
         .then(execute)
-        .then((result): Extract<ToolExecutionOutcome, { status: 'completed' }> => ({
+        .then((result): Extract<ExecutionOutcome<Value>, { status: 'completed' }> => ({
             status: 'completed',
             result,
         }))
@@ -94,6 +151,166 @@ const executeWithTimeout = async (
         return await Promise.race([executionOutcome, timeoutOutcome])
     } finally {
         clearTimeout(timeout)
+    }
+}
+
+const patchLifecycleMetadata = (proposal: PatchProposal): PatchLifecycleMetadata =>
+    Object.freeze({
+        proposalId: proposal.id,
+        relativePath: proposal.relativePath,
+        baseHash: proposal.baseHash,
+        nextHash: proposal.nextHash,
+        addedLineCount: proposal.addedLineCount,
+        removedLineCount: proposal.removedLineCount,
+    })
+
+const notifyPatchLifecycle = (
+    options: PatchDispatchOptions | undefined,
+    event: PatchLifecycleEvent
+): void => {
+    try {
+        options?.onLifecycleEvent?.(event)
+    } catch {
+        // Lifecycle observers are non-owning telemetry hooks and cannot alter a patch decision.
+    }
+}
+
+const isPatchPolicyDenial = (
+    code: PatchPreparationError['code']
+): code is
+    'outside_workspace' | 'sensitive_path' | 'missing_path' | 'symlink_path' | 'non_regular_file' =>
+    code === 'outside_workspace' ||
+    code === 'sensitive_path' ||
+    code === 'missing_path' ||
+    code === 'symlink_path' ||
+    code === 'non_regular_file'
+
+const dispatchPatchCall = async (
+    workspaceRoot: string,
+    call: ToolCall,
+    perToolTimeoutMs: number,
+    onPermissionDecision: ((decision: PermissionDecision) => void) | undefined,
+    options: PatchDispatchOptions | undefined
+): Promise<ToolResult> => {
+    const parsedArguments = proposePatchArgumentsSchema.safeParse(call.arguments)
+    if (!parsedArguments.success) {
+        const message = `Invalid arguments for ${call.name}: ${formatValidationIssues(parsedArguments.error.issues)}`
+
+        return createErrorResult(call.id, 'invalid_arguments', 'invalid_arguments', message)
+    }
+
+    const prepareProposal = options?.operations?.prepareProposal ?? preparePatchProposal
+    let proposal: PatchProposal
+    try {
+        const outcome = await executeWithTimeout(
+            () =>
+                prepareProposal(
+                    workspaceRoot,
+                    parsedArguments.data.path,
+                    parsedArguments.data.edits
+                ),
+            perToolTimeoutMs
+        )
+
+        if (outcome.status === 'timeout') {
+            return createErrorResult(
+                call.id,
+                'timeout',
+                'timeout',
+                `Tool execution timed out after ${perToolTimeoutMs} ms`
+            )
+        }
+        proposal = outcome.result
+    } catch (error) {
+        if (error instanceof PatchPreparationError) {
+            if (isPatchPolicyDenial(error.code)) {
+                if (error.code === 'outside_workspace' || error.code === 'sensitive_path') {
+                    onPermissionDecision?.({ decision: 'deny', reason: error.code })
+                }
+
+                const message = `Tool access denied: ${error.code}`
+                return createErrorResult(call.id, 'denied', error.code, message)
+            }
+
+            if (error.code === 'source_too_large') {
+                return createErrorResult(call.id, 'invalid_arguments', error.code, error.message)
+            }
+        }
+
+        if (error instanceof PatchTransformError) {
+            return createErrorResult(call.id, 'invalid_arguments', error.code, error.message)
+        }
+
+        return createErrorResult(
+            call.id,
+            'execution_error',
+            'execution_error',
+            'Tool execution failed: Unable to prepare patch proposal'
+        )
+    }
+
+    onPermissionDecision?.({ decision: 'allow' })
+    const metadata = patchLifecycleMetadata(proposal)
+    notifyPatchLifecycle(options, { type: 'prepared', metadata })
+    notifyPatchLifecycle(options, { type: 'approval_requested', metadata })
+
+    const approval = await requestPatchApproval(proposal, options?.approver)
+    notifyPatchLifecycle(options, { type: 'approval_resolved', metadata, decision: approval })
+
+    if (approval === 'aborted') {
+        return createErrorResult(
+            call.id,
+            'aborted',
+            'approval_aborted',
+            'Patch approval was aborted'
+        )
+    }
+    if (approval === 'denied') {
+        return createErrorResult(call.id, 'denied', 'approval_denied', 'Patch approval denied')
+    }
+
+    const applyProposal = options?.operations?.applyProposal ?? applyPatchProposalWithTimeout
+    try {
+        const outcome = await applyProposal(workspaceRoot, proposal, perToolTimeoutMs)
+        if (outcome.status === 'timeout') {
+            return createErrorResult(
+                call.id,
+                'timeout',
+                'timeout',
+                `Tool execution timed out after ${perToolTimeoutMs} ms`
+            )
+        }
+        if (outcome.status === 'aborted') {
+            return createErrorResult(call.id, 'aborted', 'aborted', 'Patch application was aborted')
+        }
+        if (outcome.status === 'conflict') {
+            notifyPatchLifecycle(options, {
+                type: 'conflicted',
+                metadata,
+                conflict: outcome.conflict.code,
+            })
+            return createErrorResult(
+                call.id,
+                'execution_error',
+                outcome.conflict.code,
+                `Patch conflict: ${outcome.conflict.message}`
+            )
+        }
+
+        notifyPatchLifecycle(options, { type: 'applied', metadata })
+        return {
+            status: 'success',
+            callId: call.id,
+            content: `Patch applied: ${proposal.relativePath}`,
+            metadata: completeMetadata(),
+        }
+    } catch {
+        return createErrorResult(
+            call.id,
+            'execution_error',
+            'execution_error',
+            'Tool execution failed: Unable to apply approved patch'
+        )
     }
 }
 
@@ -221,8 +438,19 @@ export const dispatchToolCall = async (
     workspaceRoot: string,
     call: ToolCall,
     perToolTimeoutMs: number,
-    onPermissionDecision?: (decision: PermissionDecision) => void
+    onPermissionDecision?: (decision: PermissionDecision) => void,
+    patchOptions?: PatchDispatchOptions
 ): Promise<ToolResult> => {
+    if (call.name === 'propose_patch' && patchOptions !== undefined) {
+        return dispatchPatchCall(
+            workspaceRoot,
+            call,
+            perToolTimeoutMs,
+            onPermissionDecision,
+            patchOptions
+        )
+    }
+
     if (!isRegisteredToolName(call.name)) {
         const message = `Unknown tool: ${call.name}`
         onPermissionDecision?.({ decision: 'deny', reason: 'unknown_tool' })

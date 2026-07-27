@@ -1,6 +1,6 @@
 # Active implementation plan: Milestone 3 approval-gated patches
 
-- **Status:** active; 9.1–9.4 complete
+- **Status:** active; 9.1–9.6 complete
 - **Source of truth for:** Milestone 3 implementation order and completion state
 - **Related documents:** [implementation map](../../../IMPLEMENTATION_PLAN.md),
   [approved requirements](../../requirements/milestone-3-approval-gated-patches.md),
@@ -488,19 +488,19 @@ dependency.
     **Leaf acceptance:** approval and observability contracts exist independently
     of terminal code and mutation; the runtime still exposes only read tools.
 
-- [ ] **9.5 Implement the guarded atomic applier**
+- [x] **9.5 Implement the guarded atomic applier**
 
-    - [ ] Re-run write-target authorization, `lstat`, bounded read, base-hash
+    - [x] Re-run write-target authorization, `lstat`, bounded read, base-hash
           comparison, pure transform, next-hash comparison, and diff comparison.
-    - [ ] Return a machine-readable conflict without writing when any approved
+    - [x] Return a machine-readable conflict without writing when any approved
           base/result property differs.
-    - [ ] Create a unique exclusive temporary file in the target directory,
+    - [x] Create a unique exclusive temporary file in the target directory,
           preserve the approved mode, write, flush, close, check cancellation, and
           atomically rename.
-    - [ ] Use patch-specific abort-and-settle timeout behavior; never let a timeout
+    - [x] Use patch-specific abort-and-settle timeout behavior; never let a timeout
           result race a later target rename.
-    - [ ] Clean up settled temporary-file failures and sanitize filesystem errors.
-    - [ ] Add injected-operation and temporary-workspace tests for success,
+    - [x] Clean up settled temporary-file failures and sanitize filesystem errors.
+    - [x] Add injected-operation and temporary-workspace tests for success,
           stale source, path/symlink replacement, timeout at each await boundary,
           write/flush/close/rename failures, mode/BOM/line-ending preservation,
           target atomicity, and cleanup.
@@ -509,18 +509,18 @@ dependency.
     proposal can mutate a temporary test workspace; every non-success path leaves
     the target unchanged.
 
-- [ ] **9.6 Integrate `propose_patch` into the dispatcher behind approval**
+- [x] **9.6 Integrate `propose_patch` into the dispatcher behind approval**
 
-    - [ ] Add a specialized patch dispatcher path with strict validation,
+    - [x] Add a specialized patch dispatcher path with strict validation,
           preparation timeout, approval wait outside that timeout, application
           timeout, and exactly one result.
-    - [ ] Keep generic read-tool registration behavior unchanged.
-    - [ ] Map user denial, missing approver, conflict, timeout, abort, and sanitized
+    - [x] Keep generic read-tool registration behavior unchanged.
+    - [x] Map user denial, missing approver, conflict, timeout, abort, and sanitized
           failure to stable `ToolResult` statuses and error codes.
-    - [ ] Emit path authorization and human approval as distinct decisions.
-    - [ ] Add dispatcher tests for every result and event path, call-ID
+    - [x] Emit path authorization and human approval as distinct decisions.
+    - [x] Add dispatcher tests for every result and event path, call-ID
           preservation, invalid-argument ordering, and no write after denial.
-    - [ ] Keep the loop's visible tools and provider definitions unchanged.
+    - [x] Keep the loop's visible tools and provider definitions unchanged.
 
     **Leaf acceptance:** controlled code can dispatch a patch call only when an
     approver is injected, but normal model requests still cannot see or request
