@@ -1,6 +1,6 @@
 # Active implementation plan: Milestone 3 approval-gated patches
 
-- **Status:** active; 9.1 complete
+- **Status:** active; 9.1–9.3 complete
 - **Source of truth for:** Milestone 3 implementation order and completion state
 - **Related documents:** [implementation map](../../../IMPLEMENTATION_PLAN.md),
   [approved requirements](../../requirements/milestone-3-approval-gated-patches.md),
@@ -456,17 +456,17 @@ dependency.
     validated edits into an exact bounded result; no dispatcher, loop, provider,
     CLI, or write behavior changes.
 
-- [ ] **9.3 Prepare immutable proposals through a read-only write-target policy**
+- [x] **9.3 Prepare immutable proposals through a read-only write-target policy**
 
-    - [ ] Add a write-target resolver that rejects lexical escapes, sensitive
+    - [x] Add a write-target resolver that rejects lexical escapes, sensitive
           paths, symlinks in any path component, missing paths, directories,
           devices, sockets, and other non-regular files.
-    - [ ] Repeat canonical containment and sensitive checks after `realpath`.
-    - [ ] Read bounded source bytes and mode through injected narrow operations.
-    - [ ] Build an immutable prepared proposal with random identifier, canonical
+    - [x] Repeat canonical containment and sensitive checks after `realpath`.
+    - [x] Read bounded source bytes and mode through injected narrow operations.
+    - [x] Build an immutable prepared proposal with random identifier, canonical
           relative path, hashes, complete diff/patch, internal next content, and
           safe approval metadata.
-    - [ ] Add temporary-workspace tests for traversal, absolute escape, sensitive
+    - [x] Add temporary-workspace tests for traversal, absolute escape, sensitive
           names, internal/external symlinks, non-regular paths, size limits, mode,
           and proposal immutability.
 

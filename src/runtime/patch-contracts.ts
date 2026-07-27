@@ -61,6 +61,7 @@ export type PatchApprovalView = Readonly<{
 export type PatchProposal = PatchApprovalView &
     Readonly<{
         absolutePath: string
+        mode: number
         edits: readonly PatchEdit[]
         nextContent: string
     }>
