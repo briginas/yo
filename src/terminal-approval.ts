@@ -24,7 +24,7 @@ const renderPatchApproval = (request: PatchApprovalView, isInteractive: boolean)
     [
         `Patch proposal: ${request.relativePath}`,
         request.diff,
-        `${PATCH_APPROVAL_PROMPT}${isInteractive ? '' : '\n'}`,
+        isInteractive ? '' : `${PATCH_APPROVAL_PROMPT}\n`,
     ].join('\n')
 
 export const createTerminalPatchApprover = ({
@@ -42,7 +42,7 @@ export const createTerminalPatchApprover = ({
         }
 
         try {
-            const response = await input.readLine('')
+            const response = await input.readLine(PATCH_APPROVAL_PROMPT)
 
             return response !== null && isApproved(response) ? 'approved' : 'denied'
         } catch {

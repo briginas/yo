@@ -26,6 +26,7 @@ import {
 import { CHAT_PROMPT, type LineInput } from './line-input.ts'
 import { createOpenAICodexResponsesTransport } from './provider/openai-codex-responses.ts'
 import type { ModelRequest, ModelTransport } from './runtime/run.ts'
+import { PATCH_APPROVAL_PROMPT } from './terminal-approval.ts'
 
 type CliInvocation = {
     argv: readonly string[]
@@ -1540,7 +1541,7 @@ test('completes an inspected, approved patch through ask and reports its exact o
             isInteractive: true,
             createLineInput: () => ({
                 readLine: async (prompt) => {
-                    assert.equal(prompt, '')
+                    assert.equal(prompt, PATCH_APPROVAL_PROMPT)
                     approvalPromptCount += 1
                     return 'yes'
                 },
@@ -1563,7 +1564,7 @@ test('completes an inspected, approved patch through ask and reports its exact o
         assert.ok(renderedAnswer.includes('+++ src/settings.ts'))
         assert.ok(renderedAnswer.includes('-export const defaultTimeoutMs = 5_000'))
         assert.ok(renderedAnswer.includes('+export const defaultTimeoutMs = 10_000'))
-        assert.ok(renderedAnswer.includes('Apply this patch? [y/N] '))
+        assert.equal(renderedAnswer.includes(PATCH_APPROVAL_PROMPT), false)
         assert.ok(renderedAnswer.includes('Updated src/settings.ts after approval.'))
         assert.deepEqual(outputs, [
             [
@@ -1630,7 +1631,7 @@ test('uses a dedicated approval input for ask and closes it after the run', asyn
     let closeCount = 0
     const input: LineInput = {
         readLine: async (prompt) => {
-            assert.equal(prompt, '')
+            assert.equal(prompt, PATCH_APPROVAL_PROMPT)
             return 'yes'
         },
         close: () => {
@@ -1684,7 +1685,7 @@ test('uses a dedicated approval input for ask and closes it after the run', asyn
         assert.ok(answers[0]?.includes('Patch proposal: example.ts'))
         assert.ok(answers[0]?.includes('-export const value = 1'))
         assert.ok(answers[0]?.includes('+export const value = 2'))
-        assert.ok(answers[0]?.endsWith('Apply this patch? [y/N] '))
+        assert.equal(answers[0]?.includes(PATCH_APPROVAL_PROMPT), false)
         assert.deepEqual(requests[0]?.visibleTools, [
             'list_files',
             'search_code',
@@ -1813,7 +1814,7 @@ test('reuses the active chat input for approval without adding an approval respo
         assert.equal(closeCount, 1)
         assert.equal(result.exitCode, 0)
         assert.equal(await readFile(sourcePath, 'utf8'), 'export const value = 2\n')
-        assert.deepEqual(prompts, [CHAT_PROMPT, '', CHAT_PROMPT])
+        assert.deepEqual(prompts, [CHAT_PROMPT, PATCH_APPROVAL_PROMPT, CHAT_PROMPT])
         assert.equal(
             requests.every((request) =>
                 request.messages.some(
