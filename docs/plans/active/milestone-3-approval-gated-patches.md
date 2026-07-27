@@ -1,6 +1,6 @@
 # Active implementation plan: Milestone 3 approval-gated patches
 
-- **Status:** active; no runtime leaf approved yet
+- **Status:** active; 9.1 complete
 - **Source of truth for:** Milestone 3 implementation order and completion state
 - **Related documents:** [implementation map](../../../IMPLEMENTATION_PLAN.md),
   [approved requirements](../../requirements/milestone-3-approval-gated-patches.md),
@@ -420,17 +420,17 @@ dependency.
 
 ## Implementation steps
 
-- [ ] **9.1 Define patch proposal contracts and limits**
+- [x] **9.1 Define patch proposal contracts and limits**
 
-    - [ ] Add strict Zod schemas for one path and 1–20 exact replacement objects,
+    - [x] Add strict Zod schemas for one path and 1–20 exact replacement objects,
           rejecting unknown properties, empty `oldText`, and aggregate UTF-8
           argument size above 50 KiB.
-    - [ ] Add named 1 MiB source/result and 50 KiB diff limits.
-    - [ ] Define internal patch edit, approval-view, decision, conflict, and
+    - [x] Add named 1 MiB source/result and 50 KiB diff limits.
+    - [x] Define internal patch edit, approval-view, decision, conflict, and
           outcome types with `type` declarations.
-    - [ ] Keep `ToolName`, `VISIBLE_TOOLS`, dispatcher registry, provider
+    - [x] Keep `ToolName`, `VISIBLE_TOOLS`, dispatcher registry, provider
           definitions, runtime barrel, and system prompt unchanged.
-    - [ ] Add focused schema/limit tests for exact boundaries, next
+    - [x] Add focused schema/limit tests for exact boundaries, next
           byte/edit/property rejection, multibyte UTF-8, and `arguments: unknown`.
 
     **Leaf acceptance:** contracts compile and focused tests pass; the model still

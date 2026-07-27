@@ -15,13 +15,13 @@ detailed implementation plan, then confirm its first bounded leaf.
   2026-07-26. See its
   [requirements](docs/requirements/milestone-2-in-memory-chat.md) and
   [completed Milestone 2 summary](docs/plans/completed/milestone-2-in-memory-chat.md).
-- **Next planning candidate:** Milestone 3, approval-gated patch proposal and
+- **Current implementation:** Milestone 3, approval-gated patch proposal and
   application. Its
   [requirements](docs/requirements/milestone-3-approval-gated-patches.md) are
   approved and its
   [active implementation plan](docs/plans/active/milestone-3-approval-gated-patches.md)
-  is ready for bounded execution. No runtime leaf is approved or implemented;
-  the first candidate is **9.1, patch proposal contracts and limits**.
+  has completed **9.1, patch proposal contracts and limits**. The next candidate
+  is **9.2, the pure exact-replacement and diff engine**.
 
 ## Permanent constraints
 
