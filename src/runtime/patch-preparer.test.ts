@@ -121,6 +121,21 @@ describe('resolvePatchTarget', () => {
         )
     })
 
+    test('recognizes an injected ENOENT-shaped filesystem error', async () => {
+        const { workspaceRoot } = await createWorkspaceFixture()
+
+        await assertPreparationError('missing_path', () =>
+            resolvePatchTarget(workspaceRoot, 'missing.ts', {
+                lstat: async () => {
+                    throw { code: 'ENOENT' }
+                },
+                realpath,
+                readFile: async () => new Uint8Array(),
+                randomUUID: () => 'unused',
+            })
+        )
+    })
+
     test('rechecks canonical workspace and sensitive-path policy after realpath', async () => {
         const { workspaceRoot } = await createWorkspaceFixture()
         const sourcePath = join(workspaceRoot, 'safe.ts')

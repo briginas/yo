@@ -3,6 +3,8 @@ import { constants } from 'node:fs'
 import { lstat, open, realpath } from 'node:fs/promises'
 import { relative, resolve, sep } from 'node:path'
 
+import { z } from 'zod'
+
 import { PATCH_MAX_FILE_BYTES, type PatchEdit, type PatchProposal } from './patch-contracts.ts'
 import { isSensitivePath } from './permissions.ts'
 import { preparePatchTransform } from './patch-transform.ts'
@@ -50,8 +52,10 @@ const fail = (code: PatchPreparationErrorCode, message: string): never => {
     throw new PatchPreparationError(code, message)
 }
 
+const missingPathErrorSchema = z.object({ code: z.literal('ENOENT') }).passthrough()
+
 const isMissingPathError = (error: unknown): boolean =>
-    typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT'
+    missingPathErrorSchema.safeParse(error).success
 
 const asFilesystemError = (error: unknown, action: string): never => {
     if (error instanceof PatchPreparationError) {
