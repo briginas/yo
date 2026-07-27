@@ -36,12 +36,15 @@ directly accesses the filesystem.
 ### Permissions and bounds
 
 - All tool paths must resolve inside `--cwd`; attempts to escape it are denied.
-- Tools are read-only. The registry exposes no write, process, shell, network,
+- Filesystem inspection tools are read-only. The only model-proposed workspace
+  mutation is one exact `propose_patch` flow that trusted harness code applies
+  only after explicit terminal approval.
+- The verified registry exposes no process, shell, general write, network,
   credential, or connector capability.
 - OAuth and model requests run only in trusted CLI infrastructure outside the
   model tool registry.
-- The CLI may write only its OAuth credential store at `~/.yo/auth.json`; it
-  must not write inside the approved workspace.
+- The CLI may write its OAuth credential store at `~/.yo/auth.json` and may
+  atomically apply one explicitly approved patch inside the workspace.
 - Tool outputs have line/result/byte caps and expose truncation metadata.
 - Runs have a fixed step budget and per-tool timeout.
 - Secrets must not be printed in traces or included in model context.
@@ -92,27 +95,31 @@ The public CLI also exposes:
 - [Milestone 3: approval-gated patch application](docs/requirements/milestone-3-approval-gated-patches.md)
   requirements are approved. Read them when planning or implementing the
   workspace-mutation boundary.
+- [Milestone 4: allowlisted validation](docs/requirements/milestone-4-allowlisted-validation.md)
+  is drafted for review. It proposes exactly `test` and `build`; no process
+  implementation is authorized yet.
 
 Current milestone status and the next planning boundary are indexed from
 [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md).
 
-## Next planning boundary
+## Current planning boundary
 
 Milestone 3 is complete. `yo` may propose one exact patch to an existing file,
 but trusted terminal approval remains required before any workspace write. Its
 [completed plan summary](docs/plans/completed/milestone-3-approval-gated-patches.md)
 records deterministic and real OAuth-backed verification.
 
-The next planning candidate is Milestone 4: narrowly allowlisted validation
-commands. It has not yet been specified or authorized.
+Milestone 4 is now drafted for review:
+[requirements](docs/requirements/milestone-4-allowlisted-validation.md) and
+[active implementation plan](docs/plans/active/milestone-4-allowlisted-validation.md).
+Its proposed model-facing boundary is one `run_validation` tool with only
+`test` and `build`. Review and approval are required before implementation.
 
 ## Later direction
 
 After separate planning and approval, later milestones may:
 
-1. Add allowlisted validation commands with fixed working directory, timeout,
-   and output limits.
-2. Add append-only JSONL sessions, then compaction that preserves task, approval
+1. Add append-only JSONL sessions, then compaction that preserves task, approval
    state, changed files, and validation evidence.
-3. Add richer interactive UX, then skills/extensions and provider portability
+2. Add richer interactive UX, then skills/extensions and provider portability
    after the in-memory chat loop has been validated.

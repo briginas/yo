@@ -14,8 +14,11 @@ replacement patch for one existing workspace file, but the harness displays the
 complete diff and writes only after explicit terminal approval.
 [See the current project state →](IMPLEMENTATION_PLAN.md)
 
-The next planning candidate is narrowly allowlisted validation commands. Shell
-execution, persistence, MCP, and subagents are not currently implemented.
+Milestone 4 is drafted for review: one proposed `run_validation` tool would
+allow only the repository's `test` and `build` npm scripts through a fixed
+harness-owned command catalog. No process implementation is authorized yet.
+General shell execution, persistence, MCP, and subagents are not implemented.
+[Review the proposed Milestone 4 requirements →](docs/requirements/milestone-4-allowlisted-validation.md)
 
 ## Requirements and setup
 

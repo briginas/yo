@@ -25,21 +25,29 @@ detailed implementation plan, then confirm its first bounded leaf.
   dispatcher integration, approval propagation through the agent loop and
   conversation, terminal diff rendering, model-visible CLI/provider composition,
   deterministic end-to-end coverage, and a real OAuth-backed approval flow**.
-  The next planning candidate is **Milestone 4: narrowly allowlisted validation
-  commands**; no implementation is authorized yet.
+- **Drafted allowlisted validation:** Milestone 4 requirements and its active
+  plan were prepared on 2026-07-27 for review:
+  [requirements](docs/requirements/milestone-4-allowlisted-validation.md) and
+  [active plan](docs/plans/active/milestone-4-allowlisted-validation.md).
+  The proposed boundary is one `run_validation` tool with exactly `test` and
+  `build`. The documents remain draft, no implementation is authorized, and
+  the first candidate after approval is **10.1: validation contracts, fixed
+  catalog, and pure bounded-output accumulation**.
 
 ## Permanent constraints
 
 - No model-visible tool may directly perform an unapproved write, shell,
   process, network, credential, or connector action.
 - Trusted network access remains limited to ChatGPT OAuth and the OpenAI Codex
-  model transport.
-- The current verified harness writes only the OAuth credential store at
-  `~/.yo/auth.json`; it does not write inside the approved workspace.
+  model transport. Proposed Milestone 4 npm scripts are explicitly documented
+  as trusted process code rather than a network sandbox.
+- The current verified harness writes the OAuth credential store at
+  `~/.yo/auth.json` and may atomically apply one exact workspace patch after
+  explicit terminal approval.
 - Any future workspace mutation must be separately specified, approved, and
   enforced by trusted harness code rather than model instructions.
 - No API-key fallback, persistent sessions, JSONL, compaction, TUI, project
   configuration file, device-code login, multi-provider support, skills, MCP,
   or subagents exist in the current verified harness.
-- Do not implement Milestone 3 behavior until its requirements, detailed plan,
-  and current bounded leaf are approved.
+- Do not implement Milestone 4 behavior until its draft requirements and active
+  plan are reviewed and approved and one bounded leaf is confirmed.
