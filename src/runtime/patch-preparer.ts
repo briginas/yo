@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto'
 import { constants } from 'node:fs'
 import { lstat, open, realpath } from 'node:fs/promises'
-import { isAbsolute, relative, resolve, sep } from 'node:path'
+import { relative, resolve, sep } from 'node:path'
 
 import { PATCH_MAX_FILE_BYTES, type PatchEdit, type PatchProposal } from './patch-contracts.ts'
 import { isSensitivePath } from './permissions.ts'
 import { preparePatchTransform } from './patch-transform.ts'
+import { isPathInsideWorkspace, toWorkspaceRelativePath } from './workspace-path.ts'
 
 type PatchTargetStats = Readonly<{
     mode: number
@@ -43,21 +44,6 @@ export class PatchPreparationError extends Error {
         this.name = 'PatchPreparationError'
         this.code = code
     }
-}
-
-const isPathInsideWorkspace = (workspaceRoot: string, absolutePath: string): boolean => {
-    const relativePath = relative(workspaceRoot, absolutePath)
-
-    return (
-        relativePath === '' ||
-        (!isAbsolute(relativePath) && relativePath !== '..' && !relativePath.startsWith(`..${sep}`))
-    )
-}
-
-const toWorkspaceRelativePath = (workspaceRoot: string, absolutePath: string): string => {
-    const relativePath = relative(workspaceRoot, absolutePath)
-
-    return relativePath === '' ? '.' : relativePath.split(sep).join('/')
 }
 
 const fail = (code: PatchPreparationErrorCode, message: string): never => {

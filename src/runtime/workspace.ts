@@ -1,22 +1,8 @@
 import { realpath, stat } from 'node:fs/promises'
-import { isAbsolute, relative, resolve, sep } from 'node:path'
+import { resolve } from 'node:path'
 
 import { isSensitivePath, type WorkspacePathPermissionDecision } from './permissions.ts'
-
-const isPathInsideWorkspace = (workspaceRoot: string, absolutePath: string): boolean => {
-    const relativePath = relative(workspaceRoot, absolutePath)
-
-    return (
-        relativePath === '' ||
-        (!isAbsolute(relativePath) && relativePath !== '..' && !relativePath.startsWith(`..${sep}`))
-    )
-}
-
-const toWorkspaceRelativePath = (workspaceRoot: string, absolutePath: string): string => {
-    const relativePath = relative(workspaceRoot, absolutePath)
-
-    return relativePath === '' ? '.' : relativePath.split(sep).join('/')
-}
+import { isPathInsideWorkspace, toWorkspaceRelativePath } from './workspace-path.ts'
 
 export const canonicalizeWorkspaceRoot = async (cwd: string): Promise<string> => {
     if (cwd.length === 0) {
