@@ -18,8 +18,8 @@ independently verifiable slices of that design.
 
 ### Agent loop
 
-1. Canonicalize `--cwd` as the sole allowed workspace root and read one chat
-   task at a time.
+1. Canonicalize `--cwd`, or the current directory when that flag is omitted,
+   as the sole allowed workspace root and read one chat task at a time.
 2. Build the model context from a stable system prompt, the user task, visible
    tool schemas, and prior structured observations.
 3. Ask the model for either a final response or one or more tool calls.
@@ -81,7 +81,7 @@ same boundary for tests.
 
 The public CLI also exposes:
 
-- `yo chat` as the only agent workflow;
+- `yo [--cwd <workspace>] [--model <name>]` as the only agent workflow;
 - `yo login` to complete browser OAuth through the OpenAI website;
 - `yo auth status` to report non-secret authentication state;
 - `yo logout` to remove the stored OAuth credential.

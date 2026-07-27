@@ -3,8 +3,16 @@ import { test } from 'node:test'
 
 import { parseCliCommand, USAGE } from './cli-command.ts'
 
-test('parses the bounded chat command', () => {
-    assert.deepEqual(parseCliCommand(['chat', '--cwd', '.']), {
+test('parses the agent workflow with optional cwd and model flags', () => {
+    assert.deepEqual(parseCliCommand([]), {
+        status: 'success',
+        command: {
+            name: 'chat',
+            cwd: null,
+            model: null,
+        },
+    })
+    assert.deepEqual(parseCliCommand(['--cwd', '.']), {
         status: 'success',
         command: {
             name: 'chat',
@@ -12,7 +20,15 @@ test('parses the bounded chat command', () => {
             model: null,
         },
     })
-    assert.deepEqual(parseCliCommand(['chat', '--model', 'chosen-model', '--cwd', '/workspace']), {
+    assert.deepEqual(parseCliCommand(['--model', 'chosen-model']), {
+        status: 'success',
+        command: {
+            name: 'chat',
+            cwd: null,
+            model: 'chosen-model',
+        },
+    })
+    assert.deepEqual(parseCliCommand(['--model', 'chosen-model', '--cwd', '/workspace']), {
         status: 'success',
         command: {
             name: 'chat',
@@ -20,70 +36,66 @@ test('parses the bounded chat command', () => {
             model: 'chosen-model',
         },
     })
-    assert.match(USAGE, /yo chat --cwd <workspace> \[--model <name>\]/)
+    assert.match(USAGE, /yo \[--cwd <workspace>\] \[--model <name>\]/)
+    assert.doesNotMatch(USAGE, /yo chat/)
 })
 
-test('rejects invalid bounded chat arguments', async (context) => {
+test('rejects invalid agent workflow arguments', async (context) => {
     const cases = [
         {
-            name: 'missing cwd',
-            argv: ['chat'],
-            message: '--cwd is required',
-        },
-        {
             name: 'missing cwd value',
-            argv: ['chat', '--cwd'],
+            argv: ['--cwd'],
             message: '--cwd requires a non-empty value',
         },
         {
             name: 'empty cwd',
-            argv: ['chat', '--cwd', ''],
+            argv: ['--cwd', ''],
             message: '--cwd requires a non-empty value',
         },
         {
             name: 'whitespace cwd',
-            argv: ['chat', '--cwd', '   '],
+            argv: ['--cwd', '   '],
             message: '--cwd requires a non-empty value',
         },
         {
             name: 'option-like cwd',
-            argv: ['chat', '--cwd', '--model'],
+            argv: ['--cwd', '--model'],
             message: '--cwd requires a non-empty value',
         },
         {
             name: 'duplicate cwd',
-            argv: ['chat', '--cwd', '.', '--cwd', '.'],
+            argv: ['--cwd', '.', '--cwd', '.'],
             message: '--cwd may be specified only once',
         },
         {
             name: 'missing model value',
-            argv: ['chat', '--cwd', '.', '--model'],
+            argv: ['--cwd', '.', '--model'],
             message: '--model requires a non-empty value',
         },
         {
             name: 'empty model',
-            argv: ['chat', '--cwd', '.', '--model', ''],
+            argv: ['--cwd', '.', '--model', ''],
             message: '--model requires a non-empty value',
         },
         {
             name: 'duplicate model',
-            argv: ['chat', '--cwd', '.', '--model', 'one', '--model', 'two'],
+            argv: ['--cwd', '.', '--model', 'one', '--model', 'two'],
             message: '--model may be specified only once',
         },
         {
             name: 'unknown option',
-            argv: ['chat', '--cwd', '.', '--verbose'],
+            argv: ['--cwd', '.', '--verbose'],
             message: 'Unknown option: --verbose',
         },
         {
-            name: 'positional argument',
-            argv: ['chat', 'task', '--cwd', '.'],
-            message: 'chat does not accept positional arguments',
+            name: 'removed chat command',
+            argv: ['chat', '--cwd', '.'],
+            message: 'yo does not accept positional arguments',
         },
         {
             name: 'extra argument',
-            argv: ['chat', '--cwd', '.', 'extra'],
-            message: 'chat does not accept positional arguments',
+            argv: ['--cwd', '.', 'extra'],
+            message: 'yo does not accept positional arguments',
         },
     ] as const
 
@@ -100,7 +112,7 @@ test('rejects invalid bounded chat arguments', async (context) => {
 test('rejects the removed ask command', () => {
     assert.deepEqual(parseCliCommand(['ask', 'Inspect.', '--cwd', '.']), {
         status: 'error',
-        message: 'Expected the chat, login, auth status, or logout command',
+        message: 'yo does not accept positional arguments',
     })
     assert.doesNotMatch(USAGE, /yo ask/)
 })

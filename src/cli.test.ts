@@ -49,7 +49,7 @@ test('production entrypoint reaches the Codex transport without a real credentia
 
     t.after(() => rm(temporaryHome, { recursive: true, force: true }))
 
-    const result = await runCliProcess(['chat', '--cwd', '.'], 'Inspect the workspace.\n', {
+    const result = await runCliProcess([], 'Inspect the workspace.\n', {
         ...process.env,
         HOME: temporaryHome,
     })
@@ -95,12 +95,10 @@ test('production entrypoint rejects the removed ask command with usage exit code
 
             assert.equal(processError.code, 2)
             assert.equal(processError.stdout, '')
-            assert.match(
-                processError.stderr,
-                /Expected the chat, login, auth status, or logout command/
-            )
-            assert.match(processError.stderr, /Usage: yo chat/)
+            assert.match(processError.stderr, /yo does not accept positional arguments/)
+            assert.match(processError.stderr, /Usage: yo \[/)
             assert.doesNotMatch(processError.stderr, /yo ask/)
+            assert.doesNotMatch(processError.stderr, /yo chat/)
 
             return true
         }

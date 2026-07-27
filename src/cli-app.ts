@@ -394,7 +394,7 @@ export const runCli = async (
     let workspaceRoot: string
 
     try {
-        workspaceRoot = await canonicalizeWorkspaceRoot(parsed.command.cwd)
+        workspaceRoot = await canonicalizeWorkspaceRoot(parsed.command.cwd ?? '.')
     } catch (error) {
         const cause = error instanceof Error ? error.message : 'Unknown workspace error'
 

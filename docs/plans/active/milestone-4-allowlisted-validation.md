@@ -56,7 +56,7 @@ The verified Milestone 3 runtime has these relevant properties:
 
 ## Target behavior
 
-`yo chat` uses the provider-neutral validation flow:
+`yo` uses the provider-neutral validation flow:
 
 1. The model requests `run_validation` with `{ command: 'test' | 'build' }`.
 2. The dispatcher rejects missing, extra, or unknown fields before process
@@ -276,7 +276,7 @@ Keep call order, deduplicate only identical repeated evidence if the current
 report policy requires it, and never infer that an unrequested validation
 passed.
 
-The CLI does not add a new command, flag, prompt, or streaming panel. `yo chat`
+The CLI does not add a new command, flag, prompt, or streaming panel. `yo`
 uses the existing terminal renderer and evidence report.
 
 ### Provider adapter and system prompt

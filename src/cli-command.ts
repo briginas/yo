@@ -1,5 +1,5 @@
 export const USAGE = [
-    'Usage: yo chat --cwd <workspace> [--model <name>]',
+    'Usage: yo [--cwd <workspace>] [--model <name>]',
     '       yo login',
     '       yo auth status',
     '       yo logout',
@@ -7,7 +7,7 @@ export const USAGE = [
 
 export type ChatCommand = {
     name: 'chat'
-    cwd: string
+    cwd: string | null
     model: string | null
 }
 
@@ -39,7 +39,7 @@ const parseChatCommand = (argv: readonly string[]): ParseResult => {
     let cwd: string | undefined
     let model: string | undefined
 
-    for (let index = 1; index < argv.length; index += 1) {
+    for (let index = 0; index < argv.length; index += 1) {
         const argument = argv[index]!
 
         if (argument === '--cwd' || argument === '--model') {
@@ -85,14 +85,7 @@ const parseChatCommand = (argv: readonly string[]): ParseResult => {
 
         return {
             status: 'error',
-            message: 'chat does not accept positional arguments',
-        }
-    }
-
-    if (cwd === undefined) {
-        return {
-            status: 'error',
-            message: '--cwd is required',
+            message: 'yo does not accept positional arguments',
         }
     }
 
@@ -100,7 +93,7 @@ const parseChatCommand = (argv: readonly string[]): ParseResult => {
         status: 'success',
         command: {
             name: 'chat',
-            cwd,
+            cwd: cwd ?? null,
             model: model ?? null,
         },
     }
@@ -156,12 +149,5 @@ export const parseCliCommand = (argv: readonly string[]): ParseResult => {
         }
     }
 
-    if (argv[0] === 'chat') {
-        return parseChatCommand(argv)
-    }
-
-    return {
-        status: 'error',
-        message: 'Expected the chat, login, auth status, or logout command',
-    }
+    return parseChatCommand(argv)
 }

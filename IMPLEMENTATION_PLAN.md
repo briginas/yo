@@ -14,7 +14,8 @@ detailed implementation plan, then confirm its first bounded leaf.
   [completed Milestone 1 summary](docs/plans/completed/milestone-1-read-only-ask.md)
   for the historical implementation.
 - **Completed interactive chat:** Milestone 2 was completed and verified on
-  2026-07-26. `yo chat` is now the only public agent command. See its
+  2026-07-26. The interactive workflow is now invoked directly as `yo`, with
+  optional `--cwd` and `--model` flags. See its
   [requirements](docs/requirements/milestone-2-in-memory-chat.md) and
   [completed Milestone 2 summary](docs/plans/completed/milestone-2-in-memory-chat.md).
 - **Completed approval-gated patches:** Milestone 3, approval-gated patch proposal

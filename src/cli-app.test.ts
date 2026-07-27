@@ -129,7 +129,7 @@ test('runs a chat turn with a canonical workspace, fixed budget, and no default 
         const relativeWorkspace = relative(process.cwd(), workspace)
         const canonicalWorkspace = await realpath(workspace)
         const { answers, errors, outputs, result, statuses } = await invokeCli({
-            argv: ['chat', '--cwd', relativeWorkspace],
+            argv: ['--cwd', relativeWorkspace],
             transport,
             createLineInput: () => ({
                 readLine: async () => lines.shift() ?? null,
@@ -162,13 +162,34 @@ test('runs a chat turn with a canonical workspace, fixed budget, and no default 
     }
 })
 
+test('uses the current directory when cwd is omitted', async () => {
+    const lines = ['Inspect the current workspace.', '/exit']
+    const canonicalWorkspace = await realpath(process.cwd())
+    const { errors, result } = await invokeCli({
+        argv: [],
+        transport: async () => ({
+            type: 'final_answer',
+            model: null,
+            content: 'Inspection complete.',
+        }),
+        createLineInput: () => ({
+            readLine: async () => lines.shift() ?? null,
+            close: () => undefined,
+        }),
+    })
+
+    assert.deepEqual(errors, [])
+    assert.equal(result.exitCode, 0)
+    assert.equal(result.session?.workspaceRoot, canonicalWorkspace)
+})
+
 test('falls back to the completed answer for a chat turn without deltas', async () => {
     const workspace = await mkdtemp(`${tmpdir()}/yo-cli-answer-fallback-`)
     const lines = ['Inspect the workspace.', '/exit']
 
     try {
         const { answers, errors, outputs, result } = await invokeCli({
-            argv: ['chat', '--cwd', workspace],
+            argv: ['--cwd', workspace],
             transport: async () => ({
                 type: 'final_answer',
                 model: null,
@@ -204,7 +225,7 @@ test('passes an explicit model and retains a failed chat turn', async () => {
 
     try {
         const { answers, errors, outputs, result, statuses } = await invokeCli({
-            argv: ['chat', '--model', 'chosen-model', '--cwd', workspace],
+            argv: ['--model', 'chosen-model', '--cwd', workspace],
             transport,
             createLineInput: () => ({
                 readLine: async () => lines.shift() ?? null,
@@ -289,7 +310,7 @@ test('composes a tool-using chat turn and retains its observations for a follow-
         const relativeWorkspace = relative(process.cwd(), workspace)
         const canonicalWorkspace = await realpath(workspace)
         const { answers, errors, outputs, result, statuses } = await invokeCli({
-            argv: ['chat', '--model', 'chosen-model', '--cwd', relativeWorkspace],
+            argv: ['--model', 'chosen-model', '--cwd', relativeWorkspace],
             transport,
             createLineInput: () => ({
                 readLine: async () => lines[lineIndex++] ?? null,
@@ -485,7 +506,7 @@ test('composes confirmed Codex answer chunks after tool work without crossing te
     try {
         await writeFile(sourcePath, 'export const answer = 42\n')
 
-        const result = await runCli(['chat', '--cwd', workspace], {
+        const result = await runCli(['--cwd', workspace], {
             transport,
             writeOutput: (message) => outputs.push(message),
             writeError: (message) => errors.push(message),
@@ -567,7 +588,7 @@ test('handles EOF, exact exit, and blank chat input without invoking the model',
                 let closeCount = 0
                 let transportCallCount = 0
                 const { answers, errors, outputs, result, statuses } = await invokeCli({
-                    argv: ['chat', '--cwd', workspace],
+                    argv: ['--cwd', workspace],
                     transport: async () => {
                         transportCallCount += 1
                         throw new Error('transport must not be called')
@@ -623,7 +644,7 @@ test('reports a sanitized transport failure and continues with the next chat tur
 
     try {
         const { answers, errors, outputs, result, statuses } = await invokeCli({
-            argv: ['chat', '--cwd', workspace],
+            argv: ['--cwd', workspace],
             transport,
             createLineInput: () => ({
                 readLine: async () => lines[lineIndex++] ?? null,
@@ -724,7 +745,7 @@ test('reports step-budget exhaustion and resets the budget for the next chat tur
 
     try {
         const { answers, errors, outputs, result, statuses } = await invokeCli({
-            argv: ['chat', '--cwd', workspace],
+            argv: ['--cwd', workspace],
             transport,
             createLineInput: () => ({
                 readLine: async () => lines[lineIndex++] ?? null,
@@ -781,7 +802,7 @@ test('reports step-budget exhaustion and resets the budget for the next chat tur
 
 test('rejects chat before the input boundary when its workspace cannot be canonicalized', async () => {
     const { errors, outputs, result } = await invokeCli({
-        argv: ['chat', '--cwd', '/missing/yo-chat-workspace'],
+        argv: ['--cwd', '/missing/yo-chat-workspace'],
     })
 
     assert.deepEqual(result, { exitCode: 1, session: null })
@@ -792,12 +813,11 @@ test('rejects chat before the input boundary when its workspace cannot be canoni
 
 test('rejects invalid command-line arguments with usage exit code 2', async (context) => {
     const cases = [
-        { name: 'chat positional argument', argv: ['chat', 'task', '--cwd', '.'] },
-        { name: 'chat missing cwd', argv: ['chat'] },
-        { name: 'chat missing cwd value', argv: ['chat', '--cwd'] },
-        { name: 'chat empty cwd', argv: ['chat', '--cwd', ''] },
-        { name: 'chat missing model value', argv: ['chat', '--cwd', '.', '--model'] },
-        { name: 'chat unknown option', argv: ['chat', '--cwd', '.', '--verbose'] },
+        { name: 'removed chat command', argv: ['chat', '--cwd', '.'] },
+        { name: 'missing cwd value', argv: ['--cwd'] },
+        { name: 'empty cwd', argv: ['--cwd', ''] },
+        { name: 'missing model value', argv: ['--cwd', '.', '--model'] },
+        { name: 'unknown option', argv: ['--cwd', '.', '--verbose'] },
         { name: 'removed ask command', argv: ['ask', 'task', '--cwd', '.'] },
         { name: 'login arguments', argv: ['login', 'extra'] },
         { name: 'missing auth subcommand', argv: ['auth'] },
@@ -814,8 +834,9 @@ test('rejects invalid command-line arguments with usage exit code 2', async (con
             assert.equal(result.session, null)
             assert.deepEqual(outputs, [])
             assert.equal(errors.length, 1)
-            assert.match(errors[0]!, /Usage: yo chat/)
+            assert.match(errors[0]!, /Usage: yo \[/)
             assert.doesNotMatch(errors[0]!, /yo ask/)
+            assert.doesNotMatch(errors[0]!, /yo chat/)
         })
     }
 })
@@ -1242,7 +1263,7 @@ test('reports workspace canonicalization failures as runtime errors', async () =
         content: 'unused',
     })
     const { errors, outputs, result } = await invokeCli({
-        argv: ['chat', '--cwd', '/missing/yo-workspace'],
+        argv: ['--cwd', '/missing/yo-workspace'],
         transport,
     })
 
@@ -1303,7 +1324,7 @@ test('prints ordered, deduplicated tool and file evidence from successful observ
         await writeFile(`${workspace}/src/agent.ts`, 'export const needle = 42\n')
 
         const { answers, errors, outputs, result } = await invokeCli({
-            argv: ['chat', '--cwd', workspace],
+            argv: ['--cwd', workspace],
             transport,
             createLineInput: () => ({
                 readLine: async () => lines.shift() ?? null,
@@ -1379,7 +1400,7 @@ test('completes a fixture-repository research task with a faux transport', async
         await writeFile(sourcePath, source)
 
         const { answers, errors, outputs, result } = await invokeCli({
-            argv: ['chat', '--cwd', workspace],
+            argv: ['--cwd', workspace],
             transport,
             createLineInput: () => ({
                 readLine: async () => lines.shift() ?? null,
@@ -1513,7 +1534,7 @@ test('completes an inspected, approved patch through chat and reports its exact 
         await writeFile(sourcePath, source)
 
         const { answers, errors, outputs, result } = await invokeCli({
-            argv: ['chat', '--cwd', workspace],
+            argv: ['--cwd', workspace],
             transport,
             isInteractive: true,
             createLineInput: () => ({
@@ -1585,7 +1606,7 @@ test('prints a failed report after step-budget exhaustion without authorized evi
 
     try {
         const { answers, errors, outputs, result } = await invokeCli({
-            argv: ['chat', '--cwd', workspace],
+            argv: ['--cwd', workspace],
             transport,
             createLineInput: () => ({
                 readLine: async () => lines.shift() ?? null,
@@ -1644,7 +1665,7 @@ test('renders a chat patch preview but denies it in non-interactive mode', async
     try {
         await writeFile(sourcePath, 'export const value = 1\n')
         const { answers, errors, result } = await invokeCli({
-            argv: ['chat', '--cwd', workspace],
+            argv: ['--cwd', workspace],
             transport,
             isInteractive: false,
             createLineInput: () => ({
@@ -1720,7 +1741,7 @@ test('reuses the active chat input for approval without adding an approval respo
     try {
         await writeFile(sourcePath, 'export const value = 1\n')
         const { errors, result } = await invokeCli({
-            argv: ['chat', '--cwd', workspace],
+            argv: ['--cwd', workspace],
             transport,
             createLineInput: () => {
                 createdInputs += 1

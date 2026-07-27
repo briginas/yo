@@ -8,7 +8,7 @@ The project takes architectural inspiration from [`pi`](../pi), especially its s
 
 Milestone 1 established the original bounded read-only harness. Its one-shot
 `yo ask` command has since been retired in favor of the single agent workflow:
-`yo chat`. The chat supports an ephemeral multi-turn conversation through
+`yo`. The chat supports an ephemeral multi-turn conversation through
 ChatGPT Plus OAuth with live model/tool status and safe final-answer delivery.
 Milestone 3 is complete: the model may propose an exact replacement patch for
 one existing workspace file, but the harness displays the complete diff and
@@ -43,16 +43,16 @@ The resulting OAuth credential is trusted CLI state stored at `~/.yo/auth.json`.
 
 ## Usage
 
-Start an in-memory interactive chat against an explicitly approved workspace:
+Start an in-memory interactive chat in the current directory:
 
 ```bash
-node dist/cli.js chat --cwd /path/to/workspace
+node dist/cli.js
 ```
 
-Override the default model when needed:
+Override the workspace or default model when needed:
 
 ```bash
-node dist/cli.js chat --cwd /path/to/workspace --model <name>
+node dist/cli.js --cwd /path/to/workspace --model <name>
 ```
 
 Use the exact `/exit` command or EOF to leave chat. The transcript is discarded
