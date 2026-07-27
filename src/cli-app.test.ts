@@ -1490,3 +1490,209 @@ test('prints a failed report after step-budget exhaustion without authorized evi
         await rm(workspace, { recursive: true, force: true })
     }
 })
+
+test('uses a dedicated approval input for ask and closes it after the run', async () => {
+    const workspace = await mkdtemp(`${tmpdir()}/yo-cli-ask-approval-`)
+    const sourcePath = join(workspace, 'example.ts')
+    const requests: ModelRequest[] = []
+    let createdInputs = 0
+    let closeCount = 0
+    const input: LineInput = {
+        readLine: async (prompt) => {
+            assert.equal(prompt, '')
+            return 'yes'
+        },
+        close: () => {
+            closeCount += 1
+        },
+    }
+    const transport: ModelTransport = async (request) => {
+        requests.push(request)
+
+        if (requests.length === 1) {
+            return {
+                type: 'tool_calls',
+                model: null,
+                toolCalls: [
+                    {
+                        id: 'patch-call',
+                        name: 'propose_patch',
+                        arguments: {
+                            path: 'example.ts',
+                            edits: [{ oldText: 'value = 1', newText: 'value = 2' }],
+                        },
+                    },
+                ],
+            }
+        }
+
+        return {
+            type: 'final_answer',
+            model: null,
+            content: 'Patch applied.',
+        }
+    }
+
+    try {
+        await writeFile(sourcePath, 'export const value = 1\n')
+        const { answers, errors, result } = await invokeCli({
+            argv: ['ask', 'Update the value.', '--cwd', workspace],
+            transport,
+            createLineInput: () => {
+                createdInputs += 1
+                return input
+            },
+            isInteractive: true,
+        })
+
+        assert.deepEqual(errors, [])
+        assert.equal(createdInputs, 1)
+        assert.equal(closeCount, 1)
+        assert.equal(result.exitCode, 0)
+        assert.equal(await readFile(sourcePath, 'utf8'), 'export const value = 2\n')
+        assert.ok(answers[0]?.includes('Patch proposal: example.ts'))
+        assert.ok(answers[0]?.includes('-export const value = 1'))
+        assert.ok(answers[0]?.includes('+export const value = 2'))
+        assert.ok(answers[0]?.endsWith('Apply this patch? [y/N] '))
+        assert.deepEqual(requests[0]?.visibleTools, ['list_files', 'search_code', 'read_file'])
+    } finally {
+        await rm(workspace, { recursive: true, force: true })
+    }
+})
+
+test('renders an ask patch preview but denies it in non-interactive mode', async () => {
+    const workspace = await mkdtemp(`${tmpdir()}/yo-cli-ask-non-interactive-`)
+    const sourcePath = join(workspace, 'example.ts')
+    let requestCount = 0
+    const transport: ModelTransport = async () => {
+        requestCount += 1
+
+        return requestCount === 1
+            ? {
+                  type: 'tool_calls',
+                  model: null,
+                  toolCalls: [
+                      {
+                          id: 'patch-call',
+                          name: 'propose_patch',
+                          arguments: {
+                              path: 'example.ts',
+                              edits: [{ oldText: 'value = 1', newText: 'value = 2' }],
+                          },
+                      },
+                  ],
+              }
+            : {
+                  type: 'final_answer',
+                  model: null,
+                  content: 'Patch was not applied.',
+              }
+    }
+
+    try {
+        await writeFile(sourcePath, 'export const value = 1\n')
+        const { answers, errors, result } = await invokeCli({
+            argv: ['ask', 'Update the value.', '--cwd', workspace],
+            transport,
+            isInteractive: false,
+        })
+
+        assert.deepEqual(errors, [])
+        assert.equal(result.exitCode, 0)
+        assert.equal(await readFile(sourcePath, 'utf8'), 'export const value = 1\n')
+        assert.ok(answers[0]?.includes('Patch proposal: example.ts'))
+        assert.ok(answers[0]?.endsWith('Apply this patch? [y/N] \n'))
+        assert.equal(
+            result.session?.messages.some(
+                (message) => message.role === 'tool' && message.result.status === 'denied'
+            ),
+            true
+        )
+    } finally {
+        await rm(workspace, { recursive: true, force: true })
+    }
+})
+
+test('reuses the active chat input for approval without adding an approval response to the conversation', async () => {
+    const workspace = await mkdtemp(`${tmpdir()}/yo-cli-chat-approval-`)
+    const sourcePath = join(workspace, 'example.ts')
+    const lines = ['Update the value.', 'y', '/exit']
+    const prompts: string[] = []
+    const requests: ModelRequest[] = []
+    let lineIndex = 0
+    let createdInputs = 0
+    let closeCount = 0
+    const input: LineInput = {
+        readLine: async (prompt) => {
+            prompts.push(prompt)
+            const line = lines[lineIndex]
+            lineIndex += 1
+            return line ?? null
+        },
+        close: () => {
+            closeCount += 1
+        },
+    }
+    const transport: ModelTransport = async (request) => {
+        requests.push(request)
+
+        if (requests.length === 1) {
+            return {
+                type: 'tool_calls',
+                model: null,
+                toolCalls: [
+                    {
+                        id: 'patch-call',
+                        name: 'propose_patch',
+                        arguments: {
+                            path: 'example.ts',
+                            edits: [{ oldText: 'value = 1', newText: 'value = 2' }],
+                        },
+                    },
+                ],
+            }
+        }
+
+        return {
+            type: 'final_answer',
+            model: null,
+            content: 'Patch applied.',
+        }
+    }
+
+    try {
+        await writeFile(sourcePath, 'export const value = 1\n')
+        const { errors, result } = await invokeCli({
+            argv: ['chat', '--cwd', workspace],
+            transport,
+            createLineInput: () => {
+                createdInputs += 1
+                return input
+            },
+            isInteractive: true,
+        })
+
+        assert.deepEqual(errors, [])
+        assert.equal(createdInputs, 1)
+        assert.equal(closeCount, 1)
+        assert.equal(result.exitCode, 0)
+        assert.equal(await readFile(sourcePath, 'utf8'), 'export const value = 2\n')
+        assert.deepEqual(prompts, [CHAT_PROMPT, '', CHAT_PROMPT])
+        assert.equal(
+            requests.every((request) =>
+                request.messages.some(
+                    (message) => message.role === 'user' && message.content === 'Update the value.'
+                )
+            ),
+            true
+        )
+        assert.equal(
+            requests[1]?.messages.some(
+                (message) => message.role === 'user' && message.content === 'y'
+            ),
+            false
+        )
+    } finally {
+        await rm(workspace, { recursive: true, force: true })
+    }
+})

@@ -25,6 +25,7 @@ import {
     createTerminalStatusOutput,
     type TerminalTextWriter,
 } from './terminal-renderer.ts'
+import { createTerminalPatchApprover } from './terminal-approval.ts'
 
 const RUN_BUDGET = {
     maxSteps: 10,
@@ -306,6 +307,12 @@ const runChat = async ({
                         budget: RUN_BUDGET,
                         transport,
                         onEvent: renderer.onEvent,
+                        patchApprover: createTerminalPatchApprover({
+                            input,
+                            write: writeAnswer,
+                            clearProgress: statusOutput.clearProgress,
+                            isInteractive,
+                        }),
                     })
                     const session = result.turn.session
 
@@ -438,6 +445,15 @@ export const runCli = async (
               })
             : null
 
+    let input: LineInput | undefined
+    if (terminalComposition !== null && createLineInput !== undefined) {
+        try {
+            input = createLineInput()
+        } catch {
+            return runtimeError('Cannot start approval input.', writeError)
+        }
+    }
+
     try {
         const session = await runAgent({
             task: parsed.command.task,
@@ -447,7 +463,15 @@ export const runCli = async (
             transport,
             ...(terminalComposition === null
                 ? {}
-                : { onEvent: terminalComposition.renderer.onEvent }),
+                : {
+                      onEvent: terminalComposition.renderer.onEvent,
+                      patchApprover: createTerminalPatchApprover({
+                          ...(input === undefined ? {} : { input }),
+                          write: terminalComposition.renderer.writeAnswer,
+                          clearProgress: terminalComposition.statusOutput.clearProgress,
+                          isInteractive: terminalComposition.renderer.isInteractive,
+                      }),
+                  }),
         })
 
         if (terminalComposition === null) {
@@ -466,6 +490,7 @@ export const runCli = async (
 
         return runtimeError(`Agent run failed: ${cause}`, writeError)
     } finally {
+        input?.close()
         terminalComposition?.statusOutput.clearProgress()
     }
 }

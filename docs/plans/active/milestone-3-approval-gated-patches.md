@@ -542,18 +542,18 @@ dependency.
     without making the capability model-visible; existing read-only loop and
     conversation tests remain compatible.
 
-- [ ] **9.8 Add terminal diff rendering and explicit approval input**
+- [x] **9.8 Add terminal diff rendering and explicit approval input**
 
-    - [ ] Add a terminal approval component that receives the immutable approval
+    - [x] Add a terminal approval component that receives the immutable approval
           view, clears progress, renders the canonical path and complete diff, and
           prompts `Apply this patch? [y/N]`.
-    - [ ] Reuse the active chat `LineInput` sequentially and keep approval text out
+    - [x] Reuse the active chat `LineInput` sequentially and keep approval text out
           of conversation messages.
-    - [ ] Create and close approval input safely for `yo ask`.
-    - [ ] Accept only trimmed case-insensitive `y`/`yes`; deny blank, other input,
+    - [x] Create and close approval input safely for `yo ask`.
+    - [x] Accept only trimmed case-insensitive `y`/`yes`; deny blank, other input,
           EOF, input failure, missing I/O, and non-interactive mode.
-    - [ ] Keep TTY cleanup and deterministic non-TTY output behavior compatible.
-    - [ ] Add renderer, line-input, and CLI dependency-injection tests without
+    - [x] Keep TTY cleanup and deterministic non-TTY output behavior compatible.
+    - [x] Add renderer, line-input, and CLI dependency-injection tests without
           enabling the provider tool.
 
     **Leaf acceptance:** terminal approval is deterministic and fail-closed in
