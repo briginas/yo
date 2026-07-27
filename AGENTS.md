@@ -10,6 +10,7 @@
 - Relate the proposed design to the corresponding `pi` implementation where relevant, while preserving the smaller approved scope of this project.
 - Add comments only for non-obvious rationale, invariants, safety boundaries, or edge cases. Do not restate the code, and update comments when behavior changes.
 - Use `type` declarations rather than `interface` declarations.
+- When checking the shape of an `unknown` value, including external errors, use a local Zod schema and `safeParse` instead of a chain of property checks; allow unknown fields when the external value may carry them.
 
 ## Resuming work
 
