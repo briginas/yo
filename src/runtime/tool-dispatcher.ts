@@ -381,8 +381,8 @@ export const registerTool = <TArguments>(
     }
 }
 
-// Keeping the registry closed makes the absence of write, process, and network tools a runtime
-// invariant rather than a promise made only in the model instructions.
+// Keeping this generic registry closed makes the absence of general write, process, and network
+// tools a runtime invariant. The single approval-gated patch path is dispatched separately above.
 const registeredTools = {
     list_files: registerTool(
         listFilesArgumentsSchema,
@@ -429,9 +429,9 @@ const registeredTools = {
                 : result
         }
     ),
-} satisfies Record<ToolName, RegisteredTool>
+} satisfies Record<Exclude<ToolName, 'propose_patch'>, RegisteredTool>
 
-const isRegisteredToolName = (name: string): name is ToolName =>
+const isRegisteredToolName = (name: string): name is Exclude<ToolName, 'propose_patch'> =>
     Object.hasOwn(registeredTools, name)
 
 export const dispatchToolCall = async (
@@ -441,7 +441,7 @@ export const dispatchToolCall = async (
     onPermissionDecision?: (decision: PermissionDecision) => void,
     patchOptions?: PatchDispatchOptions
 ): Promise<ToolResult> => {
-    if (call.name === 'propose_patch' && patchOptions !== undefined) {
+    if (call.name === 'propose_patch') {
         return dispatchPatchCall(
             workspaceRoot,
             call,

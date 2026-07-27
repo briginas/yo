@@ -19,6 +19,7 @@ const VISIBLE_TOOLS = [
     'list_files',
     'search_code',
     'read_file',
+    'propose_patch',
 ] as const satisfies readonly ToolName[]
 
 export type RunAgentOptions = {

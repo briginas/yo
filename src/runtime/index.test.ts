@@ -29,7 +29,7 @@ const completeMetadata = {
     truncation: null,
 } as const
 
-test('exports only approved read-only capabilities and the approval port', () => {
+test('exports the model-facing patch schema without raw mutation operations', () => {
     assert.deepEqual(Object.keys(runtime).sort(), [
         'appendTurnToConversation',
         'canonicalizeWorkspaceRoot',
@@ -39,6 +39,7 @@ test('exports only approved read-only capabilities and the approval port', () =>
         'isSensitivePath',
         'listFiles',
         'listFilesArgumentsSchema',
+        'proposePatchArgumentsSchema',
         'readFile',
         'readFileArgumentsSchema',
         'requestPatchApproval',

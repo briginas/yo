@@ -6,6 +6,7 @@ import {
     type ToolName,
     type ToolResultTruncation,
 } from './runtime/tools.ts'
+import { proposePatchArgumentsSchema } from './runtime/patch-contracts.ts'
 
 export type TerminalTextWriter = (message: string) => void
 
@@ -150,6 +151,18 @@ const summarizeToolArguments = (
             return {
                 toolName: name,
                 argumentSummary: [`path=${formatSafeString(path)}`, ...lineRange].join(' '),
+            }
+        }
+        case 'propose_patch': {
+            const parsed = proposePatchArgumentsSchema.safeParse(arguments_)
+
+            if (!parsed.success) {
+                return { toolName: name, argumentSummary: null }
+            }
+
+            return {
+                toolName: name,
+                argumentSummary: `path=${formatSafeString(parsed.data.path)} edits=${parsed.data.edits.length}`,
             }
         }
         default:

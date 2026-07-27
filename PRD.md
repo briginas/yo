@@ -101,8 +101,10 @@ Current milestone status and the next planning boundary are indexed from
 Milestone 3 may propose and apply patches behind explicit terminal approval.
 Its requirements are approved and its
 [active implementation plan](docs/plans/active/milestone-3-approval-gated-patches.md)
-defines the bounded work. No runtime leaf has been approved or implemented, so
-the current harness remains read-only.
+defines the bounded work. Leaves 9.1–9.9 are complete: the model may now
+propose one exact patch, while
+trusted terminal approval remains required before any workspace write.
+Milestone verification and closure remain in 9.10.
 
 ## Later direction
 

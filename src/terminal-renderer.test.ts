@@ -543,7 +543,7 @@ test('formats deterministic model and turn status lines', () => {
     ])
 })
 
-test('formats validated arguments for every read-only tool in field order', () => {
+test('formats validated arguments for every model-visible tool without exposing patch text', () => {
     const { renderer, statuses } = createRendererFixture(false)
     const calls = [
         {
@@ -574,6 +574,14 @@ test('formats validated arguments for every read-only tool in field order', () =
                 endLine: 20,
             },
         },
+        {
+            id: 'patch-call',
+            name: 'propose_patch',
+            arguments: {
+                path: 'src/cli.ts',
+                edits: [{ oldText: 'private source text', newText: 'replacement text' }],
+            },
+        },
     ] as const
 
     for (const call of calls) {
@@ -596,6 +604,7 @@ test('formats validated arguments for every read-only tool in field order', () =
         'status: tool_running step=2 tool=list_files path="src" glob="**/*.ts" limit=20',
         'status: tool_running step=2 tool=search_code query="needle" path="src" glob="*.ts" limit=10',
         'status: tool_running step=2 tool=read_file path="src/cli.ts" lines=10-20',
+        'status: tool_running step=2 tool=propose_patch path="src/cli.ts" edits=1',
     ])
 })
 

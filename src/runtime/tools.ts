@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 import { LIST_FILES_MAX_LIMIT, SEARCH_CODE_MAX_LIMIT } from './filesystem-limits.ts'
 
-export type ToolName = 'list_files' | 'search_code' | 'read_file'
+export type ToolName = 'list_files' | 'search_code' | 'read_file' | 'propose_patch'
 
 export const listFilesArgumentsSchema = z
     .object({

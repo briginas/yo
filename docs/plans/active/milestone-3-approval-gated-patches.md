@@ -1,6 +1,6 @@
 # Active implementation plan: Milestone 3 approval-gated patches
 
-- **Status:** active; 9.1–9.6 complete
+- **Status:** active; 9.1–9.9 complete
 - **Source of truth for:** Milestone 3 implementation order and completion state
 - **Related documents:** [implementation map](../../../IMPLEMENTATION_PLAN.md),
   [approved requirements](../../requirements/milestone-3-approval-gated-patches.md),
@@ -559,20 +559,20 @@ dependency.
     **Leaf acceptance:** terminal approval is deterministic and fail-closed in
     isolation; no production model request advertises patching yet.
 
-- [ ] **9.9 Activate the model-visible tool and compose CLI/provider behavior**
+- [x] **9.9 Activate the model-visible tool and compose CLI/provider behavior**
 
-    - [ ] Add `propose_patch` to `ToolName`, `VISIBLE_TOOLS`, dispatcher registry,
+    - [x] Add `propose_patch` to `ToolName`, `VISIBLE_TOOLS`, dispatcher registry,
           provider definition table, and safe terminal argument summaries in one
           reviewed change.
-    - [ ] Update the system prompt to describe read-only inspection plus the sole
+    - [x] Update the system prompt to describe read-only inspection plus the sole
           approval-gated exact patch proposal.
-    - [ ] Inject terminal approval into both `yo ask` and `yo chat`; missing or
+    - [x] Inject terminal approval into both `yo ask` and `yo chat`; missing or
           non-interactive approval remains denial, not an implicit write.
-    - [ ] Extend evidence reporting with canonical affected path and outcome
+    - [x] Extend evidence reporting with canonical affected path and outcome
           without duplicating full diff or source content.
-    - [ ] Update the runtime export allowlist deliberately and verify no raw write
+    - [x] Update the runtime export allowlist deliberately and verify no raw write
           operation becomes public.
-    - [ ] Add provider conversion, CLI composition, faux-transport, safe-summary,
+    - [x] Add provider conversion, CLI composition, faux-transport, safe-summary,
           and compatibility tests.
 
     **Leaf acceptance:** the model can request `propose_patch`, but every actual

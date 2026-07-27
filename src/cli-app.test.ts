@@ -1554,7 +1554,12 @@ test('uses a dedicated approval input for ask and closes it after the run', asyn
         assert.ok(answers[0]?.includes('-export const value = 1'))
         assert.ok(answers[0]?.includes('+export const value = 2'))
         assert.ok(answers[0]?.endsWith('Apply this patch? [y/N] '))
-        assert.deepEqual(requests[0]?.visibleTools, ['list_files', 'search_code', 'read_file'])
+        assert.deepEqual(requests[0]?.visibleTools, [
+            'list_files',
+            'search_code',
+            'read_file',
+            'propose_patch',
+        ])
     } finally {
         await rm(workspace, { recursive: true, force: true })
     }

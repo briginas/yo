@@ -172,30 +172,31 @@ describe('convertModelRequestToOpenAICodex', () => {
         ])
     })
 
-    test('exposes only the requested closed read-only tool definitions', () => {
+    test('exposes the requested closed tool definitions including approval-gated patches', () => {
         const converted = convertModelRequestToOpenAICodex({
             model: null,
             messages: [],
-            visibleTools: ['search_code', 'list_files', 'read_file'],
+            visibleTools: ['search_code', 'list_files', 'read_file', 'propose_patch'],
         })
 
         assert.deepEqual(
             converted.tools.map((tool) => tool.name),
-            ['search_code', 'list_files', 'read_file']
+            ['search_code', 'list_files', 'read_file', 'propose_patch']
         )
         assert.deepEqual(
             converted.tools.map((tool) => tool.type),
-            ['function', 'function', 'function']
+            ['function', 'function', 'function', 'function']
         )
         assert.deepEqual(
             converted.tools.map((tool) => 'strict' in tool),
-            [false, false, false]
+            [false, false, false, false]
         )
 
         const definitions = Object.fromEntries(converted.tools.map((tool) => [tool.name, tool]))
         const listFilesParameters = definitions.list_files?.parameters
         const searchCodeParameters = definitions.search_code?.parameters
         const readFileParameters = definitions.read_file?.parameters
+        const proposePatchParameters = definitions.propose_patch?.parameters
 
         assert.equal('$schema' in (listFilesParameters ?? {}), false)
         assert.deepEqual(listFilesParameters?.required, ['path'])
@@ -226,6 +227,19 @@ describe('convertModelRequestToOpenAICodex', () => {
         assert.equal('$schema' in (readFileParameters ?? {}), false)
         assert.deepEqual(readFileParameters?.required, ['path'])
         assert.equal(readFileParameters?.additionalProperties, false)
+
+        assert.equal('$schema' in (proposePatchParameters ?? {}), false)
+        assert.deepEqual(proposePatchParameters?.required, ['path', 'edits'])
+        assert.equal(proposePatchParameters?.additionalProperties, false)
+        assert.equal(
+            (
+                (
+                    proposePatchParameters?.properties as
+                        Record<string, Record<string, unknown>> | undefined
+                )?.edits ?? {}
+            ).maxItems,
+            20
+        )
 
         const serializedTools = JSON.stringify(converted.tools)
 

@@ -476,7 +476,7 @@ describe('dispatchToolCall', () => {
         )
     })
 
-    test('keeps propose_patch unknown without the controlled patch-dispatch option', async () => {
+    test('fails closed when propose_patch has no approval infrastructure', async () => {
         const result = await dispatchToolCall(
             workspaceRoot,
             {
@@ -490,7 +490,7 @@ describe('dispatchToolCall', () => {
             perToolTimeoutMs
         )
 
-        assert.equal(result.status, 'unknown_tool')
+        assert.equal(result.status, 'denied')
         assert.equal(
             await readFile(join(workspaceRoot, 'src', 'agent.ts'), 'utf8'),
             "export const needle = 'found'\n"

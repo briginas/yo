@@ -9,6 +9,7 @@ import {
     searchCodeArgumentsSchema,
     type ToolName,
 } from '../runtime/tools.ts'
+import { proposePatchArgumentsSchema } from '../runtime/patch-contracts.ts'
 
 const CODEX_RESPONSES_URL = 'https://chatgpt.com/backend-api/codex/responses'
 const DEFAULT_CODEX_MODEL = 'gpt-5.6-terra'
@@ -170,6 +171,11 @@ const MODEL_TOOL_DEFINITIONS = {
         description:
             'Read a UTF-8 text file or inclusive line range inside the approved workspace.',
         schema: readFileArgumentsSchema,
+    },
+    propose_patch: {
+        description:
+            'Propose exact replacements in one existing file inside the approved workspace. The user must review the complete diff and explicitly approve before any write occurs.',
+        schema: proposePatchArgumentsSchema,
     },
 } as const satisfies Record<ToolName, ModelToolDefinition>
 

@@ -62,7 +62,7 @@ test('uses the bounded read-only system prompt by default', () => {
         {
             role: 'system',
             content:
-                'You are a read-only coding agent. Inspect only the approved workspace through the available read-only tools and base your final answer on tool results.',
+                'You are a coding agent. Inspect the approved workspace only through the available read-only tools. You may use propose_patch only for a specific evidence-based exact replacement in one existing file; it displays a complete diff and writes only after explicit terminal approval. Do not claim a patch was applied unless its tool result confirms it. Base your final answer on tool results.',
         },
     ])
 })

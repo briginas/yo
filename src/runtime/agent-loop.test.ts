@@ -371,14 +371,14 @@ test('completes an in-memory session when the model returns a final answer', asy
                 {
                     role: 'system',
                     content:
-                        'You are a read-only coding agent. Inspect only the approved workspace through the available read-only tools and base your final answer on tool results.',
+                        'You are a coding agent. Inspect the approved workspace only through the available read-only tools. You may use propose_patch only for a specific evidence-based exact replacement in one existing file; it displays a complete diff and writes only after explicit terminal approval. Do not claim a patch was applied unless its tool result confirms it. Base your final answer on tool results.',
                 },
                 {
                     role: 'user',
                     content: 'Find the runtime entrypoint.',
                 },
             ],
-            visibleTools: ['list_files', 'search_code', 'read_file'],
+            visibleTools: ['list_files', 'search_code', 'read_file', 'propose_patch'],
         },
     ])
     assert.deepEqual(session, {
@@ -407,7 +407,7 @@ test('completes an in-memory session when the model returns a final answer', asy
                 step: 1,
                 metadata: {
                     model: 'faux-model',
-                    visibleTools: ['list_files', 'search_code', 'read_file'],
+                    visibleTools: ['list_files', 'search_code', 'read_file', 'propose_patch'],
                 },
             },
             {
@@ -521,7 +521,7 @@ test('returns a read-only tool result to the model on the next step', async () =
                 step: 1,
                 metadata: {
                     model: 'faux-model',
-                    visibleTools: ['list_files', 'search_code', 'read_file'],
+                    visibleTools: ['list_files', 'search_code', 'read_file', 'propose_patch'],
                 },
             },
             {
@@ -566,7 +566,7 @@ test('returns a read-only tool result to the model on the next step', async () =
                 step: 2,
                 metadata: {
                     model: 'faux-model',
-                    visibleTools: ['list_files', 'search_code', 'read_file'],
+                    visibleTools: ['list_files', 'search_code', 'read_file', 'propose_patch'],
                 },
             },
             {
@@ -1294,7 +1294,7 @@ test('returns a failed session when the model transport rejects', async () => {
             step: 1,
             metadata: {
                 model: 'faux-model',
-                visibleTools: ['list_files', 'search_code', 'read_file'],
+                visibleTools: ['list_files', 'search_code', 'read_file', 'propose_patch'],
             },
         },
         {
@@ -1320,7 +1320,12 @@ test('propagates approved sequential patch calls as safe ordered lifecycle event
         model: 'faux-model',
         transport: async (request) => {
             requestCount += 1
-            assert.deepEqual(request.visibleTools, ['list_files', 'search_code', 'read_file'])
+            assert.deepEqual(request.visibleTools, [
+                'list_files',
+                'search_code',
+                'read_file',
+                'propose_patch',
+            ])
 
             return requestCount === 1
                 ? {

@@ -12,6 +12,7 @@ export {
 } from './conversation.ts'
 export * from './filesystem.ts'
 export { requestPatchApproval } from './patch-approval.ts'
+export { proposePatchArgumentsSchema } from './patch-contracts.ts'
 export type {
     PatchApprovalDecision,
     PatchApprovalView,
@@ -19,6 +20,7 @@ export type {
     PatchConflict,
     PatchLifecycleMetadata,
     PatchProposal,
+    ProposePatchArguments,
 } from './patch-contracts.ts'
 export * from './permissions.ts'
 export * from './run.ts'

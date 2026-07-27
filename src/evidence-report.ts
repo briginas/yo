@@ -55,10 +55,18 @@ export const formatEvidenceReport = (session: SessionState): string => {
     const seenTools = new Set<string>()
     const files: string[] = []
     const seenFiles = new Set<string>()
+    const patchPathsByCallId = new Map<string, string>()
+    const patches: string[] = []
+    const seenPatches = new Set<string>()
 
     for (const event of session.events) {
         if (event.type === 'tool_requested') {
             callsById.set(event.call.id, event.call)
+            continue
+        }
+
+        if (event.type === 'patch_prepared') {
+            patchPathsByCallId.set(event.callId, event.metadata.relativePath)
             continue
         }
 
@@ -83,6 +91,15 @@ export const formatEvidenceReport = (session: SessionState): string => {
                 addUnique(files, seenFiles, file)
             }
         }
+
+        if (event.type === 'tool_completed') {
+            const relativePath = patchPathsByCallId.get(event.result.callId)
+
+            if (relativePath !== undefined) {
+                const outcome = event.result.status === 'success' ? 'applied' : event.result.status
+                addUnique(patches, seenPatches, `${relativePath}: ${outcome}`)
+            }
+        }
     }
 
     return [
@@ -91,6 +108,7 @@ export const formatEvidenceReport = (session: SessionState): string => {
         `Tools: ${tools.length > 0 ? tools.join(', ') : '(none)'}`,
         'Files:',
         ...(files.length > 0 ? files.map((file) => `- ${file}`) : ['- (none)']),
+        ...(patches.length === 0 ? [] : ['Patches:', ...patches.map((patch) => `- ${patch}`)]),
     ].join('\n')
 }
 

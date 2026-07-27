@@ -107,3 +107,43 @@ test('formats answer-free chat evidence from authorized successful observations'
     )
     assert.equal(report.includes(session.finalAnswer!), false)
 })
+
+test('reports a prepared patch path and outcome without patch content', () => {
+    const session = createSession()
+    session.events = [
+        {
+            type: 'tool_requested',
+            step: 1,
+            call: { id: 'patch-call', name: 'propose_patch', arguments: { path: 'ignored' } },
+        },
+        {
+            type: 'patch_prepared',
+            step: 1,
+            callId: 'patch-call',
+            metadata: {
+                proposalId: 'proposal-1',
+                relativePath: 'src/example.ts',
+                baseHash: 'base',
+                nextHash: 'next',
+                addedLineCount: 1,
+                removedLineCount: 1,
+            },
+        },
+        {
+            type: 'tool_completed',
+            step: 1,
+            result: {
+                status: 'success',
+                callId: 'patch-call',
+                content: 'Patch applied: src/example.ts',
+                metadata: { truncated: false, truncation: null },
+            },
+        },
+    ]
+
+    const report = formatEvidenceReport(session)
+
+    assert.ok(report.includes('Patches:\n- src/example.ts: applied'))
+    assert.equal(report.includes('base'), false)
+    assert.equal(report.includes('next'), false)
+})
