@@ -1,19 +1,20 @@
-# Milestone 4 requirements: allowlisted validation
+# Milestone 5 requirements: allowlisted validation
 
 - **Status:** draft
 - **Prepared:** 2026-07-27
-- **Source of truth for:** proposed Milestone 4 scope and acceptance criteria
+- **Renumbered:** 2026-07-28 after compaction became Milestone 4
+- **Source of truth for:** proposed Milestone 5 scope and acceptance criteria
 - **Related documents:** [product map](../../PRD.md),
   [implementation-state map](../../IMPLEMENTATION_PLAN.md),
-  [active implementation plan](../plans/active/milestone-4-allowlisted-validation.md)
+  [active implementation plan](../plans/active/milestone-5-allowlisted-validation.md)
 
-This document defines the proposed product boundary for Milestone 4. It does
+This document defines the proposed product boundary for Milestone 5. It does
 not authorize implementation. After review, approve this document and the
 linked plan, then confirm the first bounded leaf before changing runtime code.
 
 ## Objective
 
-Milestone 4 lets the model run exactly two repository-defined validation
+Milestone 5 lets the model run exactly two repository-defined validation
 scripts in the already approved workspace:
 
 - `test`, mapped by trusted harness code to `npm test`;
@@ -40,7 +41,7 @@ after explicit terminal approval. The model cannot run tests or builds. It must
 ask the user to perform validation separately, so it cannot ground its final
 answer in executable post-change evidence.
 
-After Milestone 4, the model may request one `run_validation` tool:
+After Milestone 5, the model may request one `run_validation` tool:
 
 ```ts
 type RunValidationArguments = {
@@ -328,7 +329,7 @@ process can provide a strict filesystem or network isolation guarantee.
 
 Therefore:
 
-- users must run Milestone 4 only against workspaces whose validation scripts
+- users must run Milestone 5 only against workspaces whose validation scripts
   they trust;
 - documentation and terminal help must not describe the feature as sandboxed;
 - `run_validation` is process execution even though it exposes no general
@@ -425,7 +426,7 @@ turn-scoped diff accounting or rollback to a later milestone.
 
 ## Acceptance criteria
 
-Milestone 4 is complete only when:
+Milestone 5 is complete only when:
 
 1. The only accepted arguments are `{ command: 'test' }` and
    `{ command: 'build' }`.

@@ -97,9 +97,13 @@ The public CLI also exposes:
 - [Milestone 3: approval-gated patch application](docs/requirements/milestone-3-approval-gated-patches.md)
   requirements are approved. Read them when planning or implementing the
   workspace-mutation boundary.
-- [Milestone 4: allowlisted validation](docs/requirements/milestone-4-allowlisted-validation.md)
-  is drafted for review. It proposes exactly `test` and `build`; no process
-  implementation is authorized yet.
+- [Milestone 4: in-memory context compaction](docs/requirements/milestone-4-context-compaction.md)
+  requirements and active plan are approved. They specify one harness-owned
+  structured-summary lifecycle with a separately configurable compaction model;
+  no runtime implementation has started.
+- [Milestone 5: allowlisted validation](docs/requirements/milestone-5-allowlisted-validation.md)
+  is drafted for later review. It proposes exactly `test` and `build`; no
+  process implementation is authorized yet.
 
 Current milestone status and the next planning boundary are indexed from
 [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md).
@@ -114,17 +118,25 @@ records deterministic and real OAuth-backed verification.
 The public agent workflow is now chat-only. Authentication commands remain
 separate trusted CLI operations.
 
-Milestone 4 is now drafted for review:
-[requirements](docs/requirements/milestone-4-allowlisted-validation.md) and
-[active implementation plan](docs/plans/active/milestone-4-allowlisted-validation.md).
-Its proposed model-facing boundary is one `run_validation` tool with only
-`test` and `build`. Review and approval are required before implementation.
+Milestone 4 is approved for bounded implementation:
+[requirements](docs/requirements/milestone-4-context-compaction.md) and
+[active implementation plan](docs/plans/active/milestone-4-context-compaction.md).
+It separates the complete in-memory transcript from the active model context,
+then proposes one structured checkpoint flow with a separately configurable
+summary model. The first candidate, `10.1`, still requires explicit confirmation
+before runtime code changes.
+
+The previous allowlisted-validation draft was renumbered without runtime change
+to Milestone 5:
+[requirements](docs/requirements/milestone-5-allowlisted-validation.md) and
+[active implementation plan](docs/plans/active/milestone-5-allowlisted-validation.md).
 
 ## Later direction
 
 After separate planning and approval, later milestones may:
 
-1. Add append-only JSONL sessions, then compaction that preserves task, approval
-   state, changed files, and validation evidence.
+1. Add append-only JSONL sessions that can persist the compaction checkpoints
+   introduced by Milestone 4 without making transcript files authoritative
+   runtime state.
 2. Add richer interactive UX, then skills/extensions and provider portability
-   after the in-memory chat loop has been validated.
+   after the in-memory chat loop and compaction boundary have been validated.

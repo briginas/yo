@@ -15,11 +15,13 @@ one existing workspace file, but the harness displays the complete diff and
 writes only after explicit terminal approval.
 [See the current project state →](IMPLEMENTATION_PLAN.md)
 
-Milestone 4 is drafted for review: one proposed `run_validation` tool would
-allow only the repository's `test` and `build` npm scripts through a fixed
-harness-owned command catalog. No process implementation is authorized yet.
-General shell execution, persistence, MCP, and subagents are not implemented.
-[Review the proposed Milestone 4 requirements →](docs/requirements/milestone-4-allowlisted-validation.md)
+Milestone 4 requirements and plan are approved: they specify in-memory context
+compaction with one harness-owned structured-summary lifecycle and a separately
+configurable compaction model. Runtime implementation has not started; `10.1`
+still requires explicit confirmation. The previous allowlisted-validation draft
+is now Milestone 5. General shell execution, persistence, MCP, and subagents are
+not implemented.
+[Review the approved Milestone 4 requirements →](docs/requirements/milestone-4-context-compaction.md)
 
 ## Requirements and setup
 

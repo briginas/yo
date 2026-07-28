@@ -1,9 +1,10 @@
-# Milestone 4 active plan: allowlisted validation
+# Milestone 5 active plan: allowlisted validation
 
 - **Status:** draft; implementation not authorized
 - **Prepared:** 2026-07-27
-- **Requirements:** [Milestone 4 allowlisted validation](../../requirements/milestone-4-allowlisted-validation.md)
-- **Previous milestone:** [Milestone 3 completed plan](../completed/milestone-3-approval-gated-patches.md)
+- **Renumbered:** 2026-07-28 after compaction became Milestone 4
+- **Requirements:** [Milestone 5 allowlisted validation](../../requirements/milestone-5-allowlisted-validation.md)
+- **Previous milestone:** [Milestone 4 context compaction](milestone-4-context-compaction.md)
 
 Review and approve the requirements and this plan before implementation. After
 approval, confirm exactly one incomplete leaf before editing runtime code.
@@ -432,7 +433,7 @@ The milestone closes only after:
 
 ## Implementation leaves
 
-### 10.1 Validation contracts, catalog, and pure output bounds
+### 11.1 Validation contracts, catalog, and pure output bounds
 
 - [ ] Add strict `test | build` contracts and constants.
 - [ ] Add the immutable npm command catalog with lifecycle-hook suppression and
@@ -448,7 +449,7 @@ The milestone closes only after:
 **Leaf acceptance:** pure contracts and accumulator tests pass; no process can
 start and the model-visible registry is unchanged.
 
-### 10.2 Abort-and-settle validation executor
+### 11.2 Abort-and-settle validation executor
 
 - [ ] Add the internal executor and injected process-operation boundary.
 - [ ] Add minimal environment and temporary home/cache preparation.
@@ -462,7 +463,7 @@ start and the model-visible registry is unchanged.
 **Leaf acceptance:** executor tests prove bounded settled outcomes; model and
 CLI behavior remain unchanged.
 
-### 10.3 Closed dispatcher integration
+### 11.3 Closed dispatcher integration
 
 - [ ] Add a specialized `run_validation` dispatcher branch with strict schema
       validation and fixed allowlist authorization.
@@ -477,7 +478,7 @@ CLI behavior remain unchanged.
 **Leaf acceptance:** direct internal dispatch tests pass while the model still
 cannot discover or request the tool through normal provider composition.
 
-### 10.4 Agent-loop, conversation, terminal, and evidence propagation
+### 11.4 Agent-loop, conversation, terminal, and evidence propagation
 
 - [ ] Thread injected validation execution through agent and conversation
       options for deterministic tests.
@@ -491,7 +492,7 @@ cannot discover or request the tool through normal provider composition.
 **Leaf acceptance:** internal faux calls propagate safely through all
 provider-neutral and terminal layers without changing existing tool behavior.
 
-### 10.5 Provider activation and prompt guidance
+### 11.5 Provider activation and prompt guidance
 
 - [ ] Add `run_validation` to `ToolName` and the loop's visible-tools list.
 - [ ] Add only the strict enum schema to the Codex provider definition table.
@@ -504,7 +505,7 @@ provider-neutral and terminal layers without changing existing tool behavior.
 **Leaf acceptance:** provider, runtime, loop, and prompt agree on exactly one
 new tool and two identifiers; malformed or broader calls still fail closed.
 
-### 10.6 Deterministic CLI and controlled real-process coverage
+### 11.6 Deterministic CLI and controlled real-process coverage
 
 - [ ] Add chat faux-transport flows for test and build pass/failure.
 - [ ] Add patch-then-validation evidence coverage without extra approval input.
@@ -519,7 +520,7 @@ new tool and two identifiers; malformed or broader calls still fail closed.
 **Leaf acceptance:** deterministic CLI and controlled process tests pass with
 no capability beyond the approved enum.
 
-### 10.7 Full verification and milestone closure
+### 11.7 Full verification and milestone closure
 
 - [ ] Run focused tests, `npm test`, `npm run build`,
       `npm run format:check`, and `git diff --check`.
@@ -541,7 +542,7 @@ that evidence exists.
 ## First bounded candidate
 
 After the user approves the requirements and this plan, the first candidate is
-**10.1: validation contracts, fixed catalog, and pure bounded-output
+**11.1: validation contracts, fixed catalog, and pure bounded-output
 accumulator**.
 
 That leaf creates only typed data and pure transformations. It starts no
