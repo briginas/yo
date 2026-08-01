@@ -346,7 +346,7 @@ describe('dispatchToolCall', () => {
         }
     })
 
-    test('dispatches an approved patch with separate safe authorization and lifecycle evidence', async () => {
+    test('REQ-D8B3ADC2 dispatches an approved patch with separate safe authorization and lifecycle evidence', async () => {
         const permissionDecisions: PermissionDecision[] = []
         const lifecycle: object[] = []
         let approvalRequest: Record<string, unknown> | undefined
@@ -400,7 +400,7 @@ describe('dispatchToolCall', () => {
         )
     })
 
-    test('fails closed after preparation when approval is absent, denied, or aborted', async () => {
+    test('REQ-D8B3ADC2 fails closed after preparation when approval is absent, denied, or aborted', async () => {
         for (const decision of [undefined, 'denied', 'aborted'] as const) {
             const result = await dispatchToolCall(
                 workspaceRoot,
@@ -430,7 +430,7 @@ describe('dispatchToolCall', () => {
         }
     })
 
-    test('does not prepare a patch after invalid arguments or a path-policy denial', async () => {
+    test('REQ-D8B3ADC2 does not prepare a patch after invalid arguments or a path-policy denial', async () => {
         const permissionDecisions: PermissionDecision[] = []
         let approvalCount = 0
         const options: PatchDispatchOptions = {
@@ -476,7 +476,7 @@ describe('dispatchToolCall', () => {
         )
     })
 
-    test('fails closed when propose_patch has no approval infrastructure', async () => {
+    test('REQ-D8B3ADC2 fails closed when propose_patch has no approval infrastructure', async () => {
         const result = await dispatchToolCall(
             workspaceRoot,
             {
@@ -497,7 +497,7 @@ describe('dispatchToolCall', () => {
         )
     })
 
-    test('maps conflicts, timeouts, and failures without writing an unapproved result', async () => {
+    test('REQ-D8B3ADC2 maps conflicts, timeouts, and failures without writing an unapproved result', async () => {
         const sourcePath = join(workspaceRoot, 'src', 'agent.ts')
         const call = {
             id: 'controlled-patch',

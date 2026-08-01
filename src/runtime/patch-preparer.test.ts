@@ -63,7 +63,7 @@ afterEach(async () => {
     )
 })
 
-describe('resolvePatchTarget', () => {
+describe('REQ-60E10F76 resolvePatchTarget', () => {
     test('accepts one existing regular non-symlink file and preserves its mode', async () => {
         const { workspaceRoot } = await createWorkspaceFixture()
         const sourcePath = join(workspaceRoot, 'src', 'example.ts')
@@ -158,7 +158,7 @@ describe('resolvePatchTarget', () => {
     })
 })
 
-describe('preparePatchProposal', () => {
+describe('REQ-17B4C424 preparePatchProposal', () => {
     test('creates an immutable proposal without modifying the workspace file', async () => {
         const { workspaceRoot } = await createWorkspaceFixture()
         const sourcePath = join(workspaceRoot, 'src', 'example.ts')

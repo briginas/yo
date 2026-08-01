@@ -11,7 +11,12 @@ ids:
     suffix_length: 8
     alphabet: hex-uppercase
 tests:
-    adapters: []
+    adapters:
+        - id: unit
+          type: junit
+          discover:
+              reports:
+                  - artifacts/junit/yo.xml
     import_limits:
         max_jsonl_bytes: 16777216
         max_report_bytes: 16777216
@@ -19,4 +24,7 @@ tests:
         max_suite_count: 100000
         max_test_count: 100000
 evidence:
-    allowed_issuers: []
+    allowed_issuers:
+        - local-product-review
+        - local-test-run
+        - local-qa

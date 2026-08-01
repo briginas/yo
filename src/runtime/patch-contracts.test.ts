@@ -21,7 +21,7 @@ const assertRejected = (schema: RuntimeSchema, inputs: unknown[]) => {
     }
 }
 
-describe('proposePatchArgumentsSchema', () => {
+describe('REQ-32B1F442 proposePatchArgumentsSchema', () => {
     test('accepts untrusted arguments at the edit and UTF-8 byte boundaries', () => {
         const untrustedArguments: unknown = {
             path: 'src/example.ts',

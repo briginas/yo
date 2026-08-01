@@ -1456,7 +1456,7 @@ test('completes a fixture-repository research task with a faux transport', async
     }
 })
 
-test('completes an inspected, approved patch through chat and reports its exact outcome', async () => {
+test('REQ-D8B3ADC2 completes an inspected, approved patch through chat and reports its exact outcome', async () => {
     const fixtureRoot = await mkdtemp(`${tmpdir()}/yo-cli-patch-e2e-`)
     const workspace = join(fixtureRoot, 'workspace')
     const sourceDirectory = join(workspace, 'src')
@@ -1632,7 +1632,7 @@ test('prints a failed report after step-budget exhaustion without authorized evi
     }
 })
 
-test('renders a chat patch preview but denies it in non-interactive mode', async () => {
+test('REQ-17B4C424 renders a chat patch preview but denies it in non-interactive mode', async () => {
     const workspace = await mkdtemp(`${tmpdir()}/yo-cli-chat-non-interactive-`)
     const sourcePath = join(workspace, 'example.ts')
     const lines = ['Update the value.', '/exit']
@@ -1691,7 +1691,7 @@ test('renders a chat patch preview but denies it in non-interactive mode', async
     }
 })
 
-test('reuses the active chat input for approval without adding an approval response to the conversation', async () => {
+test('REQ-D8B3ADC2 reuses the active chat input for approval without adding an approval response to the conversation', async () => {
     const workspace = await mkdtemp(`${tmpdir()}/yo-cli-chat-approval-`)
     const sourcePath = join(workspace, 'example.ts')
     const lines = ['Update the value.', 'y', '/exit']

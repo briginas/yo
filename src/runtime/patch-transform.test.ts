@@ -19,7 +19,7 @@ const assertTransformError = (code: PatchTransformErrorCode, callback: () => unk
     })
 }
 
-describe('preparePatchTransform', () => {
+describe('REQ-32B1F442 preparePatchTransform', () => {
     test('applies disjoint edits against one original and creates deterministic previews', () => {
         const source = 'alpha\nbeta\ngamma\n'
         const edits: readonly PatchEdit[] = [

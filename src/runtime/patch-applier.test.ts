@@ -54,7 +54,7 @@ afterEach(async () => {
     )
 })
 
-describe('applyPatchProposal', () => {
+describe('REQ-245F8421 applyPatchProposal', () => {
     test('atomically applies an exact proposal while preserving mode, BOM, and line endings', async () => {
         const { workspaceRoot, sourcePath } = await createFixture(0o666)
         const proposal = await proposalFor(workspaceRoot)

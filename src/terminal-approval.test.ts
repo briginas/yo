@@ -30,7 +30,7 @@ const createInput = (response: string | null | Error): LineInput => ({
     close: () => undefined,
 })
 
-test('renders the complete display diff after clearing progress and accepts y or yes', async () => {
+test('REQ-17B4C424 renders the complete display diff after clearing progress and accepts y or yes', async () => {
     for (const response of [' y ', 'YES']) {
         const operations: string[] = []
         const approve = createTerminalPatchApprover({
@@ -48,7 +48,7 @@ test('renders the complete display diff after clearing progress and accepts y or
     }
 })
 
-test('delegates the interactive prompt to Node readline', async () => {
+test('REQ-17B4C424 delegates the interactive prompt to Node readline', async () => {
     const input = new PassThrough()
     const outputChunks: string[] = []
     const output = new Writable({
@@ -82,7 +82,7 @@ test('delegates the interactive prompt to Node readline', async () => {
     lineInput.close()
 })
 
-test('fails closed for declined, unavailable, and non-interactive approval input', async () => {
+test('REQ-17B4C424 fails closed for declined, unavailable, and non-interactive approval input', async () => {
     for (const input of [
         createInput(''),
         createInput('no'),
