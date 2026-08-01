@@ -1,0 +1,22 @@
+schema_version: 1
+project_id: SDD-4A2395B6
+spec:
+    root: 'spec'
+    entrypoint: 'spec/README.md'
+adoption:
+    mode: incremental
+git:
+    default_target_ref: main
+ids:
+    suffix_length: 8
+    alphabet: hex-uppercase
+tests:
+    adapters: []
+    import_limits:
+        max_jsonl_bytes: 16777216
+        max_report_bytes: 16777216
+        max_xml_depth: 64
+        max_suite_count: 100000
+        max_test_count: 100000
+evidence:
+    allowed_issuers: []
