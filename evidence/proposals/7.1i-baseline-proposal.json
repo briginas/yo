@@ -1,0 +1,42 @@
+{
+    "schema_version": "1.0",
+    "artifact_type": "proposal_package",
+    "project_id": "SDD-4A2395B6",
+    "mode": "spec",
+    "base": {
+        "git_ref": "84133ed37f470040aa829bef393197697934fa9e",
+        "tree_fingerprint": "sha256:97ad08de035888c1cc13e58f668195d1cb0936b4b0df26440558c043737c189f"
+    },
+    "candidate": {
+        "source": "directory",
+        "tree_fingerprint": "sha256:921632dd7d44d238df535c733ee09763c78b234f098708d4005365c51ae68278"
+    },
+    "object_delta": {
+        "semantic_fingerprint": "sha256:9d7bbfed46510a6812a346e4d33e5032efa06e5dba70e96c2d3989b10b75195e",
+        "structural_fingerprint": "sha256:ab6e6aa2c9a40b609471371e7816d9a337dd192561a568b6367d2806cbc01bbe",
+        "added": [
+            "CAP-7E001BA8",
+            "REQ-17B4C424",
+            "REQ-245F8421",
+            "REQ-32B1F442",
+            "REQ-60E10F76",
+            "REQ-D8B3ADC2"
+        ],
+        "modified": [],
+        "deleted": []
+    },
+    "code_targets": [],
+    "affected_scope": {
+        "fingerprint": "sha256:0ba8c31e9565ae587084aaeefa776e9ba955eecd1e32ef39e6f6978d2b4ed4bc",
+        "requirements": [
+            "REQ-17B4C424",
+            "REQ-245F8421",
+            "REQ-32B1F442",
+            "REQ-60E10F76",
+            "REQ-D8B3ADC2"
+        ],
+        "capabilities": ["CAP-7E001BA8"]
+    },
+    "diagnostics": [],
+    "semantic_candidates": []
+}
