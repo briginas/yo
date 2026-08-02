@@ -1,0 +1,15 @@
+{
+    "schema_version": "1.0",
+    "artifact_type": "approval_evidence",
+    "project_id": "SDD-4A2395B6",
+    "issuer": "local-product-review",
+    "actor": "ivan-briginas",
+    "decision": "approved",
+    "mode": "spec",
+    "subject": {
+        "base_ref": "84133ed37f470040aa829bef393197697934fa9e",
+        "semantic_delta_fingerprint": "sha256:9d7bbfed46510a6812a346e4d33e5032efa06e5dba70e96c2d3989b10b75195e",
+        "structural_delta_fingerprint": "sha256:ab6e6aa2c9a40b609471371e7816d9a337dd192561a568b6367d2806cbc01bbe"
+    },
+    "reason": "Требования корректно описывают принятое существующее поведение."
+}
