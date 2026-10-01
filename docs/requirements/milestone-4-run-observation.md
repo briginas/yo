@@ -1,0 +1,151 @@
+# Milestone 4 requirements: in-memory run observation
+
+- **Status:** draft; roadmap direction selected, implementation not authorized
+- **Prepared:** 2026-10-01
+- **Source of truth for:** proposed Milestone 4 scope and acceptance criteria
+- **Related documents:** [product map](../../PRD.md),
+  [implementation-state map](../../IMPLEMENTATION_PLAN.md),
+  [active implementation plan](../plans/active/milestone-4-run-observation.md)
+
+Review the requirements and linked plan, then confirm one bounded leaf before
+runtime implementation. The earlier approval of a different Milestone 4 scope
+does not approve this implementation.
+
+## Objective
+
+Make the existing agent execution understandable in the terminal: show a list
+of turns in the current session, an ordered event feed for each turn, and a
+result card with errors and patch-approval outcomes.
+
+One submitted user task is one run, even when it contains several model steps
+and tool calls. Runs execute sequentially in the existing in-memory chat.
+
+The first version adds observation only. Later increments add cancellation,
+then explicit rerun, then validation results through the separately reviewed
+[Milestone 5](milestone-5-allowlisted-validation.md).
+
+## Current and target behavior
+
+Today, `runAgent` records structured `RunEvent` values and sends detached,
+immutable snapshots to `onEvent`. The terminal renderer shows live model/tool
+status, final text, and an evidence report. Patch approval uses a separate
+trusted callback that displays the exact diff and reads explicit consent.
+The CLI retains the conversation and only the latest completed session; it
+does not provide a browsable collection of run records.
+
+After this milestone, a session-local observation store retains the ordered
+runs and their display state. It receives existing lifecycle events while the
+run executes and is finalized from the settled `SessionState`. A terminal view
+lets the user inspect prior turns without sending inspection input to the
+model or changing the conversation history.
+
+## Presentation
+
+### Run list
+
+- Assign each submitted task a monotonically increasing session-local number.
+- Show a safe task preview, active or terminal status, and stop reason.
+- Distinguish a failed transport, budget exhaustion, and a completed answer.
+- Retain earlier runs until the process exits; restarting starts an empty list.
+- Allow inspection of settled runs between turns. Exact navigation syntax and
+  terminal layout must be settled during plan review before CLI implementation.
+- Keep one active run; no queue, concurrent runs, or background jobs.
+
+### Event feed
+
+- Preserve runtime order for model requests/responses, tool requests,
+  permission decisions, tool outcomes, patch lifecycle, and run completion.
+- Identify tool events by call ID and model step; do not merge unrelated calls.
+- Show permission denial, invalid arguments, timeout, and execution failure as
+  distinct outcomes. A tool failure need not mean the whole run failed.
+- Use safe summaries and bounded previews; never dump raw arguments, transport
+  payloads, credentials, or hidden reasoning.
+- Keep final-answer text in the answer/result view rather than displaying each
+  text delta as a separate operational feed row.
+- Isolate observer and rendering failures from runtime execution and results.
+
+### Result card and approval
+
+- Show the final answer when available, completion status and stop reason,
+  files/tools used, and relevant errors based on structured evidence.
+- Show patch preparation, waiting for approval, approval or denial, conflict,
+  and confirmed application as separate states.
+- Preserve the complete diff and existing explicit terminal approval prompt.
+  Viewing a historical approval never approves a new action.
+- Render transport failure from the existing safe `transport_error` reason;
+  do not invent diagnostics the runtime did not record.
+- Treat reaching the step budget as budget exhaustion, not user cancellation.
+- Finalize a run once and preserve partial observations when it fails.
+
+## Component and data flow
+
+```mermaid
+flowchart LR
+    Input[User task] --> CLI[CLI composition]
+    CLI --> Runtime[Existing conversation and agent loop]
+    Runtime -->|RunEvent snapshots| Store[Session-local observation store]
+    Runtime -->|Settled SessionState| Store
+    Store --> View[Run list, event feed, result card]
+    Runtime --> Approver[Existing terminal patch approver]
+    Approver -->|Explicit decision for exact patch| Runtime
+```
+
+The observation store is a display projection, not authoritative runtime or
+model-context state. It cannot authorize tools, apply patches, alter budgets,
+or modify the transcript. CLI composition owns run numbering and connects the
+existing runtime observer, terminal renderer, and observation view.
+
+`pi` provides the relevant separation: its interactive mode subscribes to
+`AgentSession` events while the session owns execution and control. Reuse that
+boundary, with the smaller `yo` scope of one terminal session and no persistence,
+extensions, RPC server, or new model-visible capability.
+
+## Scope and deferred work
+
+Included: current-session run list, event feed, result cards, existing patch
+approval presentation, terminal integration, and deterministic verification.
+Non-interactive output must remain useful and deterministic.
+
+Deferred beyond the first version:
+
+1. **Cancellation:** a trusted run controller propagates cancellation through
+   the loop, transport, and active tool/approval operation, settles work, and
+   records a truthful cancelled outcome. Already applied patches remain applied.
+2. **Explicit rerun:** a user command starts a new run linked to its source.
+   Specify whether context comes from the original run or current conversation
+   before implementation. Use current workspace state and fresh patch approval;
+   no automatic retry or inherited consent.
+3. **Validation results:** Milestone 5 introduces only `test` and `build` and
+   displays their structured outcomes in the feed and result card. No test
+   execution is implied by the first observation version.
+
+Each increment needs separate requirements/plan review and bounded-leaf
+confirmation. Persistent history, resume, parallel runs, arbitrary commands,
+automatic repair/retry, browser UI/server, and new UI dependencies are outside
+this milestone.
+
+## Risks and validation
+
+- Display state may diverge from runtime: derive it from ordered snapshots and
+  settled results; test repeated tool names, multiple calls, and failed runs.
+- Inspection input may become a model task or approval response: keep local
+  navigation between turns and preserve exclusive ownership of approval input.
+- Error or argument rendering may leak unsafe data: use locally validated safe
+  fields, bounded previews, and the existing secret-conscious rendering rules.
+- Retained display data may duplicate large tool output: retain lightweight
+  summaries rather than another full transcript or unbounded output copy.
+
+Milestone 4 is complete only when:
+
+1. Multiple turns are inspectable in order during one process lifetime.
+2. Events are associated with the correct run, step, and tool call.
+3. Each run settles once with the actual status and stop reason.
+4. Tool failures, transport failure, and budget exhaustion render accurately.
+5. Approval waiting, denial, conflict, and application match runtime evidence;
+   the exact diff and explicit-consent boundary remain intact.
+6. Observation and navigation do not change model messages, permissions, or
+   runtime outcomes; rendering failures cannot fail the run.
+7. Deterministic multi-turn, event-order, approval, and failure checks pass,
+   along with `npm test`, `npm run build`, `npm run format:check`, and
+   `git diff --check`.
+8. The terminal flow is reviewed before marking the milestone complete.

@@ -2,7 +2,7 @@
 
 - **Status:** draft
 - **Prepared:** 2026-07-27
-- **Renumbered:** 2026-07-28 after compaction became Milestone 4
+- **Updated:** 2026-10-01 for the execution-observation roadmap
 - **Source of truth for:** proposed Milestone 5 scope and acceptance criteria
 - **Related documents:** [product map](../../PRD.md),
   [implementation-state map](../../IMPLEMENTATION_PLAN.md),
@@ -11,6 +11,14 @@
 This document defines the proposed product boundary for Milestone 5. It does
 not authorize implementation. After review, approve this document and the
 linked plan, then confirm the first bounded leaf before changing runtime code.
+
+## Roadmap dependency
+
+This draft follows the first-version run-observation interface, then separately
+specified and verified cancellation and explicit rerun. Review its integration
+against those settled contracts before implementation. It reuses the observation
+feed and result card; it does not introduce another UI framework or automatic
+rerun of validations.
 
 ## Objective
 
@@ -260,6 +268,11 @@ Validations:
 - build: failed (exit 2)
 ```
 
+The observation feed and result card show each validation identifier, outcome,
+exit code when available, and bounded sanitized diagnostics from its structured
+result. Distinguish test/build failure from process infrastructure failure;
+record each call once. Passing `test` does not imply that `build` passed.
+
 The final answer must not claim a validation passed unless the corresponding
 tool result confirms exit code `0`. A failed or unavailable validation remains
 evidence and must be reported accurately.
@@ -278,8 +291,8 @@ evidence and must be reported accurately.
   return behavior.
 - Bounded sanitized combined stdout/stderr with truncation metadata.
 - Structured pass, failure, timeout, abort, and execution-error outcomes.
-- Existing agent-loop, conversation, terminal status, provider schema, system
-  prompt, and evidence integration.
+- Existing agent-loop, conversation, terminal status, observation feed/result
+  card, provider schema, system prompt, and evidence integration.
 - Deterministic tests using injected process operations and temporary explicit
   workspaces.
 - One real local fixture verification and one manually reviewed ChatGPT
@@ -304,7 +317,7 @@ evidence and must be reported accurately.
 - Filesystem, process, CPU, memory, or network sandboxing.
 - Containers, virtual machines, remote executors, CI integration, or
   background jobs.
-- Persistent sessions, JSONL, compaction, TUI, skills, extensions, MCP,
+- Persistent sessions, JSONL, new terminal framework, skills, extensions, MCP,
   connectors, subagents, provider portability, git operations, deployment, or
   external communication.
 
@@ -444,9 +457,9 @@ Milestone 5 is complete only when:
    returning.
 8. Combined output is sanitized, incrementally bounded to 2,000 lines and
    50 KiB, and reports accurate truncation metadata.
-9. Agent-loop events, transcript results, terminal statuses, and evidence each
-   represent a validation call exactly once without unsafe environment or
-   error data.
+9. Agent-loop events, transcript results, terminal statuses, observation feed,
+   result cards, and evidence each represent a validation call exactly once
+   without unsafe environment or error data.
 10. The provider exposes only the strict `run_validation` enum schema after all
     runtime enforcement exists.
 11. `yo` can use both validations through deterministic faux transports.

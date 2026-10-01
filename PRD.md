@@ -97,10 +97,10 @@ The public CLI also exposes:
 - [Milestone 3: approval-gated patch application](docs/requirements/milestone-3-approval-gated-patches.md)
   requirements are approved. Read them when planning or implementing the
   workspace-mutation boundary.
-- [Milestone 4: in-memory context compaction](docs/requirements/milestone-4-context-compaction.md)
-  requirements and active plan are approved. They specify one harness-owned
-  structured-summary lifecycle with a separately configurable compaction model;
-  no runtime implementation has started.
+- [Milestone 4: in-memory run observation](docs/requirements/milestone-4-run-observation.md)
+  requirements and active plan are drafted for review. The first version shows
+  current-session turns, an ordered event feed, and a result card with errors
+  and patch-approval state; no runtime implementation has started.
 - [Milestone 5: allowlisted validation](docs/requirements/milestone-5-allowlisted-validation.md)
   is drafted for later review. It proposes exactly `test` and `build`; no
   process implementation is authorized yet.
@@ -118,25 +118,34 @@ records deterministic and real OAuth-backed verification.
 The public agent workflow is now chat-only. Authentication commands remain
 separate trusted CLI operations.
 
-Milestone 4 is approved for bounded implementation:
-[requirements](docs/requirements/milestone-4-context-compaction.md) and
-[active implementation plan](docs/plans/active/milestone-4-context-compaction.md).
-It separates the complete in-memory transcript from the active model context,
-then proposes one structured checkpoint flow with a separately configurable
-summary model. The first candidate, `10.1`, still requires explicit confirmation
-before runtime code changes.
+Milestone 4 now proposes an interface for observing execution:
+[requirements](docs/requirements/milestone-4-run-observation.md) and
+[active implementation plan](docs/plans/active/milestone-4-run-observation.md).
+Its first version keeps a session-local run list, ordered events, and result
+cards with errors and patch-approval outcomes. The display observes runtime
+state; trusted harness code retains execution and approval authority.
 
-The previous allowlisted-validation draft was renumbered without runtime change
-to Milestone 5:
+Review the new requirements and plan before implementation. The first candidate
+is `10.1`: session-local run records and pure event projection; confirm that
+bounded leaf before changing runtime code.
+
+The selected follow-up order is cancellation, then explicit rerun, then
+validation results. Cancellation and rerun each need a separate reviewed plan.
+The existing Milestone 5 validation draft remains documentation-only:
 [requirements](docs/requirements/milestone-5-allowlisted-validation.md) and
 [active implementation plan](docs/plans/active/milestone-5-allowlisted-validation.md).
+It will add exactly `test` and `build` and show their results in the observation
+interface after the preceding increments are verified.
 
 ## Later direction
 
 After separate planning and approval, later milestones may:
 
-1. Add append-only JSONL sessions that can persist the compaction checkpoints
-   introduced by Milestone 4 without making transcript files authoritative
-   runtime state.
-2. Add richer interactive UX, then skills/extensions and provider portability
-   after the in-memory chat loop and compaction boundary have been validated.
+1. Add run cancellation through a trusted controller that settles active work.
+2. Add explicit rerun as a new linked run with a defined context policy and fresh
+   patch approval.
+3. Add Milestone 5 allowlisted validation and show test/build evidence in event
+   feeds and result cards.
+4. Consider append-only JSONL session history, richer terminal presentation,
+   skills/extensions, and provider portability after the in-memory execution
+   interface and its control boundaries have been validated.

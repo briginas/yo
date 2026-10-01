@@ -2,12 +2,21 @@
 
 - **Status:** draft; implementation not authorized
 - **Prepared:** 2026-07-27
-- **Renumbered:** 2026-07-28 after compaction became Milestone 4
+- **Updated:** 2026-10-01 for the execution-observation roadmap
 - **Requirements:** [Milestone 5 allowlisted validation](../../requirements/milestone-5-allowlisted-validation.md)
-- **Previous milestone:** [Milestone 4 context compaction](milestone-4-context-compaction.md)
+- **Observation foundation:** [Milestone 4 run observation](milestone-4-run-observation.md)
+- **Preceding increments:** separately specified cancellation, then explicit rerun
 
 Review and approve the requirements and this plan before implementation. After
 approval, confirm exactly one incomplete leaf before editing runtime code.
+
+## Roadmap dependency
+
+Implement only after run observation, cancellation, and explicit rerun are
+verified and this draft is reviewed against their settled contracts. The
+current-behavior section below describes the verified Milestone 3 baseline;
+refresh integration assumptions during that review. Validation reuses the
+existing observation interface and cancellation controller.
 
 ## Goal
 
@@ -277,8 +286,14 @@ Keep call order, deduplicate only identical repeated evidence if the current
 report policy requires it, and never infer that an unrequested validation
 passed.
 
-The CLI does not add a new command, flag, prompt, or streaming panel. `yo`
-uses the existing terminal renderer and evidence report.
+The CLI does not add a new command, flag, prompt, or live process-output panel.
+`yo` uses the existing terminal renderer, observation feed/result card, and
+evidence report.
+
+Extend the observation projection with validation identifier, structured
+outcome, exit code when available, and bounded sanitized diagnostics. Keep
+failed tests distinct from executor failure, render each call once, and use
+only confirming tool results for pass claims.
 
 ### Provider adapter and system prompt
 
@@ -336,8 +351,8 @@ project checkout as an execution target.
 - Minimal environment and temporary home/cache.
 - Bounded process execution, output, timeout, abort, and cleanup.
 - Provider-neutral result metadata and existing operational events.
-- Runtime, conversation, terminal, evidence, provider, prompt, and CLI
-  integration.
+- Runtime, conversation, terminal, observation feed/result card, evidence,
+  provider, prompt, and CLI integration.
 - Deterministic and controlled real-process coverage.
 - Documentation updates and one final reviewed real OAuth-backed flow.
 
@@ -352,7 +367,7 @@ project checkout as an execution target.
 - Live process-output UI or persistent logs.
 - Per-validation approval UX.
 - Filesystem/network sandboxing and untrusted repositories.
-- Session persistence, compaction, TUI, skills, MCP, connectors, subagents,
+- Session persistence, new terminal framework, skills, MCP, connectors, subagents,
   provider portability, git operations, or deployment.
 
 ## Risks and mitigations
@@ -485,6 +500,10 @@ cannot discover or request the tool through normal provider composition.
 - [ ] Preserve ordered one-result transcript and event semantics.
 - [ ] Add safe terminal argument summaries and completion status mapping.
 - [ ] Add ordered validation outcomes to the evidence report.
+- [ ] Extend the observation feed and result card with command, outcome, exit
+      code, and bounded diagnostics from each structured tool result.
+- [ ] Test exact-once display, test failure versus executor failure, and no
+      inferred pass for a command without a confirming result.
 - [ ] Cover multi-call order, failed validation continuation, chat rollback,
       renderer failure isolation, and exact evidence.
 - [ ] Keep provider visibility disabled.

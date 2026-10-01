@@ -15,13 +15,13 @@ one existing workspace file, but the harness displays the complete diff and
 writes only after explicit terminal approval.
 [See the current project state →](IMPLEMENTATION_PLAN.md)
 
-Milestone 4 requirements and plan are approved: they specify in-memory context
-compaction with one harness-owned structured-summary lifecycle and a separately
-configurable compaction model. Runtime implementation has not started; `10.1`
-still requires explicit confirmation. The previous allowlisted-validation draft
-is now Milestone 5. General shell execution, persistence, MCP, and subagents are
-not implemented.
-[Review the approved Milestone 4 requirements →](docs/requirements/milestone-4-context-compaction.md)
+Milestone 4 now drafts an execution-observation interface: a list of turns in
+the current session, an event feed, and a result card with errors and
+patch-approval state. The follow-up sequence is cancellation, explicit rerun,
+then Milestone 5 test/build validation results. Runtime implementation has not
+started; the new requirements and plan need review before confirming `10.1`.
+General shell execution, persistence, MCP, and subagents are not implemented.
+[Review the Milestone 4 draft requirements →](docs/requirements/milestone-4-run-observation.md)
 
 ## Requirements and setup
 

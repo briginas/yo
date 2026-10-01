@@ -28,39 +28,48 @@ detailed implementation plan, then confirm its first bounded leaf.
   dispatcher integration, approval propagation through the agent loop and
   conversation, terminal diff rendering, model-visible CLI/provider composition,
   deterministic end-to-end coverage, and a real OAuth-backed approval flow**.
-- **Approved context compaction:** Milestone 4 requirements and its active plan
-  were approved on 2026-07-28:
-  [requirements](docs/requirements/milestone-4-context-compaction.md) and
-  [active plan](docs/plans/active/milestone-4-context-compaction.md).
-  The proposed boundary separates the complete in-memory transcript from the
-  active model context and adds one structured summary lifecycle with a
-  separately configurable compaction model. No runtime implementation has
-  started, and the first candidate awaiting explicit confirmation is **10.1:
-  compaction contracts, estimates, and complete-turn preparation**.
-- **Renumbered allowlisted validation draft:** The former Milestone 4
-  validation documents were renumbered on 2026-07-28 without runtime change:
-  [Milestone 5 requirements](docs/requirements/milestone-5-allowlisted-validation.md)
+- **Draft run observation:** On 2026-10-01, the next roadmap direction was
+  selected as a current-session run list, event feed, and result card with
+  errors and patch-approval state. See the new
+  [Milestone 4 requirements](docs/requirements/milestone-4-run-observation.md)
+  and [active plan](docs/plans/active/milestone-4-run-observation.md).
+  Runtime implementation has not started. Review these documents, then confirm
+  the first candidate: **10.1: session-local run records and pure event
+  projection**. Leaves **10.1–10.4** cover only the first observation version.
+- **Later cancellation:** after the first observation version is verified,
+  separately specify and approve a trusted cancellation controller with
+  propagation and settle-before-return behavior.
+- **Later explicit rerun:** after cancellation, separately specify and approve
+  a new linked run, its context policy, and fresh patch consent; no automatic
+  retry is planned.
+- **Draft validation and results:** after those preceding increments, review
+  the existing [Milestone 5 requirements](docs/requirements/milestone-5-allowlisted-validation.md)
   and [active plan](docs/plans/active/milestone-5-allowlisted-validation.md).
-  Its proposed boundary remains one `run_validation` tool with exactly `test`
-  and `build`; its implementation leaves are now **11.1–11.7**.
+  Its one `run_validation` tool remains limited to `test` and `build`; leaves
+  **11.1–11.7** also include outcomes in the observation feed and result card.
+  No process implementation is authorized yet.
 
 ## Permanent constraints
 
 - No model-visible tool may directly perform an unapproved write, shell,
   process, network, credential, or connector action.
 - Trusted network access remains limited to ChatGPT OAuth and the OpenAI Codex
-  model transport. Proposed Milestone 4 summarization stays inside that trusted
-  provider infrastructure. Proposed Milestone 5 npm scripts are explicitly
+  model transport. Milestone 4 observation adds no network capability.
+  Proposed Milestone 5 npm scripts are explicitly
   documented as trusted process code rather than a network sandbox.
 - The current verified harness writes the OAuth credential store at
   `~/.yo/auth.json` and may atomically apply one exact workspace patch after
   explicit terminal approval.
 - Any future workspace mutation must be separately specified, approved, and
   enforced by trusted harness code rather than model instructions.
-- No API-key fallback, persistent sessions, JSONL, compaction, TUI, project
-  configuration file, device-code login, multi-provider support, skills, MCP,
-  or subagents exist in the current verified harness.
-- Do not implement Milestone 4 behavior until one bounded leaf from its approved
-  requirements and active plan is explicitly confirmed.
-- Do not implement Milestone 5 validation until Milestone 4 is completed and
-  the renumbered validation draft is separately reviewed and approved.
+- No API-key fallback, persistent sessions, JSONL, run-history inspection,
+  user-controlled run cancellation or rerun, TUI, project configuration file,
+  device-code login, multi-provider support, skills, MCP, or subagents exist
+  in the current verified harness.
+- Do not implement Milestone 4 behavior until its new requirements and active
+  plan are reviewed and approved, and one bounded leaf is explicitly confirmed.
+- Cancellation and explicit rerun remain separately planned later increments;
+  approval of first-version observation does not authorize them.
+- Do not implement Milestone 5 validation until observation, cancellation, and
+  explicit rerun are verified and the validation draft is separately reviewed
+  and approved against their settled contracts.
