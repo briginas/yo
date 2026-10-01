@@ -21,14 +21,26 @@ the current CLI session. While a run executes, its event snapshots update a
 display projection. When it settles, the projection gets its final status,
 answer, and evidence. The user can inspect earlier runs between turns.
 
+The list and result card also show start time and elapsed duration. CLI
+composition supplies injectable clocks; the pure projection consumes sampled
+values rather than reading time itself. Use wall time for the start label and
+monotonic time for elapsed duration, then freeze duration when the run settles.
+
+Keep lifecycle and activity separate: a running run can wait for the model, a
+tool, or patch approval, then settle once. Inspection only changes the selected
+display record. Controlled faux transports and promise gates make success,
+failure, delay, and approval waiting reproducible without a live provider.
+
 There are three responsibilities:
 
 - **CLI composition** numbers runs, connects observers, records settlement,
-  and routes local inspection without turning it into a model request.
+  samples injected clocks, and routes local inspection without turning it
+  into a model request.
 - **Observation store** maps ordered events into run summaries, feed rows,
   errors, and approval state without changing runtime state.
 - **Terminal presentation** renders the list, selected feed, and result card,
-  preserving the existing answer delivery and exact-patch approval prompt.
+  with keyboard actions and textual statuses, preserving the existing answer
+  delivery and exact-patch approval prompt.
 
 The existing agent loop, dispatcher, provider transport, and patch applier
 remain authoritative for execution. In `pi`, `AgentSession.subscribe` and the
@@ -69,6 +81,12 @@ agent. Address them through pure projection checks, safe bounded rendering,
 between-turn inspection, and observer isolation. Preserve non-interactive
 output and the existing explicit-consent rule.
 
+Clock changes must not affect elapsed duration, and late UI updates must not
+reopen settled records. Validate those boundaries with injected clock samples,
+duplicate settlement, and interleaved observations from distinct run records.
+Repeated tool names or matching event text are not grounds for deduplication.
+Network event redelivery/reconnection is outside this in-process interface.
+
 Exact local navigation syntax and layout are a review decision for this plan;
 settle them before leaf 10.3. Do not change the public `yo` entrypoint or add a
 browser interface as part of that decision.
@@ -78,13 +96,18 @@ browser interface as part of that decision.
 ### 10.1 Session-local run records and pure event projection
 
 - [ ] Define narrow `type` contracts for run identity, summaries, feed rows,
-      result cards, and approval state.
+      result cards, approval state, and sampled start/elapsed timing.
+- [ ] Define allowed running/activity/settled transitions; make finalization
+      idempotent and reject display updates that reopen a settled record.
 - [ ] Add a pure projection of existing `RunEventSnapshot` values with ordered
       run/step/call association and one settled result per run.
 - [ ] Keep answer deltas out of the operational feed; bound display previews
       and avoid duplicating full tool outputs or model transcripts.
 - [ ] Test multi-call ordering, tool failures, transport failure, budget stop,
-      patch waiting/denial/conflict/application, and finalization.
+      patch waiting/denial/conflict/application, duplicate finalization, late
+      updates, and distinct runs with repeated tool names.
+- [ ] Test start-time samples, monotonic non-negative elapsed time, wall-clock
+      changes, and duration freezing without reading real clocks in projection.
 - [ ] Keep CLI behavior, provider schemas, permissions, and transcript unchanged.
 
 **Leaf acceptance:** pure projection checks pass; no user-facing behavior or
@@ -94,9 +117,12 @@ execution authority changes.
 
 - [ ] Allocate a record for each user task and compose observation with the
       existing terminal event observer without changing runtime semantics.
+- [ ] Inject wall and monotonic clocks at CLI composition, sample timing for
+      display updates, and freeze elapsed duration on settlement.
 - [ ] Finalize records from settled sessions; represent unexpected CLI turn
       failure safely without leaving a falsely active record.
-- [ ] Render the list, feed, and result card from safe projected fields.
+- [ ] Render the list, feed, and result card, including timing and available
+      actions, from safe projected fields with explicit text labels.
 - [ ] Preserve final-answer delivery, evidence, complete patch diff, and
       explicit approval input ownership.
 - [ ] Test observer/render failure isolation and deterministic non-TTY output.
@@ -110,9 +136,16 @@ records; rendering failures do not affect execution or consent.
       selection of a settled run.
 - [ ] Keep navigation out of user/model messages and approval responses.
 - [ ] Verify multiple turns, previous failed runs, empty history, invalid
-      selection, and follow-up chat after inspection.
+      selection, switching between runs without mixed events, and follow-up
+      chat after inspection.
+- [ ] Verify keyboard-only navigation and approval, and statuses that remain
+      understandable with color disabled and in non-TTY output.
+- [ ] Reuse faux transports, injected input/clocks, controlled promise gates,
+      and temporary workspaces for success, transport/tool error, delay, and
+      approval-waiting scenarios; require no real OAuth or paid model calls.
 - [ ] Verify session exit discards history and a new process starts empty.
-- [ ] Update README usage only for the newly verified behavior.
+- [ ] Update README usage only for the newly verified behavior and document
+      repeatable demo scenarios, architectural choices, and limitations.
 
 **Leaf acceptance:** deterministic CLI flows can inspect earlier runs and then
 continue chat with unchanged conversation and patch-approval semantics.
@@ -123,7 +156,11 @@ continue chat with unchanged conversation and patch-approval semantics.
       `npm run format:check`, and `git diff --check`.
 - [ ] Review scope, event order, safe error rendering, and terminal consent.
 - [ ] Review the terminal flow using controlled faux transports and temporary
-      fixture workspaces; record any unverified behavior explicitly.
+      fixture workspaces for success, failure, delay, and approval waiting;
+      record any unverified behavior explicitly.
+- [ ] Verify state-transition and timing checks are independent of live
+      network timing; keep UI checks distinct from the future model-facing
+      repository validation capability.
 - [ ] Mark complete only after scoped checks and result review; move the plan
       to `docs/plans/completed/` and update the project maps.
 
@@ -143,13 +180,19 @@ After the first version, plan and verify these increments separately:
 
 1. **Cancellation:** define a trusted run controller, propagate abort through
    transport and tools, safely resolve pending approval, wait for settlement,
-   and show cancellation accurately. Test cancellation before execution,
-   during a request/tool/approval, and near completion. Cancellation cannot
+   and show cancellation requested while waiting for confirmation. Mark
+   cancelled only after runtime settlement; if completion won the race, retain
+   the completed result. This follows `pi` session abort-and-wait behavior.
+   Test cancellation before execution, during a request/tool/approval, repeated
+   cancellation, and both completion/cancellation race orders. Cancellation cannot
    undo an already applied patch or fabricate a result for unfinished work.
 2. **Explicit rerun:** specify the context snapshot/current-context choice,
    create a new numbered run linked to its source, use current workspace state,
-   and require fresh consent for each patch. Test source immutability,
-   changed files, terminal source runs, and absence of automatic retry.
+   and require fresh consent for each patch. Retain the previous attempt;
+   prevent repeated submission of one pending rerun action from allocating
+   duplicate runs, while allowing a deliberate later attempt. Test source
+   immutability, changed files, terminal source runs, repeated submission, and
+   absence of automatic retry.
 3. **Validation results:** implement separately approved Milestone 5 `test`
    and `build`, integrate with the settled cancellation contract, and display
    identifier, outcome, exit code, and bounded diagnostics in the event feed
@@ -163,6 +206,7 @@ preceding increments are verified and its integration assumptions are reviewed.
 
 ## Reference project
 
+- [Practical cases: timing, reproducible scenarios, accessibility, and cancellation/rerun rules](https://chatgpt.com/space/page_2a8214f5756481919478bc2b8d020a4a)
 - [`pi` session event subscription and run control](../../../../pi/packages/coding-agent/src/core/agent-session.ts)
 - [`pi` interactive event handling](../../../../pi/packages/coding-agent/src/modes/interactive/interactive-mode.ts)
 - [`yo` runtime event contracts](../../../src/runtime/run.ts)

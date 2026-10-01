@@ -45,6 +45,9 @@ model or changing the conversation history.
 
 - Assign each submitted task a monotonically increasing session-local number.
 - Show a safe task preview, active or terminal status, and stop reason.
+- Show the start time and elapsed duration; freeze the duration when the run
+  settles. Use an injected wall clock for start time and a monotonic clock for
+  duration so clock adjustments do not produce negative elapsed time.
 - Distinguish a failed transport, budget exhaustion, and a completed answer.
 - Retain earlier runs until the process exits; restarting starts an empty list.
 - Allow inspection of settled runs between turns. Exact navigation syntax and
@@ -76,6 +79,23 @@ model or changing the conversation history.
   do not invent diagnostics the runtime did not record.
 - Treat reaching the step budget as budget exhaustion, not user cancellation.
 - Finalize a run once and preserve partial observations when it fails.
+
+### State transitions and accessibility
+
+The observation lifecycle is `running` followed by one settled outcome derived
+from the runtime status and stop reason. Active model work, tool work, and
+waiting for patch approval are activity states within a running run, not new
+terminal outcomes. Approval or denial can return the run to active work.
+
+A settled record cannot become running again. Finalization is idempotent;
+late display updates cannot overwrite the settled outcome or attach themselves
+to a newer run. These display guards must not suppress runtime observations or
+change the transcript. Repeated calls to the same tool remain distinct calls.
+
+All local inspection and approval actions are available from the keyboard.
+Statuses and available actions have text labels; color alone never conveys
+success, failure, or waiting. Cover both interactive and non-color/non-TTY
+presentation with deterministic checks.
 
 ## Component and data flow
 
@@ -110,11 +130,16 @@ Deferred beyond the first version:
 
 1. **Cancellation:** a trusted run controller propagates cancellation through
    the loop, transport, and active tool/approval operation, settles work, and
-   records a truthful cancelled outcome. Already applied patches remain applied.
+   records a truthful cancelled outcome. Show cancellation requested while
+   waiting for settlement; show cancelled only after runtime confirmation.
+   Resolve a completion/cancellation race from the controller's actual settled
+   result, preserving completion if it won. Already applied patches remain applied.
 2. **Explicit rerun:** a user command starts a new run linked to its source.
    Specify whether context comes from the original run or current conversation
    before implementation. Use current workspace state and fresh patch approval;
-   no automatic retry or inherited consent.
+   no automatic retry or inherited consent. Retain the previous attempt and
+   prevent repeated submission of the same pending rerun action from creating
+   accidental duplicate runs; allow a deliberate later attempt.
 3. **Validation results:** Milestone 5 introduces only `test` and `build` and
    displays their structured outcomes in the feed and result card. No test
    execution is implied by the first observation version.
@@ -126,6 +151,16 @@ this milestone.
 
 ## Risks and validation
 
+Use the existing faux model-transport and injected CLI boundaries to build
+reproducible success, transport-error, tool-error, delayed-response, and
+approval-waiting scenarios. Drive delays through controlled promise settlement,
+not real network calls or timing-dependent sleeps. Use temporary fixture
+workspaces for patch scenarios. Reuse these scenarios for automated checks and
+a repeatable terminal demonstration without OAuth or paid model requests.
+
+These tests verify the observation interface and state transitions. They are
+part of Milestone 4; agent-executed repository `test`/`build` remains Milestone 5.
+
 - Display state may diverge from runtime: derive it from ordered snapshots and
   settled results; test repeated tool names, multiple calls, and failed runs.
 - Inspection input may become a model task or approval response: keep local
@@ -134,12 +169,18 @@ this milestone.
   fields, bounded previews, and the existing secret-conscious rendering rules.
 - Retained display data may duplicate large tool output: retain lightweight
   summaries rather than another full transcript or unbounded output copy.
+- Start-time clocks may move backward or elapsed updates may arrive late:
+  compute elapsed time monotonically and freeze it at the first settlement.
 
 Milestone 4 is complete only when:
 
-1. Multiple turns are inspectable in order during one process lifetime.
+1. Multiple turns are inspectable in order during one process lifetime, with
+   deterministic start times and non-negative elapsed durations that stop
+   changing after settlement.
 2. Events are associated with the correct run, step, and tool call.
-3. Each run settles once with the actual status and stop reason.
+3. Each run settles once with the actual status and stop reason; duplicate
+   finalization, late updates, and selection changes cannot overwrite results
+   or mix events between runs.
 4. Tool failures, transport failure, and budget exhaustion render accurately.
 5. Approval waiting, denial, conflict, and application match runtime evidence;
    the exact diff and explicit-consent boundary remain intact.
@@ -148,4 +189,16 @@ Milestone 4 is complete only when:
 7. Deterministic multi-turn, event-order, approval, and failure checks pass,
    along with `npm test`, `npm run build`, `npm run format:check`, and
    `git diff --check`.
-8. The terminal flow is reviewed before marking the milestone complete.
+8. Keyboard-only inspection and approval work, and statuses remain clear
+   without color.
+9. Reproducible success, failure, delay, and approval-waiting demonstrations
+   use controlled faux transports and fixtures; the terminal flow is reviewed
+   before marking the milestone complete.
+
+## Design source
+
+The [Practical cases Page](https://chatgpt.com/space/page_2a8214f5756481919478bc2b8d020a4a)
+informs timing, reproducible scenarios, state transitions, accessibility, and
+the later cancellation/rerun rules. Its React/HTTP/SSE implementation and
+connection-recovery scenario belong to a possible separate web interface, not
+this terminal milestone.
