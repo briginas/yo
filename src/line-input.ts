@@ -15,6 +15,7 @@ export type LineReadOptions = Readonly<{ signal?: AbortSignal }>
 export type LineInput = {
     readLine: (prompt: string, options?: LineReadOptions) => Promise<string | null>
     subscribeInterrupt?: (listener: () => void) => () => void
+    discardUntilNextRead?: () => void
     close: () => void
 }
 
@@ -82,6 +83,17 @@ export const createNodeLineInput = ({
             if (lines.line.length > 0) lines.write(null, { name: 'return' })
         } else lines.write('\n')
     }
+    const discardUntilNextRead = (): void => {
+        if (closed) return
+        discarding = true
+        buffered.length = 0
+        if (pending !== undefined) fail(pending, new LineReadAbortedError())
+        try {
+            clearPartial()
+        } catch {
+            onError(new Error('Input reset failed'))
+        }
+    }
     const detach = (): void => {
         lines.off('line', onLine)
         lines.off('close', onClose)
@@ -144,14 +156,7 @@ export const createNodeLineInput = ({
                 }
                 const cancel = (): void => {
                     if (pending !== owner) return
-                    discarding = true
-                    buffered.length = 0
-                    fail(owner, new LineReadAbortedError())
-                    try {
-                        clearPartial()
-                    } catch {
-                        onError(new Error('Input reset failed'))
-                    }
+                    discardUntilNextRead()
                 }
                 pending = owner
                 signal?.addEventListener('abort', cancel, { once: true })
@@ -165,6 +170,7 @@ export const createNodeLineInput = ({
                 }
             })
         },
+        discardUntilNextRead,
         subscribeInterrupt: (listener): (() => void) => {
             if (!closed && !ended) interrupts.add(listener)
             return () => interrupts.delete(listener)

@@ -359,3 +359,39 @@ test('display failure during input reset cannot leave the cancelled read pending
     await assert.rejects(input.readLine(CHAT_PROMPT), /Input reset failed/)
     input.close()
 })
+
+test('active cancellation discards input without opening an approval read', async () => {
+    for (const isInteractive of [false, true]) {
+        const { stream, input } = nodeInputFixture(isInteractive)
+        const task = input.readLine(CHAT_PROMPT)
+        stream.write('accepted task\n')
+        assert.equal(await task, 'accepted task')
+        stream.write('queued task\nold partial')
+        input.discardUntilNextRead!()
+        input.discardUntilNextRead!()
+        stream.write('late task\nlate partial')
+        const fresh = input.readLine(CHAT_PROMPT)
+        stream.write('fresh task\n')
+        assert.equal(await fresh, 'fresh task')
+        input.close()
+    }
+})
+
+test('discard releases a pending owner and clears queued input even after EOF', async () => {
+    const { stream, input } = nodeInputFixture()
+    const pending = input.readLine('approve> ')
+    const rejected = assert.rejects(pending, LineReadAbortedError)
+    input.discardUntilNextRead!()
+    await rejected
+    stream.end('discarded\npartial')
+    await new Promise<void>((done) => setImmediate(done))
+    assert.equal(await input.readLine(CHAT_PROMPT), null)
+    input.close()
+
+    const ended = nodeInputFixture()
+    ended.stream.end('buffered\npartial')
+    await new Promise<void>((done) => setImmediate(done))
+    ended.input.discardUntilNextRead!()
+    assert.equal(await ended.input.readLine(CHAT_PROMPT), null)
+    ended.input.close()
+})

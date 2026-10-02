@@ -31,6 +31,7 @@ import {
     type TerminalTextWriter,
 } from './terminal-renderer.ts'
 import { createTerminalPatchApprover } from './terminal-approval.ts'
+import { createRunController, type RunController } from './runtime/run-controller.ts'
 
 const RUN_BUDGET = {
     maxSteps: 10,
@@ -44,6 +45,7 @@ export type CliDependencies = {
     writeOutput: (message: string) => void
     writeError: (message: string) => void
     createLineInput?: () => LineInput
+    subscribeProcessInterrupt?: (listener: () => void) => () => void
     writeAnswer?: TerminalTextWriter
     writeStatus?: TerminalTextWriter
     clearStatusLine?: () => void
@@ -267,6 +269,7 @@ type ChatDependencies = TerminalDependencies & {
     createLineInput: () => LineInput
     observationClocks: ObservationClocks
     runTurn: typeof runConversationTurn
+    subscribeProcessInterrupt: (listener: () => void) => () => void
 }
 
 type RunChatOptions = ChatDependencies & {
@@ -290,6 +293,7 @@ const runChat = async ({
     isInteractive,
     observationClocks,
     runTurn,
+    subscribeProcessInterrupt,
 }: RunChatOptions): Promise<CliResult> => {
     const { renderer, statusOutput } = createTerminalComposition({
         writeError,
@@ -326,7 +330,31 @@ const runChat = async ({
         return runtimeError('Cannot start chat input.', writeError)
     }
 
+    let active: RunController<Awaited<ReturnType<typeof runConversationTurn>>> | undefined
+    let disposeInputInterrupt: (() => void) | undefined
+    let disposeProcessInterrupt: (() => void) | undefined
+    let inputStarted = false
+    const onInterrupt = (): void => {
+        if (active !== undefined) {
+            const alreadyAborted = active.signal.aborted
+            active.requestCancellation()
+            if (!alreadyAborted && active.signal.aborted) {
+                try {
+                    input.discardUntilNextRead?.()
+                } catch {
+                    // Input reset failure cannot detach an unsettled turn.
+                    input.close()
+                }
+            }
+        } else {
+            input.close()
+        }
+    }
     try {
+        // Readline loses its key route on EOF/reset failure; protect unsettled work then too.
+        disposeProcessInterrupt = subscribeProcessInterrupt(onInterrupt)
+        if (isInteractive) disposeInputInterrupt = input.subscribeInterrupt?.(onInterrupt)
+        inputStarted = true
         await runChatInput({
             input,
             clearProgress,
@@ -344,15 +372,15 @@ const runChat = async ({
                     }
                     return
                 }
-                const observed = observations.begin(task)
-                let result: Awaited<ReturnType<typeof runConversationTurn>>
-                try {
-                    result = await runTurn({
+                // Invocation is deferred so control exists before even synchronous run events.
+                const controller = createRunController((signal) =>
+                    runTurn({
                         conversation,
                         task,
                         budget: RUN_BUDGET,
                         transport,
                         onEvent: observed.onEvent,
+                        signal,
                         patchApprover: createTerminalPatchApprover({
                             input,
                             write: writeAnswer,
@@ -360,16 +388,27 @@ const runChat = async ({
                             isInteractive,
                         }),
                     })
-                } catch {
-                    observations.fail(observed.id)
-                    throw new ChatTurnError()
-                }
-                const session = result.turn.session
-                conversation = result.conversation
-                lastSession = session
-                observations.settle(observed.id, session, () =>
-                    renderer.finishAnswer(session.finalAnswer)
                 )
+                active = controller
+                const observed = observations.begin(task)
+                try {
+                    let result: Awaited<ReturnType<typeof runConversationTurn>>
+                    try {
+                        result = await controller.settled
+                    } catch {
+                        observations.fail(observed.id)
+                        throw new ChatTurnError()
+                    }
+                    const session = result.turn.session
+                    conversation = result.conversation
+                    lastSession = session
+                    observations.settle(observed.id, session, () =>
+                        renderer.finishAnswer(session.finalAnswer)
+                    )
+                } finally {
+                    controller.dispose()
+                    active = undefined
+                }
             },
         })
 
@@ -388,6 +427,19 @@ const runChat = async ({
             exitCode: 1,
             session: lastSession,
         }
+    } finally {
+        try {
+            try {
+                disposeInputInterrupt?.()
+            } finally {
+                disposeProcessInterrupt?.()
+            }
+        } finally {
+            if (!inputStarted) {
+                input.close()
+                clearProgress()
+            }
+        }
     }
 }
 
@@ -404,6 +456,7 @@ export const runCli = async (
         exchangeCredential,
         credentialStore,
         createLineInput,
+        subscribeProcessInterrupt,
         writeAnswer,
         writeStatus,
         clearStatusLine,
@@ -482,5 +535,13 @@ export const runCli = async (
             monotonicTime: () => performance.now(),
         },
         runTurn: runTurn ?? runConversationTurn,
+        subscribeProcessInterrupt:
+            subscribeProcessInterrupt ??
+            ((listener) => {
+                process.on('SIGINT', listener)
+                return () => {
+                    process.off('SIGINT', listener)
+                }
+            }),
     })
 }

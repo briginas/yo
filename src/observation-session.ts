@@ -62,6 +62,20 @@ export const createObservationSession = ({
             report(diagnostic)
         }
     }
+    const pendingNotifications: (() => void)[] = []
+    let notifying = false
+    const notify = (action: () => void): void => {
+        pendingNotifications.push(action)
+        if (notifying) return
+        notifying = true
+        try {
+            // A consumer can request cancellation synchronously. Save it immediately, but finish
+            // this event's notifications before the nested event to preserve feed and display order.
+            while (pendingNotifications.length > 0) pendingNotifications.shift()!()
+        } finally {
+            notifying = false
+        }
+    }
     const sample = (): Readonly<{ value: ClockSample; available: boolean }> => {
         try {
             const value = { wallTimeMs: clocks.wallTime(), monotonicTimeMs: clocks.monotonicTime() }
@@ -91,21 +105,26 @@ export const createObservationSession = ({
         (event) => {
             const record = active(id)
             if (record === null) return
-            let next: RunRecord | null = null
+            const projection: { record: RunRecord | null } = { record: null }
             isolated(() => {
                 const time = sample()
-                next = projectEvent(record, id, event, time.value)
-                next = { ...next, timingAvailable: record.timingAvailable && time.available }
-                save(next)
+                const next = projectEvent(record, id, event, time.value)
+                projection.record = {
+                    ...next,
+                    timingAvailable: record.timingAvailable && time.available,
+                }
+                save(projection.record)
             }, 'projection_failed')
-            // The answer observer still receives the original snapshot if projection or rendering fails.
-            isolated(() => onRuntimeEvent(event), 'observer_failed')
-            if (next !== null) {
-                const projected: RunRecord = next
-                const row =
-                    projected.feed.length > record.feed.length ? projected.feed.at(-1)! : null
-                isolated(() => view.event(projected, row), 'rendering_failed')
-            }
+            notify(() => {
+                // The answer observer still receives the snapshot if projection or rendering fails.
+                isolated(() => onRuntimeEvent(event), 'observer_failed')
+                const projected = projection.record
+                if (projected !== null) {
+                    const row =
+                        projected.feed.length > record.feed.length ? projected.feed.at(-1)! : null
+                    isolated(() => view.event(projected, row), 'rendering_failed')
+                }
+            })
         }
     const finish = (
         id: RunIdentity,
@@ -128,7 +147,7 @@ export const createObservationSession = ({
         save(timed)
         if (timed.summary.status !== 'running') {
             if (beforeResult !== undefined) isolated(beforeResult, 'observer_failed')
-            isolated(() => view.settled(timed, history), 'rendering_failed')
+            notify(() => isolated(() => view.settled(timed, history), 'rendering_failed'))
         }
     }
     return {
@@ -141,7 +160,7 @@ export const createObservationSession = ({
             }
             history = [...history, record]
             const onEvent = observerFor(id)
-            isolated(() => view.start(record), 'rendering_failed')
+            notify(() => isolated(() => view.start(record), 'rendering_failed'))
             return { id, onEvent }
         },
         observerFor,

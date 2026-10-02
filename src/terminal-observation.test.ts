@@ -13,10 +13,116 @@ import {
     formatObservationList,
     formatObservationInspection,
     formatObservationDiagnostic,
+    formatObservationState,
 } from './terminal-observation.ts'
 
 const clock = { wallTimeMs: new Date(2026, 9, 2, 12, 0, 0).getTime(), monotonicTimeMs: 100 }
 const base = () => createRunRecord(1, 'Inspect repository', clock)
+
+test('TTY and non-TTY show requested cancellation until settlement and retain applied evidence', () => {
+    for (const isInteractive of [true, false]) {
+        const lines: string[] = []
+        const controls: string[] = []
+        const cards: string[] = []
+        const output = createTerminalStatusOutput({
+            write: (value) => lines.push(value),
+            clearLine: () => controls.push('clear'),
+            moveCursorToStart: () => controls.push('cursor'),
+            isInteractive,
+        })
+        const view = createTerminalObservationView(output, (value) => cards.push(value))
+        let record = base()
+        view.start(record)
+        const metadata = {
+            proposalId: 'private-proposal',
+            relativePath: 'src/file.ts',
+            baseHash: 'private-base',
+            nextHash: 'private-next',
+            addedLineCount: 1,
+            removedLineCount: 1,
+        }
+        const events = [
+            { type: 'patch_prepared', step: 1, callId: 'private-call', metadata },
+            { type: 'patch_approval_requested', step: 1, callId: 'private-call', metadata },
+            {
+                type: 'patch_approval_resolved',
+                step: 1,
+                callId: 'private-call',
+                metadata,
+                decision: 'approved',
+            },
+            { type: 'run_cancellation_requested' },
+            { type: 'patch_applied', step: 1, callId: 'private-call', metadata },
+            { type: 'run_finished', status: 'aborted', reason: 'aborted' },
+        ] as const
+        for (const event of events) {
+            record = projectRunEvent(record, 1, event, { ...clock, monotonicTimeMs: 125 })
+            view.event(record, record.feed.at(-1)!)
+        }
+        assert.equal(cards.length, 0)
+        assert.match(lines.at(-1)!, /cancellation requested elapsed=0.025s/)
+        assert.equal(record.summary.status, 'running')
+        assert.equal(
+            projectRunEvent(record, 1, { type: 'run_cancellation_requested' }, clock),
+            record
+        )
+        view.event(record, null)
+        assert.equal(lines.filter((line) => line.includes('run_cancellation_requested')).length, 1)
+        assert.equal(lines.filter((line) => line.includes('cancellation requested')).length, 3)
+        const settled = finalizeRunRecord(
+            record,
+            1,
+            {
+                status: 'aborted',
+                stopReason: 'aborted',
+                finalAnswer: null,
+            },
+            { ...clock, monotonicTimeMs: 200 }
+        )
+        view.settled(settled, [settled])
+        assert.match(cards[0]!, /Run #1 result: cancelled/)
+        assert.match(cards[0]!, /\| cancelled \|.*elapsed=0.100s.*reason=aborted/)
+        assert.match(cards[0]!, /src\/file.ts: prepared -> waiting -> approved -> applied/)
+        const retained = formatObservationInspection([settled], 1)
+        assert.match(retained, /run_cancellation_requested/)
+        assert.match(retained, /Retained answer:\n\(no final answer\)/)
+        assert.match(retained, /result: cancelled/)
+        assert.match(formatObservationState(settled), /cancelled elapsed=0.100s/)
+        assert.equal(controls.length > 0, isInteractive)
+        if (!isInteractive)
+            assert.equal(
+                lines.every((line) => line.endsWith('\n')),
+                true
+            )
+        assert.doesNotMatch(lines.join('') + cards.join('') + retained, /private-|\u001b/)
+    }
+})
+
+test('cancelled labels require aborted/aborted settlement and never override race winners', () => {
+    const record = projectRunEvent(base(), 1, { type: 'run_cancellation_requested' }, clock)
+    for (const [status, stopReason, label] of [
+        ['completed', 'final_answer', 'completed'],
+        ['aborted', 'step_budget_exhausted', 'budget_exhausted'],
+        ['failed', 'transport_error', 'failed'],
+        ['aborted', 'final_answer', 'aborted'],
+    ] as const) {
+        const settled = finalizeRunRecord(
+            record,
+            1,
+            { status, stopReason, finalAnswer: null },
+            clock
+        )
+        for (const rendered of [
+            formatObservationResult(settled, [settled]),
+            formatObservationInspection([settled], 1),
+            formatObservationList([settled]),
+            formatObservationState(settled),
+        ]) {
+            assert.ok(rendered.includes(label))
+            assert.doesNotMatch(rendered, /cancelled/)
+        }
+    }
+})
 
 test('renders a deterministic header, one ordered feed, and textual activity without terminal controls in non-TTY', () => {
     const lines: string[] = []

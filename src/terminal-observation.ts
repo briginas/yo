@@ -16,6 +16,10 @@ const elapsedLabel = (record: RunRecord): string =>
     record.timingAvailable ? duration(record.summary.elapsedMs) : 'unavailable'
 const startLabel = (record: RunRecord): string =>
     record.timingAvailable ? localTime(record.summary.startedAtMs) : 'unavailable'
+const outcomeLabel = (record: RunRecord): string =>
+    record.summary.status === 'aborted' && record.summary.stopReason === 'aborted'
+        ? 'cancelled'
+        : record.summary.status
 const callNumber = (record: RunRecord, step: number | null, callId: string | null): string => {
     if (callId === null) return ''
     const index = record.calls.findIndex((call) => call.step === step && call.callId === callId)
@@ -34,8 +38,10 @@ export const formatObservationFeedRow = (record: RunRecord, row: FeedRow): strin
             : ` reason=${row.truncation.reason} limit=${row.truncation.limit} observed=${row.truncation.observed}`,
     ].join('')
 
-export const formatObservationState = (record: RunRecord): string =>
-    `state: run=${record.summary.id} ${record.summary.activity ?? record.summary.status} elapsed=${elapsedLabel(record)}`
+export const formatObservationState = (record: RunRecord): string => {
+    const activity = record.summary.activity
+    return `state: run=${record.summary.id} ${activity === 'cancelling' ? 'cancellation requested' : (activity ?? outcomeLabel(record))} elapsed=${elapsedLabel(record)}`
+}
 
 const formatResultCard = (record: RunRecord): string => {
     const result = record.result
@@ -56,7 +62,7 @@ const formatResultCard = (record: RunRecord): string => {
         return `- ${approval.path}: ${states.join(' -> ')}${approval.conflict === null ? '' : ` (${approval.conflict})`}`
     })
     return [
-        `Run #${record.summary.id} result: ${result.outcome}`,
+        `Run #${record.summary.id} result: ${outcomeLabel(record)}`,
         `Elapsed: ${elapsedLabel(record)}`,
         'Evidence:',
         `Stop reason: ${result.stopReason}`,
@@ -77,7 +83,7 @@ export const formatObservationList = (history: ObservationHistory): string =>
             ? ['No runs yet.']
             : history.map(
                   (item) =>
-                      `- #${item.summary.id} ${item.summary.taskPreview} | ${item.summary.status} | start=${startLabel(item)} elapsed=${elapsedLabel(item)} | reason=${item.summary.stopReason ?? 'pending'}`
+                      `- #${item.summary.id} ${item.summary.taskPreview} | ${outcomeLabel(item)} | start=${startLabel(item)} elapsed=${elapsedLabel(item)} | reason=${item.summary.stopReason ?? 'pending'}`
               )),
         OBSERVATION_USAGE,
     ].join('\n')

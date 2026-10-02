@@ -1,6 +1,55 @@
 # Verification
 
-## Current status: group 6
+## Current status: group 7
+
+Groups 1–7 are implemented, checked, and agent-reviewed under the user's request
+to implement the change and commit after each step. Group 6 is committed as
+`c67c608`. Human result acceptance and specification synchronization/archive
+remain pending. Main specifications are unchanged.
+
+The CLI registers its trusted controller before turn invocation and initial
+observation rendering. Active Ctrl+C requests cancellation and awaits the complete
+turn; repeated requests neither reset input again nor force termination. Idle
+interrupt closes chat without allocating a run. Process SIGINT is scoped to chat,
+with readline supplying the interactive key route. Independent review identified
+that interactive EOF/reset failure removes readline's route while work may remain
+active; a process fallback now remains installed in interactive chat too. Both
+routes share the same controller and are disposed on all chat exits. EOF itself
+remains ordinary denial/exit, not cancellation.
+
+The reader exposes a trusted discard-until-next-read boundary, including partial
+input and queued lines when no approval read is pending or EOF already occurred.
+Pending approval cancellation still releases ownership, rejects late consent,
+and requires fresh input after settlement. The CLI never reads another task or
+inspection command before the complete turn settles.
+
+Observation projects one request row and sticky cancelling activity, retaining
+subsequent tool/patch/finish evidence while unsettled. Only runtime aborted/aborted
+renders cancelled; internal outcomes stay aborted, and completion/budget are
+preserved. A synchronous notification queue prevents reentrant terminal or answer
+callbacks from rendering nested cancellation before an older row or overwriting
+its activity. Each observer/display failure remains isolated. Frozen history,
+timing, applied patch evidence, and run identity remain unchanged after settlement.
+
+- Combined input/CLI/observation/renderer suite: 157 passed, 0 failed.
+- Eleven new CLI scenarios cover held cleanup, repeated interruption, inspection
+  and fresh context, synchronous initial interruption, committed completion while
+  outer settlement waits, native readline approval interruption/late consent,
+  idle interruption, failure/disposal, display/clock/diagnostic failure, EOF fallback,
+  and real process-listener installation/disposal without sending process signals.
+- Input tests verify discard with no pending approval, pending owner release, EOF,
+  partial/buffered text, and fresh reads. Observation tests cover sticky activity,
+  duplicate evidence, actual settlement labels, frozen/applied trails, faulty hooks,
+  and both terminal-writer and answer-observer reentry.
+- `npm run build`, formatting, strict OpenSpec validation, and diff checks passed.
+- Implementation subagents and parent reviewed tests and final code. Independent
+  CLI/input review confirmed the EOF route fix and reported no remaining defect.
+
+Faux/native stream tests do not establish physical terminal key behavior. Group 8
+will verify a real PTY separately, add a deterministic example, and run full checks.
+No live-provider request was performed. Rerun/validation remain separate work.
+
+## Group 6 evidence (before group 7)
 
 Remaining implementation is authorized with a commit after each step. Group 5
 is committed as `3a4406f`. Groups 1–6 are checked and agent-reviewed; result

@@ -54,6 +54,91 @@ const metadata = {
     removedLineCount: 1,
 }
 
+test('cancellation stays running and sticky through operation evidence with one request row', () => {
+    const original = initial()
+    let record = project(original, { type: 'run_cancellation_requested' }, 120)
+    assert.equal(original.summary.activity, 'starting')
+    assert.equal(record.summary.status, 'running')
+    assert.equal(record.summary.activity, 'cancelling')
+    assert.equal(record.result, null)
+    assert.equal(project(record, { type: 'run_cancellation_requested' }, 999), record)
+    const events: RunEventSnapshot[] = [
+        { type: 'model_requested', step: 1, metadata: { model: null, visibleTools: [] } },
+        {
+            type: 'model_responded',
+            step: 1,
+            metadata: { model: null, toolCallCount: 1, hasFinalAnswer: false },
+        },
+        request('read'),
+        completed('read', 'aborted'),
+        { type: 'patch_prepared', step: 1, callId: 'patch', metadata },
+        { type: 'patch_approval_requested', step: 1, callId: 'patch', metadata },
+        {
+            type: 'patch_approval_resolved',
+            step: 1,
+            callId: 'patch',
+            metadata,
+            decision: 'approved',
+        },
+        { type: 'patch_applied', step: 1, callId: 'patch', metadata },
+        { type: 'run_finished', status: 'aborted', reason: 'aborted' },
+    ]
+    for (const [index, event] of events.entries()) {
+        record = project(record, event, 130 + index)
+        assert.equal(record.summary.activity, 'cancelling')
+        assert.equal(record.summary.status, 'running')
+        assert.equal(record.result, null)
+        assert.equal(project(record, { type: 'run_cancellation_requested' }), record)
+    }
+    assert.deepEqual(
+        record.feed.map((row) => row.type),
+        ['run_cancellation_requested', ...events.map((event) => event.type)]
+    )
+    assert.deepEqual(
+        record.feed.map((row) => row.sequence),
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    )
+    assert.deepEqual(record.errors, [{ step: 1, callId: 'read', reason: 'aborted' }])
+    assert.deepEqual(record.files, ['src/main.ts'])
+    assert.equal(record.approvals[0]?.state, 'applied')
+})
+
+test('settlement preserves runtime race winners and freezes requested cancellation history', () => {
+    const requested = project(initial(), { type: 'run_cancellation_requested' }, 120)
+    for (const [status, stopReason, outcome] of [
+        ['completed', 'final_answer', 'completed'],
+        ['failed', 'transport_error', 'failed'],
+        ['aborted', 'step_budget_exhausted', 'budget_exhausted'],
+        ['aborted', 'aborted', 'aborted'],
+    ] as const) {
+        const finished = project(requested, { type: 'run_finished', status, reason: stopReason })
+        const settled = finalizeRunRecord(
+            finished,
+            1,
+            { status, stopReason, finalAnswer: status === 'completed' ? 'Done' : null },
+            clock(150)
+        )
+        const before = structuredClone(settled)
+        assert.equal(settled.summary.status, outcome)
+        assert.equal(settled.summary.activity, null)
+        assert.equal(settled.result?.outcome, outcome)
+        assert.equal(settled.summary.elapsedMs, 50)
+        assert.equal(project(settled, { type: 'run_cancellation_requested' }, 999), settled)
+        assert.equal(project(settled, request('late'), 999), settled)
+        assert.equal(settle(settled, 999), settled)
+        assert.deepEqual(settled, before)
+    }
+    const completedFirst = project(initial(), {
+        type: 'run_finished',
+        status: 'completed',
+        reason: 'final_answer',
+    })
+    assert.equal(
+        settle(project(completedFirst, { type: 'run_cancellation_requested' })).summary.status,
+        'completed'
+    )
+})
+
 test('preserves call order and step association without retaining raw data or answer deltas', () => {
     const events: RunEventSnapshot[] = [
         {

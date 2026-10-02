@@ -39,13 +39,14 @@ successive bounded steps in separate subagents, with group 2 committed as
 `b061aee` and group 3 as `c77cdf9` before the following step. Groups 1–4 provide
 the internal controller, optional signal contracts, settled read/preparation
 operations, cancellable single-reader approval APIs, and settled patch dispatch/
-application cancellation with preserved initiated-rename outcomes. CLI interrupts and
-observation cancellation presentation remain unwired.
+application cancellation with preserved initiated-rename outcomes. CLI interrupts and cancellation
+observation are now wired through group 7.
 The [verification](openspec/changes/cancel-active-runs/verification.md) records
 group 5 request/credential cancellation (92 focused tests) and group 6
-loop/conversation cancellation (51 focused tests), plus build and review.
+loop/conversation cancellation (51 focused tests), and group 7
+CLI/observation cancellation (157 focused tests), plus build and review.
 The user authorized remaining implementation with a commit after each step.
-The next step is group 7, CLI interrupts and observation. Human acceptance and
+The next step is group 8, integration evidence and repository checks. Human acceptance and
 specification synchronization remain pending. Main specs remain unchanged.
 
 A trusted controller must propagate abort through transport, loop, tools, and pending approval, and

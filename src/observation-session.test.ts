@@ -7,6 +7,8 @@ import {
 } from './observation-session.ts'
 import { createRunEventSnapshot } from './runtime/agent-loop.ts'
 import type { RunEventSnapshot } from './runtime/run.ts'
+import { createTerminalObservationView } from './terminal-observation.ts'
+import { createTerminalStatusOutput } from './terminal-renderer.ts'
 
 const started = createRunEventSnapshot({
     type: 'run_started',
@@ -29,6 +31,114 @@ const emptyView: ObservationView = {
     event: () => undefined,
     settled: () => undefined,
 }
+
+test('reentrant cancellation during header or event writes remains visible while cleanup is held', async () => {
+    for (const isInteractive of [true, false]) {
+        for (const trigger of ['header', 'event'] as const) {
+            const writes: string[] = []
+            const diagnostics: ObservationDiagnostic[] = []
+            let interrupted = false
+            let releaseCleanup!: () => void
+            const cleanup = new Promise<void>((resolve) => {
+                releaseCleanup = resolve
+            })
+            const output = createTerminalStatusOutput({
+                write: (text) => {
+                    writes.push(text)
+                    if (
+                        !interrupted &&
+                        text.includes(trigger === 'header' ? 'Run #1:' : 'model_requested')
+                    ) {
+                        interrupted = true
+                        session.observerFor(1)({ type: 'run_cancellation_requested' })
+                        assert.equal(session.getHistory()[0]?.summary.activity, 'cancelling')
+                    }
+                },
+                isInteractive,
+                clearLine: () => undefined,
+                moveCursorToStart: () => undefined,
+            })
+            const session = createObservationSession({
+                clocks: { wallTime: () => 1000, monotonicTime: () => 100 },
+                view: createTerminalObservationView(output, (text) => writes.push(text)),
+                onRuntimeEvent: () => undefined,
+                diagnose: (diagnostic) => diagnostics.push(diagnostic),
+            })
+            const run = session.begin('Task')
+            if (trigger === 'event') run.onEvent(model)
+            const settlement = cleanup.then(() =>
+                session.settle(run.id, {
+                    status: 'aborted',
+                    stopReason: 'aborted',
+                    finalAnswer: null,
+                })
+            )
+            await Promise.resolve()
+            assert.equal(interrupted, true)
+            assert.match(writes.at(-1)!, /cancellation requested/)
+            assert.equal(session.getHistory()[0]?.summary.status, 'running')
+            assert.equal(session.getHistory()[0]?.result, null)
+            const rows = writes.filter((text) => text.startsWith('event:'))
+            assert.deepEqual(
+                rows.map((text) => /#\d+ ([a-z_]+)/.exec(text)?.[1]),
+                trigger === 'header'
+                    ? ['run_cancellation_requested']
+                    : ['model_requested', 'run_cancellation_requested']
+            )
+            releaseCleanup()
+            await settlement
+            assert.match(writes.at(-1)!, /result: cancelled/)
+            assert.deepEqual(diagnostics, [])
+        }
+    }
+})
+
+test('reentrant cancellation from runtime observers preserves feed order and latest activity', () => {
+    for (const throwAfterRequest of [false, true]) {
+        const writes: string[] = []
+        const delivered: string[] = []
+        const diagnostics: ObservationDiagnostic[] = []
+        const output = createTerminalStatusOutput({
+            write: (text) => writes.push(text),
+            isInteractive: false,
+            clearLine: () => undefined,
+            moveCursorToStart: () => undefined,
+        })
+        const session = createObservationSession({
+            clocks: { wallTime: () => 1000, monotonicTime: () => 100 },
+            view: createTerminalObservationView(output, (text) => writes.push(text)),
+            onRuntimeEvent: (event) => {
+                delivered.push(event.type)
+                if (event.type === 'model_responded') {
+                    session.observerFor(1)({ type: 'run_cancellation_requested' })
+                    assert.equal(session.getHistory()[0]?.summary.activity, 'cancelling')
+                    if (throwAfterRequest) throw new Error('private answer observer')
+                }
+            },
+            diagnose: (diagnostic) => diagnostics.push(diagnostic),
+        })
+        const run = session.begin('Task')
+        assert.doesNotThrow(() =>
+            run.onEvent({
+                type: 'model_responded',
+                step: 1,
+                metadata: { model: null, toolCallCount: 0, hasFinalAnswer: true },
+            })
+        )
+        assert.deepEqual(delivered, ['model_responded', 'run_cancellation_requested'])
+        assert.deepEqual(
+            writes.filter((text) => text.startsWith('event:')),
+            [
+                'event: run=1 #1 model_responded step=1\n',
+                'event: run=1 #2 run_cancellation_requested\n',
+            ]
+        )
+        assert.match(writes.at(-1)!, /cancellation requested/)
+        assert.equal(session.getHistory()[0]?.summary.status, 'running')
+        assert.equal(session.getHistory()[0]?.result, null)
+        assert.deepEqual(diagnostics, throwAfterRequest ? ['observer_failed'] : [])
+    }
+})
 
 test('saves record and prepares identity-bound observer before synchronous runtime events', () => {
     let elapsed = 100
@@ -232,4 +342,75 @@ test('initial clock failure still creates the record before runtime and marks ti
     session.settle(run.id, complete)
     assert.equal(session.getHistory()[0]?.summary.status, 'completed')
     assert.equal(session.getHistory()[0]?.timingAvailable, false)
+})
+
+test('cancellation settlement and next-run identity survive observation and clock failures', () => {
+    for (const failure of ['projection', 'observer', 'display', 'clock', 'diagnostic'] as const) {
+        let time = 100
+        let failClock = false
+        const delivered: RunEventSnapshot[] = []
+        const diagnostics: ObservationDiagnostic[] = []
+        const session = createObservationSession({
+            clocks: {
+                wallTime: () => 1000,
+                monotonicTime: () => {
+                    if (failClock) throw new Error('private clock')
+                    return time
+                },
+            },
+            view: {
+                ...emptyView,
+                event: () => {
+                    if (failure === 'display') throw new Error('private display')
+                },
+                settled: () => {
+                    if (failure === 'display') throw new Error('private settled display')
+                },
+            },
+            onRuntimeEvent: (event) => {
+                delivered.push(event)
+                if (failure === 'observer') throw new Error('private observer')
+            },
+            diagnose: (diagnostic) => {
+                diagnostics.push(diagnostic)
+                if (failure === 'diagnostic') throw new Error('private diagnostic')
+            },
+            ...(failure === 'projection' || failure === 'diagnostic'
+                ? {
+                      projectEvent: () => {
+                          throw new Error('private projection')
+                      },
+                  }
+                : {}),
+        })
+        const run = session.begin('Cancelled task')
+        failClock = failure === 'clock'
+        assert.doesNotThrow(() => run.onEvent({ type: 'run_cancellation_requested' }))
+        assert.deepEqual(delivered, [{ type: 'run_cancellation_requested' }])
+        assert.equal(session.getHistory()[0]?.summary.status, 'running')
+        time = 150
+        assert.doesNotThrow(() =>
+            session.settle(run.id, {
+                status: 'aborted',
+                stopReason: 'aborted',
+                finalAnswer: null,
+            })
+        )
+        const settled = session.getHistory()[0]!
+        const before = structuredClone(settled)
+        assert.equal(settled.result?.outcome, 'aborted')
+        assert.equal(settled.result?.stopReason, 'aborted')
+        assert.equal(settled.timingAvailable, failure !== 'clock')
+        assert.equal(settled.summary.elapsedMs, failure === 'clock' ? 0 : 50)
+        const second = session.begin('Fresh task')
+        assert.equal(second.id, 2)
+        run.onEvent({ type: 'run_cancellation_requested' })
+        run.onEvent(model)
+        session.settle(run.id, complete)
+        assert.equal(session.getHistory()[0], settled)
+        assert.deepEqual(settled, before)
+        assert.equal(session.getHistory()[1]?.feed.length, 0)
+        assert.equal(delivered.length, 1)
+        assert.ok(diagnostics.length > 0)
+    }
 })

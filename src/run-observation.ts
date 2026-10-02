@@ -13,7 +13,7 @@ export type RunIdentity = number
 export type ClockSample = Readonly<{ wallTimeMs: number; monotonicTimeMs: number }>
 export type ObservationStopReason = StopReason | 'cli_turn_error'
 export type RunOutcome = 'completed' | 'failed' | 'aborted' | 'budget_exhausted'
-export type RunActivity = 'starting' | 'model' | 'tools' | 'approval' | 'finishing'
+export type RunActivity = 'starting' | 'model' | 'tools' | 'approval' | 'finishing' | 'cancelling'
 export type ApprovalState = 'prepared' | 'waiting' | PatchApprovalDecision | 'conflict' | 'applied'
 export type ApprovalSummary = Readonly<{
     step: number
@@ -164,6 +164,9 @@ export const projectRunEvent = (
 ): RunRecord => {
     if (record.summary.id !== runId || record.summary.status !== 'running') return record
     if (event.type === 'final_answer' || event.type === 'final_answer_delta') return record
+    if (event.type === 'run_cancellation_requested' && record.summary.activity === 'cancelling') {
+        return record
+    }
     let workspaceRoot = record.workspaceRoot
     let activity = record.summary.activity
     let calls = record.calls
@@ -187,6 +190,9 @@ export const projectRunEvent = (
     let truncation: FeedRow['truncation'] = null
 
     switch (event.type) {
+        case 'run_cancellation_requested':
+            activity = 'cancelling'
+            break
         case 'run_started':
             workspaceRoot = event.workspaceRoot
             break
@@ -300,7 +306,11 @@ export const projectRunEvent = (
     return {
         ...record,
         workspaceRoot,
-        summary: { ...record.summary, activity, elapsedMs: elapsed(record, sample) },
+        summary: {
+            ...record.summary,
+            activity: record.summary.activity === 'cancelling' ? 'cancelling' : activity,
+            elapsedMs: elapsed(record, sample),
+        },
         calls,
         tools,
         files,

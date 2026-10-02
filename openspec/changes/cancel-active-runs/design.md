@@ -170,8 +170,10 @@ even if their text is `y`. Cancellation-first beats a late cancelled-read `y`;
 if `y` arrives first, the dispatcher must still check the signal before mutation.
 
 Use the existing readline SIGINT event for an interactive terminal, without a
-second key reader. For non-TTY chat, a scoped process SIGINT handler routes to the
-same controller. Avoid duplicate routing if both sources fire. During active
+second key reader. A scoped process SIGINT handler routes to the same controller in non-TTY chat
+and remains a fallback in interactive chat after EOF or an input-reset failure
+closes readline. Both routes share the idempotent controller; only the first
+signal transition resets input. Avoid duplicate effects if both sources fire. During active
 work, Ctrl+C requests cancellation and waits; during settlement repeated Ctrl+C
 has no force-exit behavior. At an idle prompt, Ctrl+C closes chat cleanly without
 a run allocation. Dispose listeners on every exit/failure. Ordinary `/exit`, EOF,

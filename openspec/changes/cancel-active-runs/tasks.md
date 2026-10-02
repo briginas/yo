@@ -44,9 +44,9 @@ explicit acceptance. See [design](design.md) and [capability deltas](specs/).
 
 ## 7. CLI interrupt integration and observation
 
-- [ ] 7.1 Register the trusted active controller before turn invocation and route interactive readline interrupt/non-TTY process SIGINT without duplicate handling; verify active/idle/repeated interruption, synchronous initial events, cleanup/error exits, scoped listener disposal, and no input read before settlement.
-- [ ] 7.2 Project cancellation-request evidence and sticky cancelling activity, then render runtime-confirmed aborted/aborted as cancelled while preserving completed and budget outcomes; verify TTY/non-TTY presentation, observer failure isolation, frozen settlement, applied patch trails, and unchanged retained-record identity.
-- [ ] 7.3 Verify cancellation followed by `/runs`, `/run N`, and a fresh task with controlled CLI/model/tool/approval promises; cover delayed cleanup, late consent, completion winning, renderer failures, and immutable history, then record focused checks/build and review evidence.
+- [x] 7.1 Register the trusted active controller before turn invocation and route interactive readline interrupt/non-TTY process SIGINT without duplicate handling; verify active/idle/repeated interruption, synchronous initial events, cleanup/error exits, scoped listener disposal, and no input read before settlement.
+- [x] 7.2 Project cancellation-request evidence and sticky cancelling activity, then render runtime-confirmed aborted/aborted as cancelled while preserving completed and budget outcomes; verify TTY/non-TTY presentation, observer failure isolation, frozen settlement, applied patch trails, and unchanged retained-record identity.
+- [x] 7.3 Verify cancellation followed by `/runs`, `/run N`, and a fresh task with controlled CLI/model/tool/approval promises; cover delayed cleanup, late consent, completion winning, renderer failures, and immutable history, then record focused checks/build and review evidence.
 
 ## 8. Integration verification and reviewed closure
 
