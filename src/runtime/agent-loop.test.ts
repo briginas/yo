@@ -1252,14 +1252,14 @@ test('normalizes an unexpected dispatcher rejection into one completed result', 
         result: {
             status: 'execution_error',
             callId: 'rejected-dispatch',
-            content: 'Tool dispatch failed: controlled dispatcher failure',
+            content: 'Tool dispatch failed',
             metadata: {
                 truncated: false,
                 truncation: null,
             },
             error: {
                 code: 'execution_error',
-                message: 'Tool dispatch failed: controlled dispatcher failure',
+                message: 'Tool dispatch failed',
             },
         },
     })

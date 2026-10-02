@@ -1,6 +1,39 @@
 # Verification
 
-## Current status: group 5
+## Current status: group 6
+
+Remaining implementation is authorized with a commit after each step. Group 5
+is committed as `3a4406f`. Groups 1–6 are checked and agent-reviewed; result
+acceptance and synchronization/archive remain pending.
+
+The loop now forwards the signal, emits one frozen ordered cancellation-request
+event, waits for active work, and discards responses after its cancellation gate.
+Accepted call batches retain completed/active outcomes and receive ordered aborted
+results for unstarted calls without dispatch or permission checks. No later model
+step runs. A terminal outcome commits before final-answer/finish observers;
+later interrupts preserve completion. Approval-only abort remains call-local,
+and applied patches retain their success and application evidence.
+
+Answer callbacks close per request and after terminal settlement, preventing stale
+step/turn callbacks from adding text. Confirmed partial output remains evidence
+with no fabricated final answer. Conversation passes the signal and appends the
+cancelled suffix once; a fresh turn has fresh budgets and retained structured data.
+
+- Focused loop/conversation suite: 51 passed, 0 failed, including twelve new
+  top-level cancellation tests with race variants.
+- `npm run build`, formatting, strict specification validation, and diff checks passed.
+- Implementation subagent review and independent review covered reentrant observer
+  cancellation, terminal arbitration, accepted-call accounting, callback lifetime,
+  signal disposal, and sanitized unexpected dispatch errors. Independent review
+  found an unguarded clone of unvalidated unknown arguments; it was removed and a
+  non-cloneable malformed-argument regression now produces invalid_arguments and
+  terminal evidence. An outer finally removes signal listeners on exceptional exits.
+- Parent reviewed the final loop, conversation, and test diff; no scoped issue remains.
+
+CLI interrupts and cancellation presentation are the next authorized group. No
+physical TTY/live-provider check was performed; main specifications remain unchanged.
+
+## Group 5 evidence (before group 6)
 
 On 2026-10-02 the user requested implementation of `cancel-active-runs` with a
 commit after each step, authorizing the remaining implementation groups in order.
@@ -25,7 +58,7 @@ cancellation errors never expose arbitrary abort reasons or provider payloads.
 
 ### Scoped checks and review
 
-- Auth/provider focused suite: 92 passed, 0 failed. Thirteen new controlled tests
+- Auth/provider focused suite: 92 passed, 0 failed. Twelve new controlled tests
   cover pre-abort, held read/lock/refresh/persistence, lock release, rotated-token
   persistence, fetch abort/rejection/late response cleanup, held SSE cleanup,
   partial confirmed callbacks, completed-response cleanup races, and HTTP errors.

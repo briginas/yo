@@ -118,8 +118,8 @@ explicit rerun, then validation. Its first four bounded groups, trusted controll
 contracts, settled read/preparation operations, cancellable input/approval
 ownership APIs, and settled patch cancellation preserving initiated replacement
 outcomes, were authorized and implemented.
-Group 5 request/credential cancellation is also implemented; whole-turn and CLI
-cancellation remain unwired. The user authorized the remaining implementation
+Groups 5–6 request/credential and loop/conversation cancellation are implemented;
+CLI interrupts and observation cancellation presentation remain unwired. The user authorized the remaining implementation
 with a commit after each step. See the implementation map and change verification for the
 scoped checks and pending human result review.
 Human result acceptance remains required before specification synchronization.

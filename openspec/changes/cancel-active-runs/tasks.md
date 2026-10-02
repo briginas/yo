@@ -38,9 +38,9 @@ explicit acceptance. See [design](design.md) and [capability deltas](specs/).
 
 ## 6. Loop cancellation and conversation settlement
 
-- [ ] 6.1 Propagate the turn signal through the loop and emit one ordered frozen cancellation-request event; verify pre-aborted turns, model rejection/late response, observer failures, no later model step, and both completion/cancellation commit orders.
-- [ ] 6.2 Preserve accepted call batches with completed results, await the active call, and synthesize ordered aborted results/events for unstarted calls without dispatch; verify mixed multi-call accounting, exact call IDs, last-budget-step races, applied-patch evidence, and approval-only abort continuation.
-- [ ] 6.3 Append the cancelled turn suffix once and gate late answer callbacks; verify conversation follow-up tests, fresh budgets, preserved confirmed partial output, no fabricated final answer, and stale callbacks unable to affect a newer turn; record focused checks, build, and review evidence.
+- [x] 6.1 Propagate the turn signal through the loop and emit one ordered frozen cancellation-request event; verify pre-aborted turns, model rejection/late response, observer failures, no later model step, and both completion/cancellation commit orders.
+- [x] 6.2 Preserve accepted call batches with completed results, await the active call, and synthesize ordered aborted results/events for unstarted calls without dispatch; verify mixed multi-call accounting, exact call IDs, last-budget-step races, applied-patch evidence, and approval-only abort continuation.
+- [x] 6.3 Append the cancelled turn suffix once and gate late answer callbacks; verify conversation follow-up tests, fresh budgets, preserved confirmed partial output, no fabricated final answer, and stale callbacks unable to affect a newer turn; record focused checks, build, and review evidence.
 
 ## 7. CLI interrupt integration and observation
 

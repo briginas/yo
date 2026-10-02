@@ -108,6 +108,7 @@ export const runConversationTurn = async ({
     transport,
     onEvent,
     patchApprover,
+    signal,
 }: RunConversationTurnOptions): Promise<RunConversationTurnResult> => {
     const session = await runAgent({
         task,
@@ -118,6 +119,7 @@ export const runConversationTurn = async ({
         initialMessages: conversation.messages,
         ...(onEvent === undefined ? {} : { onEvent }),
         ...(patchApprover === undefined ? {} : { patchApprover }),
+        ...(signal === undefined ? {} : { signal }),
     })
     const turn = createTurnResultFromSuffix(session, conversation.messages.length)
 
