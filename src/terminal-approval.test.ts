@@ -113,3 +113,127 @@ test('fails closed for declined, unavailable, and non-interactive approval input
         `Patch proposal: src/example.ts\n${request.diff}\n${PATCH_APPROVAL_PROMPT}\n`,
     ])
 })
+
+test('cancellation aborts pending approval, discards late input, and preserves fresh input ownership', async () => {
+    const stream = new PassThrough()
+    const input = createNodeLineInput({
+        input: stream,
+        output: new Writable({
+            write(_c, _e, cb) {
+                cb()
+            },
+        }),
+        isInteractive: true,
+    })
+    const writes: string[] = []
+    const approve = createTerminalPatchApprover({
+        input,
+        write: (message) => writes.push(message),
+        clearProgress: () => undefined,
+        isInteractive: true,
+    })
+    const controller = new AbortController()
+    const decision = approve(request, { signal: controller.signal })
+    stream.write('ye')
+    controller.abort()
+    stream.write('s\nyes\n')
+    assert.equal(await decision, 'aborted')
+    const nextApproval = approve({ ...request, id: 'proposal-2' })
+    stream.write('y\n')
+    assert.equal(await nextApproval, 'approved')
+    assert.equal(writes.length, 2)
+    assert.equal(writes[0], `Patch proposal: src/example.ts\n${request.diff}\n`)
+    input.close()
+})
+
+test('approval committed before a later cancellation stays approved', async () => {
+    const controller = new AbortController()
+    const approve = createTerminalPatchApprover({
+        input: createInput('YES'),
+        write: () => undefined,
+        clearProgress: () => undefined,
+        isInteractive: true,
+    })
+    const decision = await approve(request, { signal: controller.signal })
+    controller.abort()
+    assert.equal(decision, 'approved')
+})
+
+test('a late cancelled read resolving affirmative cannot approve the old proposal', async () => {
+    const oldRead = Promise.withResolvers<string | null>()
+    const controller = new AbortController()
+    let calls = 0
+    const approve = createTerminalPatchApprover({
+        input: {
+            readLine: async (_prompt, options) => {
+                calls += 1
+                if (calls === 1) {
+                    assert.equal(options?.signal, controller.signal)
+                    return oldRead.promise
+                }
+                return 'yes'
+            },
+            close: () => undefined,
+        },
+        write: () => undefined,
+        clearProgress: () => undefined,
+        isInteractive: true,
+    })
+    const old = approve(request, { signal: controller.signal })
+    controller.abort()
+    oldRead.resolve('y')
+    assert.equal(await old, 'aborted')
+    assert.equal(await approve({ ...request, id: 'fresh-proposal' }), 'approved')
+})
+
+test('typed read cancellation is aborted even without a run signal', async () => {
+    const { LineReadAbortedError } = await import('./line-input.ts')
+    const approve = createTerminalPatchApprover({
+        input: createInput(new LineReadAbortedError()),
+        write: () => undefined,
+        clearProgress: () => undefined,
+        isInteractive: true,
+    })
+    assert.equal(await approve(request), 'aborted')
+})
+
+test('pre-cancellation performs no preview or read and non-TTY never consumes approval input', async () => {
+    const controller = new AbortController()
+    controller.abort()
+    let reads = 0
+    const writes: string[] = []
+    const input: LineInput = {
+        readLine: async () => {
+            reads += 1
+            return 'yes'
+        },
+        close: () => undefined,
+    }
+    const approve = createTerminalPatchApprover({
+        input,
+        write: (message) => writes.push(message),
+        clearProgress: () => undefined,
+        isInteractive: false,
+    })
+    assert.equal(await approve(request, { signal: controller.signal }), 'aborted')
+    assert.deepEqual(writes, [])
+    assert.equal(await approve(request, { signal: new AbortController().signal }), 'denied')
+    assert.equal(reads, 0)
+    assert.equal(writes.length, 1)
+})
+
+test('cancellation during preview prevents an approval read', async () => {
+    const controller = new AbortController()
+    const approve = createTerminalPatchApprover({
+        input: {
+            readLine: async () => {
+                assert.fail('read after cancellation')
+            },
+            close: () => undefined,
+        },
+        write: () => controller.abort(),
+        clearProgress: () => undefined,
+        isInteractive: true,
+    })
+    assert.equal(await approve(request, { signal: controller.signal }), 'aborted')
+})

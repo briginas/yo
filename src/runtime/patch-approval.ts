@@ -2,6 +2,7 @@ import type {
     PatchApprovalDecision,
     PatchApprovalView,
     PatchApprover,
+    PatchApproverOptions,
     PatchProposal,
 } from './patch-contracts.ts'
 
@@ -22,17 +23,20 @@ const createApprovalView = (proposal: PatchProposal): PatchApprovalView =>
 
 export const requestPatchApproval = async (
     proposal: PatchProposal,
-    approver?: PatchApprover
+    approver?: PatchApprover,
+    options?: PatchApproverOptions
 ): Promise<PatchApprovalDecision> => {
+    if (options?.signal?.aborted) return 'aborted'
     if (approver === undefined) {
         return 'denied'
     }
 
     try {
-        const decision: unknown = await approver(createApprovalView(proposal))
+        const decision: unknown = await approver(createApprovalView(proposal), options)
+        if (options?.signal?.aborted) return 'aborted'
 
         return isPatchApprovalDecision(decision) ? decision : 'denied'
     } catch {
-        return 'denied'
+        return options?.signal?.aborted ? 'aborted' : 'denied'
     }
 }

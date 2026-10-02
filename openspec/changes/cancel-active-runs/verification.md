@@ -1,6 +1,94 @@
 # Verification
 
-## Current status: group 2
+## Current status: group 3
+
+On 2026-10-02 the user requested “коммить и делай след шаг в отдельном
+субагенте”. The ready group 2 was committed as `b061aee`; the next bounded
+candidate was group 3, so that instruction authorizes tasks 3.1–3.3 only in a
+separate subagent. Groups 1–3 have scoped implementation checks and agent review.
+Human acceptance of the group 3 result remains pending. Later groups, full-feature
+completion, main-spec synchronization, and archive are not authorized by these
+checks.
+
+### Input ownership and lifecycle
+
+The single [line reader](../../../src/line-input.ts) now uses explicit line events,
+a queue for ordinary buffered input, and one pending owner identity. It creates
+no async iterator or competing reader. Optional read signals reject a cancelled
+owner with the fixed typed `LineReadAbortedError`; ownership and the abort listener
+are released before clearing input. A resolved/invalidated owner cannot consume
+a new read or cancel it later. Concurrent reads are rejected.
+
+Cancellation discards queued lines, clears the existing partial input, and ignores
+new lines until the next prompt. Before that prompt it clears any partial input
+received during cancellation too. Normal TTY editing clears both sides of the
+cursor through public readline keys; `TERM=dumb` uses Return as a discard-mode
+flush when editing keys leave text. Non-TTY uses public `write('\n')` to flush
+readline's internal partial buffer into discard mode. Fresh input after the new
+prompt keeps ordinary handling, including the text `y`.
+
+Ordinary EOF drains queued complete lines and the final partial line; explicit
+close releases a pending owner, discards memory, and removes input/interrupt
+listeners. Input errors reject pending work and remain errors for a later read
+until explicit close. Reset display failure cannot leave cancellation pending:
+its owner is already aborted and the unsafe reader closes with a fixed input-reset
+error. No private readline buffer is accessed.
+
+Optional `subscribeInterrupt` observes the existing interactive readline SIGINT
+route and returns an idempotent disposer. A throwing observer does not prevent
+another subscriber or input cleanup. Without subscribers, Ctrl+C retains the
+prior readline close behavior. No process SIGINT handler or active run controller
+is connected yet; that is group 7.
+
+### Exact approval and race boundary
+
+[Trusted approval](../../../src/runtime/patch-approval.ts) passes optional signal
+options separately from its detached frozen view. The
+[terminal approver](../../../src/terminal-approval.ts) forwards the signal to its
+borrowed line read. Pre-abort skips review; cancellation observed before accepting
+pending consent returns `aborted`, including a late affirmative read or approver
+settlement. The decision commits when the awaited result is accepted; cancellation
+after a committed approval cannot change that returned decision. A custom
+non-cooperative reader/approver remains awaited through its settlement, and its
+late consent is discarded instead of racing detached work.
+
+Typed read cancellation is `aborted` even without a whole-run signal. EOF,
+ordinary input errors, invalid answers, absent approval, and non-TTY input retain
+denial semantics. Complete previews and fresh exact consent are preserved.
+Signal/control options and approval text never enter the approval view or model
+messages. Existing dispatcher/loop/conversation code is unchanged: approval-only
+abort still affects just its patch call. Run signal propagation into review and
+application remains group 4; active chat cancellation remains groups 6–7.
+
+### Scoped checks and review
+
+- Focused input/terminal/trusted approval suite: 32 passed, 0 failed. Covers
+  pre-abort, owner release and stale signal isolation, both consent/cancellation
+  orders, late affirmative settlement, normal buffered non-TTY/EOF behavior,
+  partial input discard in TTY and non-TTY, moved cursor suffix, fresh `y`,
+  input errors, explicit close/listener disposal, interrupt unsubscribe/default
+  close/throwing observer, immutable views, full preview, non-TTY no-read, and
+  reset display failure.
+- `npm test`: 390 passed, 0 failed, 0 skipped, 0 cancelled (27 suites).
+- `npm run build`: strict TypeScript checks and CLI bundle passed.
+- `npm run format:check`, `npm run spec:check` (7 items, 0 failures), and
+  `git diff --check` passed. Existing main-spec informational length hints remain.
+- Local Markdown links in project maps and change artifacts passed.
+- Subagent self-review covered pending identity invalidation before display work,
+  ordinary EOF queue draining, cancellation discard lifetime, public partial-buffer
+  reset, signal cleanup, approval acceptance checks, unchanged frozen preview,
+  and the absence of dispatcher/CLI wiring. Parent review feedback identified
+  default SIGINT behavior, cursor suffix, and reset display failure cases; these
+  were addressed and tested. The parent reviewed the final runtime/test diff
+  and reported no remaining substantive issue. Agent review does not imply human
+  acceptance. Group 3 changes remain uncommitted for user review.
+
+No physical TTY or live-provider cancellation check was performed; faux terminal
+streams verify these bounded APIs only. Main specifications remain unchanged.
+The next candidate is group 4, patch cancellation and atomic replacement, after
+separate bounded confirmation.
+
+## Group 2 evidence (before group 3)
 
 On 2026-10-02 the user explicitly requested the next bounded step in a separate
 subagent: “и делай след шаг в отдельном субагенте”. The next candidate in the map

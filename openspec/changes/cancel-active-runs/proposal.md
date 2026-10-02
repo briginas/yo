@@ -75,9 +75,12 @@ user confirmed that bounded implementation on 2026-10-02; its checks and pending
 human result acceptance are recorded in [verification](verification.md).
 The user then explicitly authorized the next bounded group 2 in a separate
 subagent on the same date. Its settled read/preparation behavior, checks, and
-pending human result acceptance are recorded in verification. Group 3 and later
-still require separate bounded confirmation; these approvals do not approve the
-full feature or specification synchronization.
+pending human result acceptance are recorded in verification. The user then
+requested committing group 2 and implementing the next bounded group 3 in a
+separate subagent. Group 2 was committed as `b061aee`; group 3 checks and pending
+human result acceptance are recorded in verification. Group 4 and later still
+require separate bounded confirmation; these approvals do not approve the full
+feature or specification synchronization.
 
 Explicit rerun, validation, automatic retry/repair, rollback, force termination,
 multiple active turns, `/cancel` line commands, TUI, durable history, and login

@@ -1,12 +1,12 @@
 # Tasks
 
-The user confirmed group 1 on 2026-10-02 and then explicitly authorized the next
-bounded group 2 in a separate subagent. Their implementation checks and agent
-review are recorded in [verification](verification.md); human result acceptance
-is not inferred from automated checks. The next candidate is group 3 and needs
-separate bounded confirmation. Keep boxes unchecked until scoped checks pass and
-review evidence is recorded. See [design](design.md) and [capability deltas](specs/)
-for the behavior and flow.
+The user confirmed group 1 on 2026-10-02, then authorized groups 2 and 3 as
+successive bounded steps in separate subagents. Their implementation checks and
+agent review are recorded in [verification](verification.md); human result
+acceptance is not inferred from automated checks. The next candidate is group 4
+and needs separate bounded confirmation. Keep boxes unchecked until scoped checks
+pass and review evidence is recorded. See [design](design.md) and
+[capability deltas](specs/) for the behavior and flow.
 
 ## 1. Trusted controller and signal contracts
 
@@ -22,9 +22,9 @@ for the behavior and flow.
 
 ## 3. Cancellable input and patch review ownership
 
-- [ ] 3.1 Refactor the single persistent line reader to support explicit pending-read identity, typed approval-read cancellation, and interrupt subscription without a dangling async-iterator read; verify prompt/EOF/close regressions, pending-read release, disposal, and preservation of ordinary buffered non-TTY lines.
-- [ ] 3.2 Extend trusted patch approval and terminal approver options with a signal while preserving complete immutable diff and non-TTY denial; verify abort-first and consent-first orders, late cancelled-read resolution, partial/buffered input discard during cancellation, and fresh subsequent read ownership.
-- [ ] 3.3 Record input lifecycle and approval tests, build checks, and review in change-local evidence; verify cancellation is not denial, no second input reader exists, and no approval response or interrupt is inserted into model context.
+- [x] 3.1 Refactor the single persistent line reader to support explicit pending-read identity, typed approval-read cancellation, and interrupt subscription without a dangling async-iterator read; verify prompt/EOF/close regressions, pending-read release, disposal, and preservation of ordinary buffered non-TTY lines.
+- [x] 3.2 Extend trusted patch approval and terminal approver options with a signal while preserving complete immutable diff and non-TTY denial; verify abort-first and consent-first orders, late cancelled-read resolution, partial/buffered input discard during cancellation, and fresh subsequent read ownership.
+- [x] 3.3 Record input lifecycle and approval tests, build checks, and review in change-local evidence; verify cancellation is not denial, no second input reader exists, and no approval response or interrupt is inserted into model context.
 
 ## 4. Patch cancellation and atomic replacement
 

@@ -1,4 +1,4 @@
-import type { LineInput } from './line-input.ts'
+import { LineReadAbortedError, type LineInput } from './line-input.ts'
 import type {
     PatchApprovalDecision,
     PatchApprovalView,
@@ -33,20 +33,26 @@ export const createTerminalPatchApprover = ({
     clearProgress,
     isInteractive,
 }: CreateTerminalPatchApproverOptions): PatchApprover => {
-    return async (request): Promise<PatchApprovalDecision> => {
+    return async (request, { signal } = {}): Promise<PatchApprovalDecision> => {
+        if (signal?.aborted) return 'aborted'
         clearProgress()
         write(renderPatchApproval(request, isInteractive))
+        if (signal?.aborted) return 'aborted'
 
         if (!isInteractive || input === undefined) {
             return 'denied'
         }
 
         try {
-            const response = await input.readLine(PATCH_APPROVAL_PROMPT)
+            const response = await input.readLine(
+                PATCH_APPROVAL_PROMPT,
+                signal === undefined ? undefined : { signal }
+            )
+            if (signal?.aborted) return 'aborted'
 
             return response !== null && isApproved(response) ? 'approved' : 'denied'
-        } catch {
-            return 'denied'
+        } catch (error) {
+            return error instanceof LineReadAbortedError || signal?.aborted ? 'aborted' : 'denied'
         }
     }
 }
