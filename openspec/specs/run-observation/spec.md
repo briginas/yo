@@ -59,8 +59,8 @@ before invoking the existing turn. Subsequent callbacks SHALL target that run.
 An observed run SHALL remain running while starting, waiting for the model,
 executing tools, waiting for patch approval, or finishing. A settled session
 SHALL determine the final outcome and stop reason. The display SHALL distinguish
-completed, failed, aborted, and budget-exhausted outcomes without inventing
-user cancellation or transport diagnostics.
+completed, failed, aborted, and budget-exhausted outcomes with cancelled presentation only for runtime-confirmed `aborted` / `aborted`,
+without inventing cancellation from request activity or transport diagnostics.
 
 #### Scenario: Finishing event precedes settled session
 
@@ -215,7 +215,8 @@ conflict, and confirmed application using runtime evidence. Patch trails SHALL
 preserve each call's progression. The trusted terminal approver SHALL retain
 exclusive ownership of approval input and the complete exact diff. Only its
 existing explicit consent may authorize application; display state SHALL NOT
-approve a patch or infer whole-run cancellation from a patch approval abort.
+approve a patch or infer whole-run cancellation from a patch approval abort without trusted
+run cancellation evidence.
 
 #### Scenario: Waiting for an exact patch decision
 
@@ -348,3 +349,49 @@ color or cursor controls, and be available through keyboard input.
 - **WHEN** inspection runs in non-TTY mode or without color, then the user exits and starts a new chat
 - **THEN** inspection remains readable without cursor controls, the previous history is discarded, and `/runs` in the new chat is empty
 - **AND** non-TTY patch approval remains denied under the existing policy
+
+### Requirement: Requested cancellation remains running
+
+A runtime cancellation-request event SHALL create one ordered safe feed row
+and show cancellation-requested activity while the run is unsettled. Later
+operation and finishing events SHALL preserve that activity. The final result
+SHALL derive from runtime settlement, not the request, observer, or display.
+Duplicate requests SHALL NOT add repeated cancellation rows.
+
+#### Scenario: Request while I/O settles
+
+- **WHEN** cancellation is requested while a tool or transport cleanup is pending
+- **THEN** the record remains running and displays cancellation requested until settlement, with no cancelled result card yet
+
+#### Scenario: Operation events after request
+
+- **WHEN** tool completion, patch application, or run-finished events arrive after the request and before settlement
+- **THEN** their evidence is retained while cancellation-requested activity remains visible
+
+#### Scenario: Completed outcome wins race
+
+- **WHEN** a cancellation request races with an already committed runtime completion
+- **THEN** settlement displays completed and does not relabel it cancelled
+
+### Requirement: Settled cancellation is inspectable
+
+A settled session with status aborted and reason aborted SHALL display
+cancelled in its result and retained inspection. Budget exhaustion SHALL remain
+distinct. Tool and patch trails, errors, timing, and absent-final-answer labels
+SHALL retain their safe evidence. Late callbacks SHALL NOT reopen or modify a
+settled record. Cancellation display SHALL add no execution or consent authority.
+
+#### Scenario: Inspect cancelled run and continue
+
+- **WHEN** a cancelled run is inspected with `/runs` and `/run N`, then another task runs
+- **THEN** the selected run retains its cancelled result, original ordered evidence, and frozen timing while the next run has a separate identity
+
+#### Scenario: Applied patch in cancelled run
+
+- **WHEN** an atomic patch replacement succeeded before the cancelled run settled
+- **THEN** retained inspection shows both cancellation and applied patch evidence without implying rollback
+
+#### Scenario: Observation failure during cancellation
+
+- **WHEN** rendering, projection, clock, or diagnostic output fails while cancellation is requested
+- **THEN** runtime cancellation, safe cleanup, exact patch consent, and conversation settlement proceed independently

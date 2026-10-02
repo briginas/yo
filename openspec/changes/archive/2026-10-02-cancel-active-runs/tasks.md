@@ -3,8 +3,9 @@
 The user authorized the remaining implementation on 2026-10-02 with a commit
 after each step. Complete and verify each group before proceeding. Scoped checks
 and agent review are recorded in [verification](verification.md); human result
-acceptance is not inferred from automated checks. Task 8.3 remains gated on
-explicit acceptance. See [design](design.md) and [capability deltas](specs/).
+acceptance is not inferred from automated checks. The user explicitly accepted
+the verified result and authorized task 8.3 closure with “it's ok. go” on
+2026-10-02. See [design](design.md) and [capability deltas](specs/).
 
 ## 1. Trusted controller and signal contracts
 
@@ -52,4 +53,4 @@ explicit acceptance. See [design](design.md) and [capability deltas](specs/).
 
 - [x] 8.1 Add or extend an example for cancellation and safe continuation, and verify its deterministic faux transcript covers requested versus settled cancellation, read/approval work, and retained inspection; record physical TTY Ctrl+C and patch-review recovery separately, with live-provider coverage or lack of it explicit.
 - [x] 8.2 Run `npm test`, `npm run build`, `npm run format:check`, `npm run spec:check`, and `git diff --check`; verify scenario coverage across all five deltas and record results and remaining limitations in change-local evidence for user review.
-- [ ] 8.3 After explicit review acceptance, synchronize only implemented verified deltas, archive the change, and update project maps; verify structural validation, links, formatting, diff checks, and that rerun/validation remain separate unapproved work.
+- [x] 8.3 After explicit review acceptance, synchronize only implemented verified deltas, archive the change, and update project maps; verify structural validation, links, formatting, diff checks, and that rerun/validation remain separate unapproved work.

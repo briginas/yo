@@ -90,15 +90,18 @@ flowchart LR
 
 [Allowlisted validation](openspec/changes/allowlisted-validation/proposal.md)
 is an imported, unapproved Milestone 5 draft. It has proposal, design, deltas,
-and unchecked tasks. Cancellation and explicit rerun must be separately
-implemented and verified first, then its assumptions and deltas must be reviewed
+and unchecked tasks. Cancellation is complete and recorded in the current specs
+and [archive](openspec/changes/archive/2026-10-02-cancel-active-runs/verification.md).
+Explicit rerun must be separately planned, approved, implemented, and verified
+first, then validation's assumptions and deltas must be reviewed
 against their settled contracts. Migrating these documents does not authorize
 `run_validation`, its proposed permission policy, or any runtime process work.
 
 Already implemented behavior was imported directly into main specs as a baseline,
 not as fictional feature changes. The former milestone requirements and plans
 were removed after checking their current decisions against the specifications.
-Future cancellation/rerun constraints are retained in the project-state map.
+The project-state map retains the completed cancellation evidence and the
+separate future rerun boundary.
 The [inspection archive](openspec/changes/archive/2026-10-02-inspect-settled-runs/verification.md)
 retains the actual 10.3–10.4 implementation evidence. Historical files remain
 recoverable through Git; no duplicate documentation archive is maintained.
@@ -132,7 +135,8 @@ native readline over controlled streams. For an actual local TTY, run
 `node examples/run-cancellation-demo.ts --tty` and follow the printed Ctrl+C
 and patch-review recovery steps. Both modes use a temporary fixture and faux
 provider without OAuth or network; PTY coverage and remaining physical-keyboard/
-live-provider limits are recorded in the active change's verification.
+live-provider limits are recorded in the
+[archived cancellation verification](openspec/changes/archive/2026-10-02-cancel-active-runs/verification.md).
 
 The architecture follows pi's separation of
 [session ownership](../pi/packages/coding-agent/src/core/agent-session.ts),

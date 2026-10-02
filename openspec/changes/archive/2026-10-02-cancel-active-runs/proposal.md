@@ -5,7 +5,7 @@
 The session can display and inspect runs, but the user cannot stop an active
 model request, read operation, or patch approval and safely continue chatting.
 Cancellation is the next increment before explicit rerun and allowlisted
-validation in the [project map](../../../IMPLEMENTATION_PLAN.md).
+validation in the [project map](../../../../IMPLEMENTATION_PLAN.md).
 
 ## What Changes
 
@@ -83,7 +83,11 @@ committing group 3 and implementing the next bounded group 4 in a separate
 subagent. Group 3 was committed as `c77cdf9`; group 4 checks and pending human
 result acceptance are recorded in verification. The user subsequently requested implementation of the remaining change with a
 commit after each step. This authorizes groups 5–8 implementation in sequence;
-task 8.3 still requires explicit result acceptance before synchronization/archive.
+task 8.3 required explicit result acceptance before synchronization/archive.
+After final integration verification in `755d9c9`, the user accepted the result
+and authorized closure with “it's ok. go” on 2026-10-02. The verified deltas are
+now synchronized into main specs and this change is archived. See verification
+for closure checks and the unchanged coverage limits.
 
 Explicit rerun, validation, automatic retry/repair, rollback, force termination,
 multiple active turns, `/cancel` line commands, TUI, durable history, and login

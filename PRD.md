@@ -112,15 +112,16 @@ remain separate trusted CLI operations. Current requirements live exclusively
 in `openspec/specs/`; changes use `openspec/changes/`. See the
 [development workflow](CONTRIBUTING.md).
 
-The [cancellation change](openspec/changes/cancel-active-runs/proposal.md) is now
-implemented and verified through groups 1–7 and integration tasks 8.1–8.2. It
+The [cancellation change](openspec/changes/archive/2026-10-02-cancel-active-runs/proposal.md)
+is implemented, verified, accepted, and synchronized into the current specs. It
 propagates trusted cancellation through model/tool/review work, waits for cleanup,
 retains every accepted call result, and permits inspection and a fresh turn.
 Applied patches and committed completion remain intact. The user authorized
-implementation with a commit after each step. See [verification](openspec/changes/cancel-active-runs/verification.md)
+implementation with a commit after each step and accepted the result on 2026-10-02.
+See [verification](openspec/changes/archive/2026-10-02-cancel-active-runs/verification.md)
 for the 466-test full check, real PTY/process-signal evidence, and coverage limits.
-Explicit human result acceptance is still required for task 8.3 specification
-synchronization and archive. Explicit rerun and validation remain later proposals.
+Explicit rerun is the next planning boundary; it requires a separate proposal
+and approval. Validation remains a later unapproved draft.
 The [validation draft](openspec/changes/allowlisted-validation/proposal.md),
 [design](openspec/changes/allowlisted-validation/design.md), and
 [tasks](openspec/changes/allowlisted-validation/tasks.md) do not authorize process

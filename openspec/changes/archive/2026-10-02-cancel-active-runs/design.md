@@ -2,9 +2,10 @@
 
 ## Context
 
-See [proposal](proposal.md) for motivation and authorization. The current
-[specifications](../../specs/) remain implemented behavior until this change is
-reviewed, implemented, verified, and synchronized.
+See [proposal](proposal.md) for motivation and authorization. This design records
+the implementation accepted on 2026-10-02. The current
+[specifications](../../../specs/) include its verified deltas; staged checks and
+closure evidence are retained in [verification](verification.md).
 
 ### Execution before this change
 
@@ -97,7 +98,7 @@ synchronous initial events. Dispose it after settlement; an old controller
 cannot affect a newer run. A first request aborts once; duplicates do nothing.
 Controller state does not replace runtime outcome.
 
-The direct reference is [pi's session](../../../../pi/packages/coding-agent/src/core/agent-session.ts):
+The direct reference is [pi's session](../../../../../pi/packages/coding-agent/src/core/agent-session.ts):
 `abort()` calls `agent.abort()` and then `waitForIdle()`. Yo has no steering
 queue, background retry, compaction, or concurrent session operation to cancel.
 One controller is sufficient. An observation-owned stop flag would mix display

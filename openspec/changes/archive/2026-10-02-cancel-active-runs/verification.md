@@ -1,19 +1,49 @@
 # Verification
 
-## Current status: implementation verified; review acceptance pending
+## Current status: accepted, synchronized, and archived
 
 Groups 1–7 and integration tasks 8.1–8.2 are implemented, verified, and
 agent-reviewed. The user authorized implementation with a commit after each step;
-this session committed group 5 as `3a4406f`, group 6 as `c67c608`, and group 7
-as `5aae91e`. Task 8.3 remains unchecked because explicit acceptance of the
-finished result has not been received. Main specifications are unchanged; this
-change remains active for human review before synchronization and archive.
+group 5 is committed as `3a4406f`, group 6 as `c67c608`, group 7 as `5aae91e`,
+and final integration verification with the observation reentry fix as `755d9c9`.
+The user then explicitly accepted the verified result and authorized closure
+with “it's ok. go” on 2026-10-02. The five main specs now contain the implemented
+verified deltas, and this change is archived. Earlier group sections below
+retain their status at the time of each check; their pending-acceptance notes
+are historical.
+
+### Task 8.3 closure
+
+The agent-driven sync added 11 requirements and modified 8 across agent harness,
+CLI chat, Codex authentication/transport, approval-gated patching, and run
+observation. Comparison against the original specs confirmed unchanged titles,
+Purpose sections, unrelated requirements and scenarios, and an idempotent merge.
+Strict validation passed for all five main specifications before archive.
+The pinned CLI archived with `--skip-specs` after that verified sync; it did not
+perform a second merge. Project maps and moved relative links were updated.
+Independent read-only closure review found no concrete issues and confirmed all
+19 delta requirements, scenario preservation, consistent acceptance status,
+correct moved links, and unchanged capability/consent boundaries. Task 8.3 is
+complete after that review and the scoped checks below; all 24 tasks are checked.
+The validation draft is byte-for-byte unchanged; explicit rerun planning and
+validation remain unapproved. This closure changes documentation only and does
+not claim new runtime, physical-keyboard, or live-provider testing.
+
+- `npm run spec:check`: 6 passed, 0 failed (five current specs and the remaining
+  unapproved validation draft); requirement-length hints remain informational.
+- `npm run format:check` and `git diff --check` passed.
+- All 76 local Markdown links across 17 scoped files resolve; no project-map
+  reference remains to the old active cancellation path.
+- The five archived deltas and archive metadata match their pre-archive bytes.
+  Hash comparison confirms the entire validation draft is unchanged.
+- A second semantic merge leaves no changes to apply; unrelated requirements
+  and scenarios, existing titles, and Purpose sections retain their original text.
 
 ### Final integration and review
 
-The [cancellation demo](../../../examples/run-cancellation-demo.ts) uses real
+The [cancellation demo](../../../../examples/run-cancellation-demo.ts) uses real
 CLI composition, native readline, a temporary fixture, and a faux model. Its
-[captured transcript](../../../examples/run-cancellation-demo.txt) shows a real
+[captured transcript](../../../../examples/run-cancellation-demo.txt) shows a real
 read followed by held model cleanup, one request despite repeated interrupts,
 requested activity before settlement, cancellation of pending exact review,
 discarded partial/late consent, fresh proposal and consent, successful application,
@@ -71,7 +101,7 @@ No new dependency, model tool/schema, credential configuration, login capability
 process tool, rerun, validation, rollback, automatic retry, or persistence was
 added. Non-cooperative owned work still delays settlement; requesting cancellation
 is not a hard elapsed-time guarantee. Rerun and allowlisted validation remain
-separate unapproved changes. Specification synchronization/archive await task 8.3.
+separate unapproved work. Specification synchronization/archive are recorded above.
 
 ## Group 7 evidence (before integration verification)
 
@@ -203,7 +233,7 @@ main-spec synchronization, and archive are not authorized by these checks.
 
 ### Patch signal and consent boundaries
 
-The specialized [dispatcher](../../../src/runtime/tool-dispatcher.ts) now forwards
+The specialized [dispatcher](../../../../src/runtime/tool-dispatcher.ts) now forwards
 the optional execution signal through settled preparation, trusted review, and
 application. Approval receives the signal separately from its immutable complete
 view; a cancelled review is awaited, resolves `aborted`, and cannot reuse late
@@ -224,7 +254,7 @@ accounting or whole-run outcome.
 
 ### Settled application and atomic replacement
 
-[Application](../../../src/runtime/patch-applier.ts) combines external cancellation
+[Application](../../../../src/runtime/patch-applier.ts) combines external cancellation
 and its existing execution timer with the first observed stop-cause latch. The
 combined signal reaches path revalidation (component lstat/canonical realpath)
 and the shared bounded source reader, including awaited handle close. Checks
@@ -291,7 +321,7 @@ checks.
 
 ### Input ownership and lifecycle
 
-The single [line reader](../../../src/line-input.ts) now uses explicit line events,
+The single [line reader](../../../../src/line-input.ts) now uses explicit line events,
 a queue for ordinary buffered input, and one pending owner identity. It creates
 no async iterator or competing reader. Optional read signals reject a cancelled
 owner with the fixed typed `LineReadAbortedError`; ownership and the abort listener
@@ -321,9 +351,9 @@ is connected yet; that is group 7.
 
 ### Exact approval and race boundary
 
-[Trusted approval](../../../src/runtime/patch-approval.ts) passes optional signal
+[Trusted approval](../../../../src/runtime/patch-approval.ts) passes optional signal
 options separately from its detached frozen view. The
-[terminal approver](../../../src/terminal-approval.ts) forwards the signal to its
+[terminal approver](../../../../src/terminal-approval.ts) forwards the signal to its
 borrowed line read. Pre-abort skips review; cancellation observed before accepting
 pending consent returns `aborted`, including a late affirmative read or approver
 settlement. The decision commits when the awaited result is accepted; cancellation
@@ -378,7 +408,7 @@ synchronization, archive, or full-feature completion is inferred.
 
 ### Settled operation and race boundary
 
-The internal [settled wrapper](../../../src/runtime/settled-operation.ts) replaces
+The internal [settled wrapper](../../../../src/runtime/settled-operation.ts) replaces
 read/preparation `Promise.race` with one awaited operation. Its internal signal
 combines external cancellation and the execution timer. The first observed stop
 cause is latched: timer first returns `timeout`; external cancellation first
@@ -455,7 +485,7 @@ spec synchronization, or archive is approved or complete.
 
 ### Controller and API boundaries
 
-The internal [controller](../../../src/runtime/run-controller.ts) accepts one
+The internal [controller](../../../../src/runtime/run-controller.ts) accepts one
 trusted operation callback, gives it one owned `AbortSignal`, and exposes
 `requestCancellation()`, `settled`, and `dispose()`. Invocation starts in the
 next microtask, allowing the owner to register the controller before synchronous

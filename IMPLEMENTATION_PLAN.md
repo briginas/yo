@@ -7,38 +7,40 @@ changes. Read the [workflow guide](CONTRIBUTING.md) before starting a change.
 ## Implemented behavior
 
 - [Agent harness](openspec/specs/agent-harness/spec.md): bounded sequential loop,
-  closed tool registry, workspace policy, and read-tool limits.
+  closed tool registry, workspace policy, settled cancellation, and read-tool limits.
 - [CLI chat](openspec/specs/cli-chat/spec.md): the `yo` entrypoint, ephemeral
-  transcript, sequential input, and recoverable turn failures.
+  transcript, sequential input, active/idle interrupt routing, and per-turn recovery.
 - [Codex authentication and transport](openspec/specs/codex-auth-transport/spec.md):
-  trusted OAuth, credential refresh/storage, provider conversion, and safe answers.
+  trusted OAuth, credential refresh/storage, cancellable requests, and safe answers.
 - [Approval-gated patching](openspec/specs/approval-gated-patching/spec.md):
   exact single-file proposals, complete preview, fresh consent, revalidation,
-  and atomic application.
+  atomic application, and cancellation that preserves committed replacements.
 - [Run observation](openspec/specs/run-observation/spec.md): session-local run
-  history, live display, and local `/runs` and `/run N` inspection.
+  history, requested/settled cancellation display, and local `/runs` and `/run N` inspection.
 
 Milestones 1–4 are complete. Cancellation implementation and integration checks
 now pass 466 tests, build, formatting, strict OpenSpec validation, and diff checks.
-Its [verification](openspec/changes/cancel-active-runs/verification.md) records
+Its [archived verification](openspec/changes/archive/2026-10-02-cancel-active-runs/verification.md) records
 review findings/fixes, deterministic demonstration, real PTY and process-SIGINT
 checks, and the remaining physical-keyboard/live-provider coverage limits. Human
-acceptance and main-spec synchronization remain pending.
+acceptance was received on 2026-10-02; the five current specifications are
+synchronized and the cancellation change is archived.
 The [archived inspection evidence](openspec/changes/archive/2026-10-02-inspect-settled-runs/verification.md)
 retains the earlier Milestone 4 closure evidence.
 
 Old milestone documents have been removed. Do not look for active/completed
 plans under `docs/`; use the relevant change's proposal, design, deltas, and tasks.
 
-## Current change: cancellation review
+## Completed increment: cancellation
 
-[Cancellation](openspec/changes/cancel-active-runs/proposal.md) is implemented
-through groups 1–7 and integration tasks 8.1–8.2. Its [design](openspec/changes/cancel-active-runs/design.md),
-[requirement deltas](openspec/changes/cancel-active-runs/specs/), [tasks](openspec/changes/cancel-active-runs/tasks.md),
-and [verification](openspec/changes/cancel-active-runs/verification.md) remain
-active until explicit result acceptance. The user authorized the remaining
-implementation with a commit after each step; groups 5–7 are committed as
-`3a4406f`, `c67c608`, and `5aae91e`.
+[Cancellation](openspec/changes/archive/2026-10-02-cancel-active-runs/proposal.md)
+is implemented and accepted. Its [design](openspec/changes/archive/2026-10-02-cancel-active-runs/design.md),
+[requirement deltas](openspec/changes/archive/2026-10-02-cancel-active-runs/specs/),
+[tasks](openspec/changes/archive/2026-10-02-cancel-active-runs/tasks.md), and
+[verification](openspec/changes/archive/2026-10-02-cancel-active-runs/verification.md)
+retain the completed evidence. The user authorized a commit after each step;
+groups 5–7 are committed as `3a4406f`, `c67c608`, and `5aae91e`, with final
+integration verification and the observation reentry fix in `755d9c9`.
 
 The trusted controller propagates abort through credentials, transport, loop,
 read tools, and exact patch review/application, then waits for full turn settlement.
@@ -49,10 +51,11 @@ receive ordered results, applied patches remain applied, and cancelled evidence
 is retained for inspection and the next turn. This follows pi's abort-and-wait
 separation within yo's sequential scope.
 
-The only remaining task is 8.3: after the user accepts this verified result,
-synchronize the implemented deltas, archive the change, and update these links.
-Automated checks and agent review do not infer acceptance. Main specifications
-remain unchanged until that gate is satisfied.
+The user explicitly accepted the verified result and authorized closure with
+“it's ok. go” on 2026-10-02. Only verified cancellation deltas were synchronized;
+the archive preserves earlier staged evidence and its coverage limits.
+The next candidate is explicit rerun planning below; no implementation leaf is
+currently approved.
 
 ## Subsequent work
 
