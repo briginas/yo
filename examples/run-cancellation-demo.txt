@@ -1,0 +1,265 @@
+Deterministic faux interactive demo; native readline, local fixture, no OAuth or network.
+yo> /runs
+Session runs:
+No runs yet.
+Inspect: /run N | List: /runs
+yo> Read answer.ts
+Run #1: Read answer.ts | start=15:00:00
+state: run=1 starting elapsed=0.000s
+event: run=1 #1 run_started
+state: run=1 starting elapsed=0.000s
+event: run=1 #2 model_requested step=1
+state: run=1 model elapsed=0.000s
+event: run=1 #3 model_responded step=1
+state: run=1 tools elapsed=0.025s
+event: run=1 #4 tool_requested step=1 call=1 tool=read_file
+state: run=1 tools elapsed=0.025s
+event: run=1 #5 tool_authorized step=1 call=1 tool=read_file outcome=allow
+state: run=1 tools elapsed=0.025s
+event: run=1 #6 tool_completed step=1 call=1 tool=read_file outcome=success
+state: run=1 tools elapsed=0.025s
+event: run=1 #7 model_requested step=2
+state: run=1 model elapsed=0.025s
+[Read completed; model waits for Ctrl+C, then settles cleanup]
+[Ctrl+C twice while model cleanup is held]
+event: run=1 #8 run_cancellation_requested
+state: run=1 cancellation requested elapsed=0.050s
+[Cancellation requested; only now release model cleanup]
+event: run=1 #9 run_finished outcome=aborted
+state: run=1 cancellation requested elapsed=0.150s
+Run #1 result: cancelled
+Elapsed: 0.150s
+Evidence:
+Stop reason: aborted
+Tools: read_file
+Files:
+- answer.ts
+Errors:
+- (none)
+Patches:
+- (none)
+Session runs:
+- #1 Read answer.ts | cancelled | start=15:00:00 elapsed=0.150s | reason=aborted
+Inspect: /run N | List: /runs
+yo> /runs
+Session runs:
+- #1 Read answer.ts | cancelled | start=15:00:00 elapsed=0.150s | reason=aborted
+Inspect: /run N | List: /runs
+yo> /run 1
+Run #1: Read answer.ts | start=15:00:00
+Events:
+event: run=1 #1 run_started
+event: run=1 #2 model_requested step=1
+event: run=1 #3 model_responded step=1
+event: run=1 #4 tool_requested step=1 call=1 tool=read_file
+event: run=1 #5 tool_authorized step=1 call=1 tool=read_file outcome=allow
+event: run=1 #6 tool_completed step=1 call=1 tool=read_file outcome=success
+event: run=1 #7 model_requested step=2
+event: run=1 #8 run_cancellation_requested
+event: run=1 #9 run_finished outcome=aborted
+Retained answer:
+(no final answer)
+Run #1 result: cancelled
+Elapsed: 0.150s
+Evidence:
+Stop reason: aborted
+Tools: read_file
+Files:
+- answer.ts
+Errors:
+- (none)
+Patches:
+- (none)
+yo> Patch answer.ts
+Run #2: Patch answer.ts | start=15:00:00
+state: run=2 starting elapsed=0.000s
+event: run=2 #1 run_started
+state: run=2 starting elapsed=0.000s
+event: run=2 #2 model_requested step=1
+state: run=2 model elapsed=0.000s
+event: run=2 #3 model_responded step=1
+state: run=2 tools elapsed=0.025s
+event: run=2 #4 tool_requested step=1 call=1 tool=propose_patch
+state: run=2 tools elapsed=0.025s
+event: run=2 #5 tool_authorized step=1 call=1 tool=propose_patch outcome=allow
+state: run=2 tools elapsed=0.025s
+event: run=2 #6 patch_prepared step=1 call=1 tool=propose_patch outcome=prepared
+state: run=2 tools elapsed=0.025s
+event: run=2 #7 patch_approval_requested step=1 call=1 tool=propose_patch outcome=waiting
+state: run=2 approval elapsed=0.025s
+Patch proposal: answer.ts
+--- answer.ts
++++ answer.ts
+-export const answer = 42
++export const answer = 43
+
+Apply this patch? [y/N] [waiting for explicit input]
+[Partial y, then Ctrl+C cancels approval]
+event: run=2 #8 run_cancellation_requested
+state: run=2 cancellation requested elapsed=0.025s
+event: run=2 #9 patch_approval_resolved step=1 call=1 tool=propose_patch outcome=aborted
+state: run=2 cancellation requested elapsed=0.025s
+event: run=2 #10 tool_completed step=1 call=1 tool=propose_patch outcome=aborted
+state: run=2 cancellation requested elapsed=0.025s
+event: run=2 #11 run_finished outcome=aborted
+state: run=2 cancellation requested elapsed=0.025s
+[Late y during cancellation is discarded]
+[Cancelled review settled; file remains 42]
+Run #2 result: cancelled
+Elapsed: 0.025s
+Evidence:
+Stop reason: aborted
+Tools: propose_patch
+Files:
+- (none)
+Errors:
+- aborted step=1 call=1
+Patches:
+- answer.ts: prepared -> waiting -> aborted
+Session runs:
+- #1 Read answer.ts | cancelled | start=15:00:00 elapsed=0.150s | reason=aborted
+- #2 Patch answer.ts | cancelled | start=15:00:00 elapsed=0.025s | reason=aborted
+Inspect: /run N | List: /runs
+yo> /run 2
+Run #2: Patch answer.ts | start=15:00:00
+Events:
+event: run=2 #1 run_started
+event: run=2 #2 model_requested step=1
+event: run=2 #3 model_responded step=1
+event: run=2 #4 tool_requested step=1 call=1 tool=propose_patch
+event: run=2 #5 tool_authorized step=1 call=1 tool=propose_patch outcome=allow
+event: run=2 #6 patch_prepared step=1 call=1 tool=propose_patch outcome=prepared
+event: run=2 #7 patch_approval_requested step=1 call=1 tool=propose_patch outcome=waiting
+event: run=2 #8 run_cancellation_requested
+event: run=2 #9 patch_approval_resolved step=1 call=1 tool=propose_patch outcome=aborted
+event: run=2 #10 tool_completed step=1 call=1 tool=propose_patch outcome=aborted
+event: run=2 #11 run_finished outcome=aborted
+Retained answer:
+(no final answer)
+Run #2 result: cancelled
+Elapsed: 0.025s
+Evidence:
+Stop reason: aborted
+Tools: propose_patch
+Files:
+- (none)
+Errors:
+- aborted step=1 call=1
+Patches:
+- answer.ts: prepared -> waiting -> aborted
+yo> Patch answer.ts
+Run #3: Patch answer.ts | start=15:00:00
+state: run=3 starting elapsed=0.000s
+event: run=3 #1 run_started
+state: run=3 starting elapsed=0.000s
+event: run=3 #2 model_requested step=1
+state: run=3 model elapsed=0.000s
+event: run=3 #3 model_responded step=1
+state: run=3 tools elapsed=0.025s
+event: run=3 #4 tool_requested step=1 call=1 tool=propose_patch
+state: run=3 tools elapsed=0.025s
+event: run=3 #5 tool_authorized step=1 call=1 tool=propose_patch outcome=allow
+state: run=3 tools elapsed=0.025s
+event: run=3 #6 patch_prepared step=1 call=1 tool=propose_patch outcome=prepared
+state: run=3 tools elapsed=0.025s
+event: run=3 #7 patch_approval_requested step=1 call=1 tool=propose_patch outcome=waiting
+state: run=3 approval elapsed=0.025s
+Patch proposal: answer.ts
+--- answer.ts
++++ answer.ts
+-export const answer = 42
++export const answer = 43
+
+Apply this patch? [y/N] [waiting for explicit input]
+[A new proposal needs new consent]
+y
+event: run=3 #8 patch_approval_resolved step=1 call=1 tool=propose_patch outcome=approved
+state: run=3 tools elapsed=0.025s
+event: run=3 #9 patch_applied step=1 call=1 tool=propose_patch outcome=applied
+state: run=3 tools elapsed=0.025s
+event: run=3 #10 tool_completed step=1 call=1 tool=propose_patch outcome=success
+state: run=3 tools elapsed=0.025s
+event: run=3 #11 model_requested step=2
+state: run=3 model elapsed=0.025s
+event: run=3 #12 model_responded step=2
+state: run=3 finishing elapsed=0.050s
+event: run=3 #13 run_finished outcome=final_answer
+state: run=3 finishing elapsed=0.050s
+Fresh consent applied the patch; answer.ts now contains 43.
+
+Run #3 result: completed
+Elapsed: 0.050s
+Evidence:
+Stop reason: final_answer
+Tools: propose_patch
+Files:
+- answer.ts
+Errors:
+- (none)
+Patches:
+- answer.ts: prepared -> waiting -> approved -> applied
+Session runs:
+- #1 Read answer.ts | cancelled | start=15:00:00 elapsed=0.150s | reason=aborted
+- #2 Patch answer.ts | cancelled | start=15:00:00 elapsed=0.025s | reason=aborted
+- #3 Patch answer.ts | completed | start=15:00:00 elapsed=0.050s | reason=final_answer
+Inspect: /run N | List: /runs
+yo> /runs
+Session runs:
+- #1 Read answer.ts | cancelled | start=15:00:00 elapsed=0.150s | reason=aborted
+- #2 Patch answer.ts | cancelled | start=15:00:00 elapsed=0.025s | reason=aborted
+- #3 Patch answer.ts | completed | start=15:00:00 elapsed=0.050s | reason=final_answer
+Inspect: /run N | List: /runs
+yo> /run 1
+Run #1: Read answer.ts | start=15:00:00
+Events:
+event: run=1 #1 run_started
+event: run=1 #2 model_requested step=1
+event: run=1 #3 model_responded step=1
+event: run=1 #4 tool_requested step=1 call=1 tool=read_file
+event: run=1 #5 tool_authorized step=1 call=1 tool=read_file outcome=allow
+event: run=1 #6 tool_completed step=1 call=1 tool=read_file outcome=success
+event: run=1 #7 model_requested step=2
+event: run=1 #8 run_cancellation_requested
+event: run=1 #9 run_finished outcome=aborted
+Retained answer:
+(no final answer)
+Run #1 result: cancelled
+Elapsed: 0.150s
+Evidence:
+Stop reason: aborted
+Tools: read_file
+Files:
+- answer.ts
+Errors:
+- (none)
+Patches:
+- (none)
+yo> /run 2
+Run #2: Patch answer.ts | start=15:00:00
+Events:
+event: run=2 #1 run_started
+event: run=2 #2 model_requested step=1
+event: run=2 #3 model_responded step=1
+event: run=2 #4 tool_requested step=1 call=1 tool=propose_patch
+event: run=2 #5 tool_authorized step=1 call=1 tool=propose_patch outcome=allow
+event: run=2 #6 patch_prepared step=1 call=1 tool=propose_patch outcome=prepared
+event: run=2 #7 patch_approval_requested step=1 call=1 tool=propose_patch outcome=waiting
+event: run=2 #8 run_cancellation_requested
+event: run=2 #9 patch_approval_resolved step=1 call=1 tool=propose_patch outcome=aborted
+event: run=2 #10 tool_completed step=1 call=1 tool=propose_patch outcome=aborted
+event: run=2 #11 run_finished outcome=aborted
+Retained answer:
+(no final answer)
+Run #2 result: cancelled
+Elapsed: 0.025s
+Evidence:
+Stop reason: aborted
+Tools: propose_patch
+Files:
+- (none)
+Errors:
+- aborted step=1 call=1
+Patches:
+- answer.ts: prepared -> waiting -> aborted
+yo> /exit
+[Verified fresh consent changed 42 to 43; cancelled run inspection stays frozen]

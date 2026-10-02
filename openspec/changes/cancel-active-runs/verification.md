@@ -1,6 +1,79 @@
 # Verification
 
-## Current status: group 7
+## Current status: implementation verified; review acceptance pending
+
+Groups 1–7 and integration tasks 8.1–8.2 are implemented, verified, and
+agent-reviewed. The user authorized implementation with a commit after each step;
+this session committed group 5 as `3a4406f`, group 6 as `c67c608`, and group 7
+as `5aae91e`. Task 8.3 remains unchecked because explicit acceptance of the
+finished result has not been received. Main specifications are unchanged; this
+change remains active for human review before synchronization and archive.
+
+### Final integration and review
+
+The [cancellation demo](../../../examples/run-cancellation-demo.ts) uses real
+CLI composition, native readline, a temporary fixture, and a faux model. Its
+[captured transcript](../../../examples/run-cancellation-demo.txt) shows a real
+read followed by held model cleanup, one request despite repeated interrupts,
+requested activity before settlement, cancellation of pending exact review,
+discarded partial/late consent, fresh proposal and consent, successful application,
+and unchanged inspection of the cancelled runs afterwards. Two generated runs
+matched byte-for-byte; the parent rerun matched the committed transcript. The
+existing observation demonstration still matches its captured transcript too.
+
+Final cross-component review found a clock-diagnostic reentry gap: nested
+cancellation could be projected while the outer event held an older record,
+then erased by the outer save. Entire observation updates and settlement are
+now serialized in one synchronous queue. Trusted cancellation remains immediate;
+projection and display preserve event order without stale overwrites. New tests
+cover diagnostic-triggered cancellation, completion/failure settlement winning,
+frozen timing, and next-run identity. Independent review reproduced the fix and
+reported no remaining concrete lifecycle issue. These reviews are agent evidence,
+not human acceptance.
+
+### Terminal and provider coverage
+
+- Real PTY with native readline and a faux provider: repeated Ctrl+C at pending
+  model work produced one request and cancelled settlement; `/runs` and `/run 1`
+  retained the completed read and no final answer. During patch review, partial
+  `y`, Ctrl+C, and late `y` produced aborted review with no application. The next
+  proposal still previewed 42→43 and required fresh `y`, then recorded application
+  and completion. `/run 2` retained the original cancelled trail. Exit code was 0.
+- Separate real PTY: idle Ctrl+C exited with code 0 and no run allocation.
+- Separate real PTY: Ctrl+D during model work closed readline without cancelling;
+  subsequent Ctrl+C reached actual process SIGINT, settled cancelled, and exited 0.
+- Real non-TTY child process: repeated OS SIGINT produced one request, awaited
+  model cleanup, rendered cancelled, suppressed its late answer, emitted no ANSI
+  controls, and exited 0. No patch consent was granted.
+- PTY input was tool-driven. A human physical keyboard/terminal-emulator check
+  and live-provider/billing behavior were not verified. No OAuth credential or
+  network/model request was used for these checks. The demo uses durable progress
+  lines; actual cursor replacement remains covered by renderer tests.
+
+### Final checks and scenario coverage
+
+- `npm test`: 466 passed, 0 failed, skipped, or cancelled (27 suites).
+- `npm run build`: strict TypeScript and CLI bundling passed.
+- `npm run format:check`, `npm run spec:check` (7 passed, 0 failed), and
+  `git diff --check` passed. Existing main-spec length hints are informational.
+- Demo syntax/format checks passed; deterministic transcript comparisons passed.
+- Local Markdown links in maps, contribution guide, and active change passed.
+
+| Delta                   | Verified behavior and principal tests                                                                                                                                                                                                            |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| agent-harness           | Controller isolation, settled read timeouts/first stop cause, pre-abort, accepted call accounting, late responses, terminal commit orders: run-controller, settled-operation, filesystem, tool-dispatcher, agent-loop-cancellation tests         |
+| cli-chat                | Single input ownership, pending review release, TTY/process/EOF routing, held cleanup, inspection, retained suffix, fresh budget and callback isolation: line-input, cli-cancellation, conversation/agent-loop-cancellation tests and PTY checks |
+| codex-auth-transport    | Held store/refresh/persistence and lock release, no later model fetch, reader/body cleanup, HTTP errors, partial/late answer gates, unchanged sanitization: request-cancellation and existing auth/provider tests                                |
+| approval-gated-patching | Preparation/review cancellation, both consent orders, no pre-rename mutation, initiated rename success/failure, applied evidence and fresh consent: patch-cancellation/application/approval tests, loop tests and demo                           |
+| run-observation         | Request versus settlement, sticky activity, exact labels, frozen timing/history, applied trails, faulty consumers and reentrant clock/diagnostic/renderer paths: observation/terminal tests, CLI tests and demo                                  |
+
+No new dependency, model tool/schema, credential configuration, login capability,
+process tool, rerun, validation, rollback, automatic retry, or persistence was
+added. Non-cooperative owned work still delays settlement; requesting cancellation
+is not a hard elapsed-time guarantee. Rerun and allowlisted validation remain
+separate unapproved changes. Specification synchronization/archive await task 8.3.
+
+## Group 7 evidence (before integration verification)
 
 Groups 1–7 are implemented, checked, and agent-reviewed under the user's request
 to implement the change and commit after each step. Group 6 is committed as

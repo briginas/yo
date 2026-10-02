@@ -112,17 +112,15 @@ remain separate trusted CLI operations. Current requirements live exclusively
 in `openspec/specs/`; changes use `openspec/changes/`. See the
 [development workflow](CONTRIBUTING.md).
 
-The next feature is the proposed
-[cancellation change](openspec/changes/cancel-active-runs/proposal.md), then
-explicit rerun, then validation. Its first four bounded groups, trusted controller/signal
-contracts, settled read/preparation operations, cancellable input/approval
-ownership APIs, and settled patch cancellation preserving initiated replacement
-outcomes, were authorized and implemented.
-Groups 5–7 request/credential, loop/conversation, and CLI/observation cancellation
-are now implemented. Integration verification and human result review remain. The user authorized the remaining implementation
-with a commit after each step. See the implementation map and change verification for the
-scoped checks and pending human result review.
-Human result acceptance remains required before specification synchronization.
+The [cancellation change](openspec/changes/cancel-active-runs/proposal.md) is now
+implemented and verified through groups 1–7 and integration tasks 8.1–8.2. It
+propagates trusted cancellation through model/tool/review work, waits for cleanup,
+retains every accepted call result, and permits inspection and a fresh turn.
+Applied patches and committed completion remain intact. The user authorized
+implementation with a commit after each step. See [verification](openspec/changes/cancel-active-runs/verification.md)
+for the 466-test full check, real PTY/process-signal evidence, and coverage limits.
+Explicit human result acceptance is still required for task 8.3 specification
+synchronization and archive. Explicit rerun and validation remain later proposals.
 The [validation draft](openspec/changes/allowlisted-validation/proposal.md),
 [design](openspec/changes/allowlisted-validation/design.md), and
 [tasks](openspec/changes/allowlisted-validation/tasks.md) do not authorize process
@@ -134,11 +132,10 @@ retains the completed [inspection change evidence](openspec/changes/archive/2026
 
 After separate planning and approval, later milestones may:
 
-1. Add run cancellation through a trusted controller that settles active work.
-2. Add explicit rerun as a new linked run with a defined context policy and fresh
+1. Add explicit rerun as a new linked run with a defined context policy and fresh
    patch approval.
-3. Add Milestone 5 allowlisted validation and show test/build evidence in event
+2. Add Milestone 5 allowlisted validation and show test/build evidence in event
    feeds and result cards.
-4. Consider append-only JSONL session history, richer terminal presentation,
+3. Consider append-only JSONL session history, richer terminal presentation,
    skills/extensions, and provider portability after the in-memory execution
    interface and its control boundaries have been validated.

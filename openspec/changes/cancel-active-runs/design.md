@@ -6,7 +6,7 @@ See [proposal](proposal.md) for motivation and authorization. The current
 [specifications](../../specs/) remain implemented behavior until this change is
 reviewed, implemented, verified, and synchronized.
 
-### Current execution
+### Execution before this change
 
 `cli-app.ts` allocates an observation record before awaiting
 `runConversationTurn`. The conversation invokes `runAgent`, then appends only

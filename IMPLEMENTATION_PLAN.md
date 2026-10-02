@@ -18,46 +18,41 @@ changes. Read the [workflow guide](CONTRIBUTING.md) before starting a change.
 - [Run observation](openspec/specs/run-observation/spec.md): session-local run
   history, live display, and local `/runs` and `/run N` inspection.
 
-Milestones 1–4 are complete. The last recorded full implementation check passed
-341 tests, build, formatting, strict OpenSpec validation, and diff checks.
+Milestones 1–4 are complete. Cancellation implementation and integration checks
+now pass 466 tests, build, formatting, strict OpenSpec validation, and diff checks.
+Its [verification](openspec/changes/cancel-active-runs/verification.md) records
+review findings/fixes, deterministic demonstration, real PTY and process-SIGINT
+checks, and the remaining physical-keyboard/live-provider coverage limits. Human
+acceptance and main-spec synchronization remain pending.
 The [archived inspection evidence](openspec/changes/archive/2026-10-02-inspect-settled-runs/verification.md)
-records 10.3–10.4 self-review and faux terminal verification. Physical TTY and
-live-provider behavior were not newly verified for observation closure.
+retains the earlier Milestone 4 closure evidence.
 
 Old milestone documents have been removed. Do not look for active/completed
 plans under `docs/`; use the relevant change's proposal, design, deltas, and tasks.
 
-## Next planning boundary: cancellation
+## Current change: cancellation review
 
-The proposed [cancellation change](openspec/changes/cancel-active-runs/proposal.md)
-now has a [design](openspec/changes/cancel-active-runs/design.md),
-[requirement deltas](openspec/changes/cancel-active-runs/specs/), and
-[bounded tasks](openspec/changes/cancel-active-runs/tasks.md). Planning artifacts
-were reviewed for bounded group 1 implementation, confirmed by the user on
-2026-10-02 and committed as `7a79dfa`. The user then confirmed groups 2–4 as
-successive bounded steps in separate subagents, with group 2 committed as
-`b061aee` and group 3 as `c77cdf9` before the following step. Groups 1–4 provide
-the internal controller, optional signal contracts, settled read/preparation
-operations, cancellable single-reader approval APIs, and settled patch dispatch/
-application cancellation with preserved initiated-rename outcomes. CLI interrupts and cancellation
-observation are now wired through group 7.
-The [verification](openspec/changes/cancel-active-runs/verification.md) records
-group 5 request/credential cancellation (92 focused tests) and group 6
-loop/conversation cancellation (51 focused tests), and group 7
-CLI/observation cancellation (157 focused tests), plus build and review.
-The user authorized remaining implementation with a commit after each step.
-The next step is group 8, integration evidence and repository checks. Human acceptance and
-specification synchronization remain pending. Main specs remain unchanged.
+[Cancellation](openspec/changes/cancel-active-runs/proposal.md) is implemented
+through groups 1–7 and integration tasks 8.1–8.2. Its [design](openspec/changes/cancel-active-runs/design.md),
+[requirement deltas](openspec/changes/cancel-active-runs/specs/), [tasks](openspec/changes/cancel-active-runs/tasks.md),
+and [verification](openspec/changes/cancel-active-runs/verification.md) remain
+active until explicit result acceptance. The user authorized the remaining
+implementation with a commit after each step; groups 5–7 are committed as
+`3a4406f`, `c67c608`, and `5aae91e`.
 
-A trusted controller must propagate abort through transport, loop, tools, and pending approval, and
-wait for settlement. Display cancellation requested while work settles; display
-cancelled only after runtime confirmation. If completion wins the race, preserve
-completion. Already applied patches remain applied.
+The trusted controller propagates abort through credentials, transport, loop,
+read tools, and exact patch review/application, then waits for full turn settlement.
+Ctrl+C requests cancellation during active work and exits at the idle prompt.
+Requested cancellation remains running while cleanup settles. Runtime aborted/aborted
+renders cancelled; completion winning the race remains completed. Accepted calls
+receive ordered results, applied patches remain applied, and cancelled evidence
+is retained for inspection and the next turn. This follows pi's abort-and-wait
+separation within yo's sequential scope.
 
-Review cancellation before execution, during model/tool/approval work, repeated
-requests, and both completion/cancellation race orders. Follow pi's session
-abort-and-wait separation while preserving yo's sequential scope. Confirm each
-next bounded implementation leaf with the user after its design review.
+The only remaining task is 8.3: after the user accepts this verified result,
+synchronize the implemented deltas, archive the change, and update these links.
+Automated checks and agent review do not infer acceptance. Main specifications
+remain unchanged until that gate is satisfied.
 
 ## Subsequent work
 
@@ -86,7 +81,7 @@ next bounded implementation leaf with the user after its design review.
 - The verified harness may write its OAuth store at `~/.yo/auth.json` and apply
   one exact workspace patch only after explicit terminal consent.
 - There is no current process/validation tool, API-key fallback, persistent
-  session, JSONL, cross-session history, user-controlled cancellation/rerun, TUI,
+  session, JSONL, cross-session history, rerun, TUI,
   project runtime configuration, device-code login, multi-provider support,
   skills, MCP, or subagents.
 - Draft requirements do not grant capabilities. Each new behavior needs reviewed

@@ -50,6 +50,6 @@ explicit acceptance. See [design](design.md) and [capability deltas](specs/).
 
 ## 8. Integration verification and reviewed closure
 
-- [ ] 8.1 Add or extend an example for cancellation and safe continuation, and verify its deterministic faux transcript covers requested versus settled cancellation, read/approval work, and retained inspection; record physical TTY Ctrl+C and patch-review recovery separately, with live-provider coverage or lack of it explicit.
-- [ ] 8.2 Run `npm test`, `npm run build`, `npm run format:check`, `npm run spec:check`, and `git diff --check`; verify scenario coverage across all five deltas and record results and remaining limitations in change-local evidence for user review.
+- [x] 8.1 Add or extend an example for cancellation and safe continuation, and verify its deterministic faux transcript covers requested versus settled cancellation, read/approval work, and retained inspection; record physical TTY Ctrl+C and patch-review recovery separately, with live-provider coverage or lack of it explicit.
+- [x] 8.2 Run `npm test`, `npm run build`, `npm run format:check`, `npm run spec:check`, and `git diff --check`; verify scenario coverage across all five deltas and record results and remaining limitations in change-local evidence for user review.
 - [ ] 8.3 After explicit review acceptance, synchronize only implemented verified deltas, archive the change, and update project maps; verify structural validation, links, formatting, diff checks, and that rerun/validation remain separate unapproved work.

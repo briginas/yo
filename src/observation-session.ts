@@ -62,18 +62,18 @@ export const createObservationSession = ({
             report(diagnostic)
         }
     }
-    const pendingNotifications: (() => void)[] = []
-    let notifying = false
-    const notify = (action: () => void): void => {
-        pendingNotifications.push(action)
-        if (notifying) return
-        notifying = true
+    const pendingUpdates: (() => void)[] = []
+    let updating = false
+    const enqueue = (action: () => void): void => {
+        pendingUpdates.push(action)
+        if (updating) return
+        updating = true
         try {
-            // A consumer can request cancellation synchronously. Save it immediately, but finish
-            // this event's notifications before the nested event to preserve feed and display order.
-            while (pendingNotifications.length > 0) pendingNotifications.shift()!()
+            // Clocks and consumers can request cancellation synchronously. Finish this projection
+            // and its consumers first so nested events cannot be overwritten by an older record.
+            while (pendingUpdates.length > 0) pendingUpdates.shift()!()
         } finally {
-            notifying = false
+            updating = false
         }
     }
     const sample = (): Readonly<{ value: ClockSample; available: boolean }> => {
@@ -102,20 +102,20 @@ export const createObservationSession = ({
     }
     const observerFor =
         (id: RunIdentity): RunEventObserver =>
-        (event) => {
-            const record = active(id)
-            if (record === null) return
-            const projection: { record: RunRecord | null } = { record: null }
-            isolated(() => {
-                const time = sample()
-                const next = projectEvent(record, id, event, time.value)
-                projection.record = {
-                    ...next,
-                    timingAvailable: record.timingAvailable && time.available,
-                }
-                save(projection.record)
-            }, 'projection_failed')
-            notify(() => {
+        (event) =>
+            enqueue(() => {
+                const record = active(id)
+                if (record === null) return
+                const projection: { record: RunRecord | null } = { record: null }
+                isolated(() => {
+                    const time = sample()
+                    const next = projectEvent(record, id, event, time.value)
+                    projection.record = {
+                        ...next,
+                        timingAvailable: record.timingAvailable && time.available,
+                    }
+                    save(projection.record)
+                }, 'projection_failed')
                 // The answer observer still receives the snapshot if projection or rendering fails.
                 isolated(() => onRuntimeEvent(event), 'observer_failed')
                 const projected = projection.record
@@ -125,31 +125,31 @@ export const createObservationSession = ({
                     isolated(() => view.event(projected, row), 'rendering_failed')
                 }
             })
-        }
     const finish = (
         id: RunIdentity,
         session: SettledSession | null,
         beforeResult?: () => void
-    ): void => {
-        const record = active(id)
-        if (record === null) {
-            if (!history.some((item) => item.summary.id === id) && beforeResult !== undefined) {
-                isolated(beforeResult, 'observer_failed')
+    ): void =>
+        enqueue(() => {
+            const record = active(id)
+            if (record === null) {
+                if (!history.some((item) => item.summary.id === id) && beforeResult !== undefined) {
+                    isolated(beforeResult, 'observer_failed')
+                }
+                return
             }
-            return
-        }
-        const time = sample()
-        const next =
-            session === null
-                ? failRunRecord(record, id, time.value)
-                : finalizeRunRecord(record, id, session, time.value)
-        const timed = { ...next, timingAvailable: record.timingAvailable && time.available }
-        save(timed)
-        if (timed.summary.status !== 'running') {
-            if (beforeResult !== undefined) isolated(beforeResult, 'observer_failed')
-            notify(() => isolated(() => view.settled(timed, history), 'rendering_failed'))
-        }
-    }
+            const time = sample()
+            const next =
+                session === null
+                    ? failRunRecord(record, id, time.value)
+                    : finalizeRunRecord(record, id, session, time.value)
+            const timed = { ...next, timingAvailable: record.timingAvailable && time.available }
+            save(timed)
+            if (timed.summary.status !== 'running') {
+                if (beforeResult !== undefined) isolated(beforeResult, 'observer_failed')
+                isolated(() => view.settled(timed, history), 'rendering_failed')
+            }
+        })
     return {
         begin: (task) => {
             const id = nextId++
@@ -160,7 +160,7 @@ export const createObservationSession = ({
             }
             history = [...history, record]
             const onEvent = observerFor(id)
-            notify(() => isolated(() => view.start(record), 'rendering_failed'))
+            enqueue(() => isolated(() => view.start(record), 'rendering_failed'))
             return { id, onEvent }
         },
         observerFor,

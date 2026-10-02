@@ -125,6 +125,15 @@ chat. It uses a temporary fixture, no OAuth or paid request; its
 [captured transcript](examples/run-observation-demo.txt) is a demonstration,
 not physical TTY evidence.
 
+Run `node examples/run-cancellation-demo.ts` for deterministic cancellation,
+held cleanup, exact review cancellation, fresh consent, and frozen retained
+inspection. Its [captured transcript](examples/run-cancellation-demo.txt) uses
+native readline over controlled streams. For an actual local TTY, run
+`node examples/run-cancellation-demo.ts --tty` and follow the printed Ctrl+C
+and patch-review recovery steps. Both modes use a temporary fixture and faux
+provider without OAuth or network; PTY coverage and remaining physical-keyboard/
+live-provider limits are recorded in the active change's verification.
+
 The architecture follows pi's separation of
 [session ownership](../pi/packages/coding-agent/src/core/agent-session.ts),
 [interactive presentation](../pi/packages/coding-agent/src/modes/interactive/interactive-mode.ts),

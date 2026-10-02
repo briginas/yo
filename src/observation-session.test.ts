@@ -51,7 +51,6 @@ test('reentrant cancellation during header or event writes remains visible while
                     ) {
                         interrupted = true
                         session.observerFor(1)({ type: 'run_cancellation_requested' })
-                        assert.equal(session.getHistory()[0]?.summary.activity, 'cancelling')
                     }
                 },
                 isInteractive,
@@ -111,7 +110,6 @@ test('reentrant cancellation from runtime observers preserves feed order and lat
                 delivered.push(event.type)
                 if (event.type === 'model_responded') {
                     session.observerFor(1)({ type: 'run_cancellation_requested' })
-                    assert.equal(session.getHistory()[0]?.summary.activity, 'cancelling')
                     if (throwAfterRequest) throw new Error('private answer observer')
                 }
             },
@@ -137,6 +135,108 @@ test('reentrant cancellation from runtime observers preserves feed order and lat
         assert.equal(session.getHistory()[0]?.summary.status, 'running')
         assert.equal(session.getHistory()[0]?.result, null)
         assert.deepEqual(diagnostics, throwAfterRequest ? ['observer_failed'] : [])
+    }
+})
+
+test('clock diagnostics cannot overwrite nested cancellation with an older projection', () => {
+    let failSample = false
+    const writes: string[] = []
+    const diagnostics: ObservationDiagnostic[] = []
+    const output = createTerminalStatusOutput({
+        write: (text) => writes.push(text),
+        isInteractive: false,
+        clearLine: () => undefined,
+        moveCursorToStart: () => undefined,
+    })
+    const session = createObservationSession({
+        clocks: {
+            wallTime: () => 1000,
+            monotonicTime: () => {
+                if (failSample) {
+                    failSample = false
+                    throw new Error('private clock')
+                }
+                return 100
+            },
+        },
+        view: createTerminalObservationView(output, (text) => writes.push(text)),
+        onRuntimeEvent: () => undefined,
+        diagnose: (diagnostic) => {
+            diagnostics.push(diagnostic)
+            if (diagnostic === 'clock_failed') {
+                session.observerFor(1)({ type: 'run_cancellation_requested' })
+            }
+        },
+    })
+    const run = session.begin('Task')
+    failSample = true
+    run.onEvent(model)
+    const requested = session.getHistory()[0]!
+    assert.deepEqual(
+        requested.feed.map((row) => row.type),
+        ['model_requested', 'run_cancellation_requested']
+    )
+    assert.deepEqual(
+        writes.filter((text) => text.startsWith('event:')),
+        ['event: run=1 #1 model_requested step=1\n', 'event: run=1 #2 run_cancellation_requested\n']
+    )
+    assert.equal(requested.summary.activity, 'cancelling')
+    assert.equal(requested.summary.status, 'running')
+    assert.equal(requested.result, null)
+    assert.equal(requested.timingAvailable, false)
+    assert.match(writes.at(-1)!, /cancellation requested elapsed=unavailable/)
+    session.settle(run.id, { status: 'aborted', stopReason: 'aborted', finalAnswer: null })
+    const settled = session.getHistory()[0]!
+    const before = structuredClone(settled)
+    assert.equal(settled.result?.outcome, 'aborted')
+    const fresh = session.begin('Fresh task')
+    run.onEvent(model)
+    run.onEvent({ type: 'run_cancellation_requested' })
+    session.settle(run.id, complete)
+    assert.equal(fresh.id, 2)
+    assert.equal(session.getHistory()[0], settled)
+    assert.deepEqual(settled, before)
+    assert.deepEqual(diagnostics, ['clock_failed'])
+})
+
+test('settlement clock diagnostics cannot reopen committed completion or CLI failure', () => {
+    for (const outcome of ['completed', 'failed'] as const) {
+        let failSample = false
+        const diagnostics: ObservationDiagnostic[] = []
+        const session = createObservationSession({
+            clocks: {
+                wallTime: () => 1000,
+                monotonicTime: () => {
+                    if (failSample) {
+                        failSample = false
+                        throw new Error('clock')
+                    }
+                    return 100
+                },
+            },
+            view: emptyView,
+            onRuntimeEvent: () => undefined,
+            diagnose: (diagnostic) => {
+                diagnostics.push(diagnostic)
+                session.observerFor(1)({ type: 'run_cancellation_requested' })
+            },
+        })
+        const run = session.begin('Task')
+        run.onEvent(model)
+        failSample = true
+        if (outcome === 'completed') session.settle(run.id, complete)
+        else session.fail(run.id)
+        const settled = session.getHistory()[0]!
+        assert.equal(settled.summary.status, outcome)
+        assert.equal(settled.summary.activity, null)
+        assert.deepEqual(
+            settled.feed.map((row) => row.type),
+            ['model_requested']
+        )
+        assert.equal(settled.timingAvailable, false)
+        assert.deepEqual(diagnostics, ['clock_failed'])
+        run.onEvent(model)
+        assert.equal(session.getHistory()[0], settled)
     }
 })
 
