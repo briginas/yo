@@ -1,3 +1,4 @@
+import { checkOperationSignal } from '../runtime/settled-operation.ts'
 import { z, type ZodType } from 'zod'
 
 import type { Credential, CredentialStore } from '../auth/credential.ts'
@@ -335,10 +336,12 @@ export const convertOpenAICodexOutputToModelResponse = (
 }
 
 export type OpenAICodexCredentialResolver = (options: {
+    signal?: AbortSignal
     credentialStore: CredentialStore
 }) => Promise<Credential | undefined>
 
 export type OpenAICodexResponsesRequestOptions = {
+    signal?: AbortSignal
     body: Readonly<Record<string, unknown>>
     credentialStore: CredentialStore
     fetch?: typeof globalThis.fetch
@@ -350,15 +353,22 @@ export const sendOpenAICodexResponsesRequest = async ({
     credentialStore,
     fetch: sendRequest = globalThis.fetch,
     resolveCredential = resolveOpenAICodexCredential,
+    signal,
 }: OpenAICodexResponsesRequestOptions): Promise<Response> => {
-    const credential = await resolveCredential({ credentialStore })
+    checkOperationSignal(signal)
+    const credential = await resolveCredential({
+        credentialStore,
+        ...(signal === undefined ? {} : { signal }),
+    })
+    checkOperationSignal(signal)
 
     if (credential === undefined) {
         throw new Error('OpenAI Codex authentication is required. Run yo login.')
     }
 
     try {
-        return await sendRequest(CODEX_RESPONSES_URL, {
+        const response = await sendRequest(CODEX_RESPONSES_URL, {
+            ...(signal === undefined ? {} : { signal }),
             method: 'POST',
             headers: {
                 Authorization: `Bearer ${credential.accessToken}`,
@@ -370,7 +380,13 @@ export const sendOpenAICodexResponsesRequest = async ({
             },
             body: JSON.stringify(body),
         })
+        if (signal?.aborted) {
+            await releaseResponseBody(response)
+            checkOperationSignal(signal)
+        }
+        return response
     } catch {
+        checkOperationSignal(signal)
         throw new Error('OpenAI Codex network request failed.')
     }
 }
@@ -578,8 +594,13 @@ const processOpenAICodexSseEvent = (
 
 export const parseOpenAICodexResponsesSse = async (
     response: Response,
-    onFinalAnswerTextDelta?: OpenAICodexFinalAnswerTextSink
+    onFinalAnswerTextDelta?: OpenAICodexFinalAnswerTextSink,
+    signal?: AbortSignal
 ): Promise<ModelResponse> => {
+    if (signal?.aborted) {
+        await releaseResponseBody(response)
+        checkOperationSignal(signal)
+    }
     if (response.body === null) {
         throw new Error('OpenAI Codex SSE response body is missing.')
     }
@@ -592,6 +613,21 @@ export const parseOpenAICodexResponsesSse = async (
         hasAmbiguousOutputIdentity: false,
     }
     let buffer = ''
+    let cancellation: Promise<void> | undefined
+    const cancelReader = (): Promise<void> => {
+        cancellation ??= reader.cancel().catch(() => {
+            // Cleanup errors must not replace safe transport/cancellation outcomes.
+        })
+        return cancellation
+    }
+    const onAbort = (): void => {
+        void cancelReader()
+    }
+    signal?.addEventListener('abort', onAbort, { once: true })
+    const deliverAnswer: OpenAICodexFinalAnswerTextSink = (delta) => {
+        checkOperationSignal(signal)
+        onFinalAnswerTextDelta?.(delta)
+    }
 
     const processRecord = (record: string): ModelResponse | null => {
         const parsedRecord = parseSseRecord(record)
@@ -604,18 +640,21 @@ export const parseOpenAICodexResponsesSse = async (
             return null
         }
 
-        return processOpenAICodexSseEvent(parsedRecord.event, state, onFinalAnswerTextDelta)
+        return processOpenAICodexSseEvent(parsedRecord.event, state, deliverAnswer)
     }
 
     try {
         while (true) {
+            checkOperationSignal(signal)
             const { done, value } = await reader.read()
+            checkOperationSignal(signal)
 
             buffer += done ? decoder.decode() : decoder.decode(value, { stream: true })
 
             let boundary = findSseRecordBoundary(buffer)
 
             while (boundary !== null) {
+                checkOperationSignal(signal)
                 const record = buffer.slice(0, boundary.index)
 
                 buffer = buffer.slice(boundary.index + boundary.length)
@@ -642,17 +681,15 @@ export const parseOpenAICodexResponsesSse = async (
             }
         }
     } finally {
-        try {
-            await reader.cancel()
-        } catch {
-            // The response may already be closed; cleanup must not replace the transport result.
-        }
+        signal?.removeEventListener('abort', onAbort)
+        await cancelReader()
 
         try {
             reader.releaseLock()
         } catch {
             // A failed release is cleanup-only and must not replace the transport result.
         }
+        checkOperationSignal(signal)
     }
 }
 
@@ -660,6 +697,14 @@ export type OpenAICodexResponsesTransportOptions = {
     credentialStore: CredentialStore
     fetch?: typeof globalThis.fetch
     resolveCredential?: OpenAICodexCredentialResolver
+}
+
+const releaseResponseBody = async (response: Response): Promise<void> => {
+    try {
+        await response.body?.cancel()
+    } catch {
+        // HTTP error and late-fetch bodies must be released without exposing their contents.
+    }
 }
 
 const createOpenAICodexHttpError = (status: number): Error => {
@@ -683,14 +728,23 @@ export const createOpenAICodexResponsesTransport = ({
         const response = await sendOpenAICodexResponsesRequest({
             body: buildOpenAICodexResponsesRequestBody(request),
             credentialStore,
+            ...(options?.signal === undefined ? {} : { signal: options.signal }),
             ...(fetch === undefined ? {} : { fetch }),
             ...(resolveCredential === undefined ? {} : { resolveCredential }),
         })
 
         if (!response.ok) {
+            await releaseResponseBody(response)
+            checkOperationSignal(options?.signal)
             throw createOpenAICodexHttpError(response.status)
         }
 
-        return parseOpenAICodexResponsesSse(response, options?.onFinalAnswerDelta)
+        const result = await parseOpenAICodexResponsesSse(
+            response,
+            options?.onFinalAnswerDelta,
+            options?.signal
+        )
+        checkOperationSignal(options?.signal)
+        return result
     }
 }

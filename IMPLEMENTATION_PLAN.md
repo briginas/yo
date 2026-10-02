@@ -40,12 +40,12 @@ successive bounded steps in separate subagents, with group 2 committed as
 the internal controller, optional signal contracts, settled read/preparation
 operations, cancellable single-reader approval APIs, and settled patch dispatch/
 application cancellation with preserved initiated-rename outcomes. CLI, loop,
-conversation, transport, and observation cancellation remain unwired.
+conversation, and observation cancellation remain unwired.
 The [verification](openspec/changes/cancel-active-runs/verification.md) records
-407 passing tests, build and repository checks, and agent review; human acceptance
-of the group 4 result remains pending. The next candidate is group 5, signal-aware
-Codex request and credential work, after separate bounded confirmation.
-Full cancellation is not implemented or approved for specification synchronization.
+group 5 request/credential cancellation with 92 focused passing tests and build.
+The user authorized remaining implementation with a commit after each step.
+The next step is group 6, loop/conversation cancellation. Human acceptance and
+specification synchronization remain pending. Main specs remain unchanged.
 
 A trusted controller must propagate abort through transport, loop, tools, and pending approval, and
 wait for settlement. Display cancellation requested while work settles; display

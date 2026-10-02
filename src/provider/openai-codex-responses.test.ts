@@ -1411,7 +1411,7 @@ describe('createOpenAICodexResponsesTransport', () => {
                     }
                 )
 
-                assert.equal(providerResponse.bodyUsed, false)
+                assert.equal(providerResponse.bodyUsed, true)
             })
         }
     })

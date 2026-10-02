@@ -1,6 +1,43 @@
 # Verification
 
-## Current status: group 4
+## Current status: group 5
+
+On 2026-10-02 the user requested implementation of `cancel-active-runs` with a
+commit after each step, authorizing the remaining implementation groups in order.
+They also authorized useful subagents. Group 4 is committed as `20d2371`.
+Groups 1–5 are implemented and verified. Human result acceptance and task 8.3
+specification synchronization/archive remain pending; checks do not supply acceptance.
+
+### Request and credential settlement
+
+Optional run signals now reach credential reads, the serialized refresh callback,
+refresh fetch, model fetch, and SSE consumption. Pre-abort starts no store/fetch
+work. Store reads and lock waits remain awaited, with checks before further work.
+A valid rotated credential returned by refresh is validated and persisted before
+`modify` releases its lock; cancellation is then reported without a model fetch.
+Login/callback command behavior and model-visible schemas are unchanged.
+
+SSE abort cancels its reader to release a pending read, awaits cancellation and
+releases the lock before return. HTTP-error and late-fetch bodies are released.
+Every confirmed answer callback is signal-gated, and completion is rechecked
+through cleanup. Already delivered confirmed partial text is preserved. Fixed
+cancellation errors never expose arbitrary abort reasons or provider payloads.
+
+### Scoped checks and review
+
+- Auth/provider focused suite: 92 passed, 0 failed. Thirteen new controlled tests
+  cover pre-abort, held read/lock/refresh/persistence, lock release, rotated-token
+  persistence, fetch abort/rejection/late response cleanup, held SSE cleanup,
+  partial confirmed callbacks, completed-response cleanup races, and HTTP errors.
+- `npm run build` passed strict TypeScript and bundling.
+- Independent subagent review found no implementation defect. Existing HTTP-error
+  tests were updated to expect the required body release (`bodyUsed: true`).
+- Formatting, strict OpenSpec validation, and diff checks passed before commit.
+
+No physical TTY or live-provider check was performed. Loop/conversation/CLI
+cancellation wiring remains the next authorized group. Main specs remain unchanged.
+
+## Group 4 evidence (before group 5)
 
 On 2026-10-02 the user again requested “коммить и делай след шаг в отдельном
 субагенте”. The ready group 3 was committed as `c77cdf9`; the next bounded

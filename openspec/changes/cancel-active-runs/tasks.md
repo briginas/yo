@@ -1,12 +1,10 @@
 # Tasks
 
-The user confirmed group 1 on 2026-10-02, then authorized groups 2–4 as
-successive bounded steps in separate subagents. Their implementation checks and
-agent review are recorded in [verification](verification.md); human result
-acceptance is not inferred from automated checks. The next candidate is group 5
-and needs separate bounded confirmation. Keep boxes unchecked until scoped checks
-pass and review evidence is recorded. See [design](design.md) and
-[capability deltas](specs/) for the behavior and flow.
+The user authorized the remaining implementation on 2026-10-02 with a commit
+after each step. Complete and verify each group before proceeding. Scoped checks
+and agent review are recorded in [verification](verification.md); human result
+acceptance is not inferred from automated checks. Task 8.3 remains gated on
+explicit acceptance. See [design](design.md) and [capability deltas](specs/).
 
 ## 1. Trusted controller and signal contracts
 
@@ -34,9 +32,9 @@ pass and review evidence is recorded. See [design](design.md) and
 
 ## 5. Signal-aware Codex request and credential work
 
-- [ ] 5.1 Add optional cancellation to model-request credential resolution and refresh fetch, with checks around serialized storage; verify pre-abort, cancellation while waiting for storage, cancellation during refresh, valid rotated-credential persistence, lock release, and no subsequent model fetch.
-- [ ] 5.2 Propagate the run signal through authenticated fetch and SSE consumption with awaited body/reader cleanup and answer gating; verify pending fetch/read cancellation, HTTP-error cleanup, late completed responses/callbacks, partial confirmed text, and unchanged safe-answer/non-cancellation error behavior using local faux operations.
-- [ ] 5.3 Record provider/auth focused checks, build, and review evidence; verify sanitized outcomes, no credential/payload leakage, no login-flow expansion, and no new dependency or live-provider claim from faux tests.
+- [x] 5.1 Add optional cancellation to model-request credential resolution and refresh fetch, with checks around serialized storage; verify pre-abort, cancellation while waiting for storage, cancellation during refresh, valid rotated-credential persistence, lock release, and no subsequent model fetch.
+- [x] 5.2 Propagate the run signal through authenticated fetch and SSE consumption with awaited body/reader cleanup and answer gating; verify pending fetch/read cancellation, HTTP-error cleanup, late completed responses/callbacks, partial confirmed text, and unchanged safe-answer/non-cancellation error behavior using local faux operations.
+- [x] 5.3 Record provider/auth focused checks, build, and review evidence; verify sanitized outcomes, no credential/payload leakage, no login-flow expansion, and no new dependency or live-provider claim from faux tests.
 
 ## 6. Loop cancellation and conversation settlement
 

@@ -3,6 +3,8 @@ import { createServer } from 'node:http'
 
 import { z } from 'zod'
 
+import { checkOperationSignal } from '../runtime/settled-operation.ts'
+
 import {
     credentialSchema,
     OPENAI_CODEX_PROVIDER_ID,
@@ -49,16 +51,19 @@ export type OpenAICodexCredentialExchangeOptions = {
 }
 
 export type OpenAICodexCredentialRefresh = (options: {
+    signal?: AbortSignal
     refreshToken: string
 }) => Promise<Credential>
 
 export type OpenAICodexCredentialRefreshOptions = {
+    signal?: AbortSignal
     refreshToken: string
     fetch?: typeof globalThis.fetch
     now?: () => number
 }
 
 export type OpenAICodexCredentialResolverOptions = {
+    signal?: AbortSignal
     credentialStore: CredentialStore
     refreshCredential?: OpenAICodexCredentialRefresh
     now?: () => number
@@ -217,14 +222,17 @@ export const exchangeOpenAICodexAuthorizationCode = async ({
 
 export const refreshOpenAICodexCredential = async ({
     refreshToken,
+    signal,
     fetch: sendRequest = globalThis.fetch,
     now = Date.now,
 }: OpenAICodexCredentialRefreshOptions): Promise<Credential> => {
-    let response: Response
+    checkOperationSignal(signal)
+    let response: Response | undefined
 
     try {
         response = await sendRequest(TOKEN_URL, {
             method: 'POST',
+            ...(signal === undefined ? {} : { signal }),
             headers: { 'content-type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({
                 grant_type: 'refresh_token',
@@ -232,60 +240,74 @@ export const refreshOpenAICodexCredential = async ({
                 client_id: CLIENT_ID,
             }),
         })
+        if (!response.ok) {
+            throw credentialRefreshError()
+        }
+        const tokenResponse = tokenResponseSchema.parse(await response.json())
+        const accountId = extractAccountId(tokenResponse.access_token)
+        if (accountId === undefined) {
+            throw credentialRefreshError()
+        }
+
+        // A valid rotation must reach serialized storage even if cancellation arrived.
+        return credentialSchema.parse({
+            type: 'oauth',
+            accessToken: tokenResponse.access_token,
+            refreshToken: tokenResponse.refresh_token,
+            expiresAt: now() + tokenResponse.expires_in * 1_000,
+            accountId,
+        })
     } catch {
+        checkOperationSignal(signal)
         throw credentialRefreshError()
+    } finally {
+        try {
+            await response?.body?.cancel()
+        } catch {
+            // Consumed/failed bodies need no further cleanup; never expose token payloads.
+        }
     }
-
-    if (!response.ok) {
-        throw credentialRefreshError()
-    }
-
-    let tokenResponse: z.infer<typeof tokenResponseSchema>
-
-    try {
-        tokenResponse = tokenResponseSchema.parse(await response.json())
-    } catch {
-        throw credentialRefreshError()
-    }
-
-    const accountId = extractAccountId(tokenResponse.access_token)
-
-    if (accountId === undefined) {
-        throw credentialRefreshError()
-    }
-
-    return credentialSchema.parse({
-        type: 'oauth',
-        accessToken: tokenResponse.access_token,
-        refreshToken: tokenResponse.refresh_token,
-        expiresAt: now() + tokenResponse.expires_in * 1_000,
-        accountId,
-    })
 }
 
 export const resolveOpenAICodexCredential = async ({
     credentialStore,
     refreshCredential = refreshOpenAICodexCredential,
     now = Date.now,
+    signal,
 }: OpenAICodexCredentialResolverOptions): Promise<Credential | undefined> => {
-    const stored = await credentialStore.read(OPENAI_CODEX_PROVIDER_ID)
+    checkOperationSignal(signal)
+    try {
+        const stored = await credentialStore.read(OPENAI_CODEX_PROVIDER_ID)
+        checkOperationSignal(signal)
+        if (stored === undefined || now() < stored.expiresAt) {
+            return stored
+        }
 
-    if (stored === undefined || now() < stored.expiresAt) {
-        return stored
+        const resolved = await credentialStore.modify(OPENAI_CODEX_PROVIDER_ID, async (current) => {
+            checkOperationSignal(signal)
+            // Another process may have refreshed or removed the credential before lock acquisition.
+            if (current === undefined || now() < current.expiresAt) {
+                return
+            }
+            try {
+                return credentialSchema.parse(
+                    await refreshCredential({
+                        refreshToken: current.refreshToken,
+                        ...(signal === undefined ? {} : { signal }),
+                    })
+                )
+            } catch {
+                checkOperationSignal(signal)
+                throw credentialRefreshError()
+            }
+        })
+        // modify includes rotated-token persistence and lock release; never detach it.
+        checkOperationSignal(signal)
+        return resolved
+    } catch (error) {
+        checkOperationSignal(signal)
+        throw error
     }
-
-    return credentialStore.modify(OPENAI_CODEX_PROVIDER_ID, async (current) => {
-        // Another process may have refreshed or removed the credential before this lock was acquired.
-        if (current === undefined || now() < current.expiresAt) {
-            return
-        }
-
-        try {
-            return await refreshCredential({ refreshToken: current.refreshToken })
-        } catch {
-            throw credentialRefreshError()
-        }
-    })
 }
 
 const listenWithNodeHttp: CallbackServerListener = ({ host, port, onRequest }) =>
