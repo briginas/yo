@@ -1306,7 +1306,7 @@ test('returns a failed session when the model transport rejects', async () => {
     assert.deepEqual(observed, session.events)
 })
 
-test('REQ-D8B3ADC2 propagates approved sequential patch calls as safe ordered lifecycle events', async () => {
+test('propagates approved sequential patch calls as safe ordered lifecycle events', async () => {
     const fixtureRoot = await mkdtemp(join(tmpdir(), 'yo-agent-patch-approved-'))
     const workspaceRoot = await canonicalizeWorkspaceRoot(fixtureRoot)
     const sourcePath = join(workspaceRoot, 'example.ts')
@@ -1393,7 +1393,7 @@ test('REQ-D8B3ADC2 propagates approved sequential patch calls as safe ordered li
     )
 })
 
-test('REQ-D8B3ADC2 denies an unapproved patch and lets the model recover with a read-only result', async () => {
+test('denies an unapproved patch and lets the model recover with a read-only result', async () => {
     const fixtureRoot = await mkdtemp(join(tmpdir(), 'yo-agent-patch-denied-'))
     const workspaceRoot = await canonicalizeWorkspaceRoot(fixtureRoot)
     const sourcePath = join(workspaceRoot, 'example.ts')
@@ -1460,7 +1460,7 @@ test('REQ-D8B3ADC2 denies an unapproved patch and lets the model recover with a 
     assert.equal(toolCompletedCount(session, 'denied-patch'), 1)
 })
 
-test('REQ-D8B3ADC2 records a conflict before a read and approved reproposal while isolating lifecycle observers', async () => {
+test('records a conflict before a read and approved reproposal while isolating lifecycle observers', async () => {
     const fixtureRoot = await mkdtemp(join(tmpdir(), 'yo-agent-patch-conflict-'))
     const workspaceRoot = await canonicalizeWorkspaceRoot(fixtureRoot)
     const sourcePath = join(workspaceRoot, 'example.ts')

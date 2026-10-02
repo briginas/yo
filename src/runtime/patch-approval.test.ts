@@ -20,13 +20,13 @@ const proposal = (): PatchProposal =>
         removedLineCount: 1,
     })
 
-test('REQ-17B4C424 returns each explicit approval decision', async () => {
+test('returns each explicit approval decision', async () => {
     for (const expected of ['approved', 'denied', 'aborted'] as const) {
         assert.equal(await requestPatchApproval(proposal(), async () => expected), expected)
     }
 })
 
-test('REQ-17B4C424 fails closed when approval is unavailable or invalid', async () => {
+test('fails closed when approval is unavailable or invalid', async () => {
     assert.equal(await requestPatchApproval(proposal(), undefined), 'denied')
     assert.equal(
         await requestPatchApproval(proposal(), async () => 'unexpected' as unknown as 'approved'),
@@ -34,7 +34,7 @@ test('REQ-17B4C424 fails closed when approval is unavailable or invalid', async 
     )
 })
 
-test('REQ-17B4C424 sanitizes approver failures as denials', async () => {
+test('sanitizes approver failures as denials', async () => {
     assert.equal(
         await requestPatchApproval(proposal(), () => {
             throw new Error('terminal input failed')
@@ -47,7 +47,7 @@ test('REQ-17B4C424 sanitizes approver failures as denials', async () => {
     )
 })
 
-test('REQ-17B4C424 passes a detached frozen approval view without proposal internals', async () => {
+test('passes a detached frozen approval view without proposal internals', async () => {
     const original = proposal()
     let request: Record<string, unknown> | undefined
 
