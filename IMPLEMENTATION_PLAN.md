@@ -2,7 +2,7 @@
 
 This is the current project-state and sequencing map. Detailed implemented
 requirements live in OpenSpec specifications; proposed work lives in OpenSpec
-changes. Read the [workflow guide](docs/openspec.md) before starting a change.
+changes. Read the [workflow guide](CONTRIBUTING.md) before starting a change.
 
 ## Implemented behavior
 

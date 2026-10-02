@@ -6,7 +6,7 @@ Describe the implemented Milestone 4 leaves 10.1–10.3: session-local run
 records, ordered display projection, live terminal observation, and local
 between-turn inspection with `/runs` and `/run N`. This is
 the current requirement source for that migrated behavior. The
-[development guide](../../../docs/openspec.md) describes the workflow;
+[development guide](../../../CONTRIBUTING.md) describes the workflow;
 [archived change evidence](../../changes/archive/2026-10-02-inspect-settled-runs/verification.md)
 records inspection and first-version closure checks. Deferred cancellation,
 rerun, and validation are sequenced in the

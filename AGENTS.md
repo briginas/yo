@@ -31,7 +31,7 @@
 
 ## OpenSpec
 
-- Follow [the OpenSpec development workflow](docs/openspec.md). Use
+- Follow [the OpenSpec development workflow](CONTRIBUTING.md). Use
   `npm run openspec -- <arguments>` for the pinned local CLI, including commands
   shown as bare `openspec` in generated skills.
 - `openspec/specs/` is the current requirement source for implemented harness,

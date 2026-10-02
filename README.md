@@ -119,9 +119,9 @@ access is limited to ChatGPT OAuth and the Codex model transport.
 - [`PRD.md`](PRD.md) — stable product boundaries and links to current OpenSpec requirements.
 - [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) — current milestone state, permanent constraints, and links to detailed plans.
 - [`openspec/changes/`](openspec/changes/) — proposed changes, design decisions, task lists, requirement deltas, and archived completed changes.
-- [`docs/examples/`](docs/examples/) — repeatable faux demonstration and captured terminal output.
+- [`examples/`](examples/) — repeatable faux demonstration and captured terminal output.
 - [`openspec/specs/`](openspec/specs/) — current implemented requirements for harness, chat, OAuth/transport, patches, and observation.
-- [`docs/openspec.md`](docs/openspec.md) — pinned OpenSpec setup, Codex skills, source ownership, and bounded change workflow.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — pinned OpenSpec setup, Codex skills, source ownership, and bounded change workflow.
 
 These files have separate roles. Requirements and milestone state should not be copied into this README beyond a short orientation because duplicated details become stale.
 
@@ -137,9 +137,9 @@ git diff --check
 
 Tests use faux transports, injected HTTP, temporary credential stores, and fixture workspaces so normal verification does not require real credentials, network requests, or paid model calls.
 
-Run `node docs/examples/run-observation-demo.ts` for a repeatable demonstration
+Run `node examples/run-observation-demo.ts` for a repeatable demonstration
 of empty history, retained results, a transport failure, controlled model delay,
 explicit patch approval, and continued chat. It uses a faux transport and a
 temporary file; no OAuth or network is needed. See the
-[captured transcript](docs/examples/run-observation-demo.txt). The demo makes
+[captured transcript](examples/run-observation-demo.txt). The demo makes
 progress lines durable for readability; physical TTY behavior remains unverified.

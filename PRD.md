@@ -110,7 +110,7 @@ The implemented harness, ephemeral chat, exact approval-gated patches, and
 run observation are complete. The sole agent entrypoint is `yo`; OAuth commands
 remain separate trusted CLI operations. Current requirements live exclusively
 in `openspec/specs/`; changes use `openspec/changes/`. See the
-[development workflow](docs/openspec.md).
+[development workflow](CONTRIBUTING.md).
 
 The next feature to plan is cancellation, then explicit rerun, then validation.
 Each needs separate requirements review and bounded implementation confirmation.

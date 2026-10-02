@@ -3,9 +3,9 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { runCli } from '../../src/cli-app.ts'
-import { PATCH_APPROVAL_PROMPT } from '../../src/terminal-approval.ts'
-import type { ModelTransport } from '../../src/runtime/run.ts'
+import { runCli } from '../src/cli-app.ts'
+import { PATCH_APPROVAL_PROMPT } from '../src/terminal-approval.ts'
+import type { ModelTransport } from '../src/runtime/run.ts'
 
 const deferred = <T>() => {
     let resolve!: (value: T) => void

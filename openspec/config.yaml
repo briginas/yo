@@ -4,7 +4,7 @@ context: |
     Follow AGENTS.md. Read PRD.md and IMPLEMENTATION_PLAN.md as maps, then the
     linked specifications and change artifacts for the affected scope. For implemented
     behavior, openspec/specs is the current requirement source; the maps identify
-    the relevant specifications and unapproved roadmap work. See docs/openspec.md.
+    the relevant specifications and unapproved roadmap work. See CONTRIBUTING.md.
     The user confirms each bounded implementation leaf; artifacts or CLI status
     do not grant approval. Preserve an existing explicit approval for that scope.
     OpenSpec and repository npm scripts are developer tooling, not model-visible

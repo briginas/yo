@@ -1,4 +1,4 @@
-# OpenSpec development workflow
+# Contributing
 
 OpenSpec is repository development tooling. It does not become a `yo` tool,
 load skills into the running harness, or authorize model filesystem, process,
@@ -38,6 +38,7 @@ run `npm run openspec -- update --force`, and review generated changes.
 
 | Location                              | Role                                                                          |
 | ------------------------------------- | ----------------------------------------------------------------------------- |
+| `CONTRIBUTING.md`                     | Development setup, workflow, and verification                                 |
 | `AGENTS.md`                           | Collaboration, bounded confirmation, verification and review rules            |
 | `PRD.md`                              | Product boundaries and links to current requirements                          |
 | `IMPLEMENTATION_PLAN.md`              | Current state, roadmap order, next candidate, and draft prerequisites         |
@@ -47,13 +48,13 @@ run `npm run openspec -- update --force`, and review generated changes.
 | `openspec/changes/<name>/specs/`      | Proposed requirement deltas; not current behavior                             |
 | `openspec/changes/<name>/tasks.md`    | Small verifiable implementation steps                                         |
 | `openspec/changes/archive/`           | Completed change artifacts and recorded evidence                              |
-| `docs/examples/`                      | Repeatable demonstration and captured output                                  |
+| `examples/`                           | Repeatable demonstration and captured output                                  |
 
-The current specifications cover [harness](../openspec/specs/agent-harness/spec.md),
-[chat](../openspec/specs/cli-chat/spec.md),
-[OAuth/transport](../openspec/specs/codex-auth-transport/spec.md),
-[patches](../openspec/specs/approval-gated-patching/spec.md), and
-[observation](../openspec/specs/run-observation/spec.md).
+The current specifications cover [harness](openspec/specs/agent-harness/spec.md),
+[chat](openspec/specs/cli-chat/spec.md),
+[OAuth/transport](openspec/specs/codex-auth-transport/spec.md),
+[patches](openspec/specs/approval-gated-patching/spec.md), and
+[observation](openspec/specs/run-observation/spec.md).
 Do not keep parallel milestone requirements or active/completed plans in `docs/`.
 Legacy SDD configuration, specifications, and evidence have also been removed.
 
@@ -87,7 +88,7 @@ flowchart LR
 
 ## Current draft and migration boundary
 
-[Allowlisted validation](../openspec/changes/allowlisted-validation/proposal.md)
+[Allowlisted validation](openspec/changes/allowlisted-validation/proposal.md)
 is an imported, unapproved Milestone 5 draft. It has proposal, design, deltas,
 and unchecked tasks. Cancellation and explicit rerun must be separately
 implemented and verified first, then its assumptions and deltas must be reviewed
@@ -98,7 +99,7 @@ Already implemented behavior was imported directly into main specs as a baseline
 not as fictional feature changes. The former milestone requirements and plans
 were removed after checking their current decisions against the specifications.
 Future cancellation/rerun constraints are retained in the project-state map.
-The [inspection archive](../openspec/changes/archive/2026-10-02-inspect-settled-runs/verification.md)
+The [inspection archive](openspec/changes/archive/2026-10-02-inspect-settled-runs/verification.md)
 retains the actual 10.3–10.4 implementation evidence. Historical files remain
 recoverable through Git; no duplicate documentation archive is maintained.
 
@@ -118,16 +119,16 @@ Documentation-only changes need structural specification validation, coverage
 review, local link checks, formatting, and diff checks. Do not claim fresh runtime,
 physical TTY, or live-provider verification from documentation checks.
 
-Run `node docs/examples/run-observation-demo.ts` for a controlled faux scenario
+Run `node examples/run-observation-demo.ts` for a controlled faux scenario
 with local inspection, failure, model/approval delays, patch consent, and continued
 chat. It uses a temporary fixture, no OAuth or paid request; its
 [captured transcript](examples/run-observation-demo.txt) is a demonstration,
 not physical TTY evidence.
 
 The architecture follows pi's separation of
-[session ownership](../../pi/packages/coding-agent/src/core/agent-session.ts),
-[interactive presentation](../../pi/packages/coding-agent/src/modes/interactive/interactive-mode.ts),
-and [exact editing](../../pi/packages/coding-agent/src/core/tools/edit.ts),
+[session ownership](../pi/packages/coding-agent/src/core/agent-session.ts),
+[interactive presentation](../pi/packages/coding-agent/src/modes/interactive/interactive-mode.ts),
+and [exact editing](../pi/packages/coding-agent/src/core/tools/edit.ts),
 with yo's smaller closed tool registry and explicit patch consent.
 For schema and CLI details, use the pinned
 [OpenSpec 1.14.0 documentation](https://github.com/Fission-AI/OpenSpec/tree/v1.14.0/docs).
