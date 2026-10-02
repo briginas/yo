@@ -45,8 +45,8 @@ skill directories so formatting does not rewrite templates.
 | `AGENTS.md`                                                   | Collaboration, bounded user approval, verification and review rules             |
 | `PRD.md`                                                      | Product map, stable boundaries, links to current requirement sources            |
 | `IMPLEMENTATION_PLAN.md`                                      | Roadmap, current state, next candidate and active-plan links                    |
-| `openspec/specs/run-observation/spec.md`                      | Current requirements for implemented observation leaves 10.1–10.2               |
-| `docs/requirements/milestone-4-run-observation.md`            | Historical 10.1–10.2 context and unconfirmed remaining 10.3–10.4 / later scope  |
+| `openspec/specs/run-observation/spec.md`                      | Current requirements for implemented observation leaves 10.1–10.3               |
+| `docs/requirements/milestone-4-run-observation.md`            | Historical observation acceptance and deferred later scope                      |
 | `openspec/changes/<name>/`                                    | Proposal, design, task list, and requirement deltas for a future bounded change |
 | Other `docs/requirements/` and `spec/capabilities/` documents | Existing unmigrated requirement sources; migrate only under separate scope      |
 | Completed plans and completed leaf evidence                   | Historical decisions, implementation references, and verification evidence      |
@@ -116,11 +116,31 @@ Run `npm run spec:check`, `npm test`, `npm run build`, `npm run format:check`, a
 model request. Physical TTY and live-provider behavior are not newly verified
 by this documentation migration.
 
-Leaves 10.3–10.4 remain incomplete and unconfirmed. Navigation syntax/layout,
-cancellation, rerun, and model-visible validation need separate planning and
-approval. The developer checks above do not implement the future
+At baseline import, leaves 10.3–10.4 were incomplete and unconfirmed.
+The subsequent change below implements 10.3, and 10.4 closure is now recorded
+in the completed plan. Cancellation, rerun, and model-visible validation still
+need separate planning and approval. The developer checks above do not implement the future
 `run_validation` capability. No runtime source or test behavior changes are
 part of this adoption step.
+
+## Between-turn inspection increment
+
+On 2026-10-02 the user selected `/runs` and `/run N` and explicitly authorized
+leaf 10.3. The [change](../openspec/changes/archive/2026-10-02-inspect-settled-runs/proposal.md)
+was implemented, checked, self-reviewed, and synchronized into the main
+`run-observation` specification: two requirements modified and four added.
+The user subsequently authorized 10.4 closure and a final commit. The change
+is archived as `2026-10-02-inspect-settled-runs`; Milestone 4 is complete.
+Closure evidence is retained in the
+[completed plan](plans/completed/milestone-4-run-observation.md). No independent or human implementation review is claimed.
+
+`src/observation-command.ts` parses reserved tokens, `src/cli-app.ts` consumes
+them before run creation, and `src/terminal-observation.ts` formats a retained
+record without runtime replay or transcript access. The approach follows pi's
+local-command/interface boundary with yo's smaller sequential input loop.
+See [verification evidence](../openspec/changes/archive/2026-10-02-inspect-settled-runs/verification.md)
+and [the captured demo](examples/run-observation-demo.txt). Physical TTY and
+live-provider behavior were not newly verified.
 
 ## Upstream reference
 

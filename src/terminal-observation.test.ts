@@ -10,6 +10,8 @@ import { createTerminalStatusOutput } from './terminal-renderer.ts'
 import {
     createTerminalObservationView,
     formatObservationResult,
+    formatObservationList,
+    formatObservationInspection,
     formatObservationDiagnostic,
 } from './terminal-observation.ts'
 
@@ -76,7 +78,8 @@ test('renders a deterministic header, one ordered feed, and textual activity wit
             'Patches:',
             '- (none)',
             'Session runs:',
-            '- #1 Inspect repository | completed | start=12:00:00 elapsed=0.100s',
+            '- #1 Inspect repository | completed | start=12:00:00 elapsed=0.100s | reason=final_answer',
+            'Inspect: /run N | List: /runs',
         ].join('\n')
     )
     assert.doesNotMatch(cards.join(''), /Do not print|\u001b/)
@@ -235,4 +238,98 @@ test('feed warns about each supported truncation reason and preserves the flag w
         else assert.equal(line.endsWith(`reason=${reason} limit=2000 observed=2001\n`), true)
         assert.doesNotMatch(line, /private contents/)
     }
+})
+
+test('inspection selects immutable evidence and marks retained answers and missing selections', () => {
+    let record = createRunRecord(1, 'Inspect\u001b[31m task', clock)
+    for (const id of ['private-first', 'private-second']) {
+        record = projectRunEvent(
+            record,
+            1,
+            {
+                type: 'tool_requested',
+                step: 1,
+                call: { id, name: 'read_file', arguments: { path: 'file.ts' } },
+            },
+            clock
+        )
+        record = projectRunEvent(
+            record,
+            1,
+            {
+                type: 'tool_completed',
+                step: 1,
+                result: {
+                    callId: id,
+                    status: 'success',
+                    content: 'RAW CONTENT',
+                    metadata: {
+                        truncated: id === 'private-first',
+                        truncation: { reason: 'line_limit', limit: 2, observed: 3 },
+                    },
+                },
+            },
+            clock
+        )
+    }
+    const first = finalizeRunRecord(
+        record,
+        1,
+        {
+            status: 'completed',
+            stopReason: 'final_answer',
+            finalAnswer: 'x'.repeat(17000),
+        },
+        { ...clock, monotonicTimeMs: 200 }
+    )
+    const second = finalizeRunRecord(
+        createRunRecord(2, 'Other task', clock),
+        2,
+        {
+            status: 'failed',
+            stopReason: 'transport_error',
+            finalAnswer: null,
+        },
+        clock
+    )
+    const history = [first, second]
+    const before = structuredClone(history)
+    const view = formatObservationInspection(history, 1)
+    assert.match(view, /#1 tool_requested step=1 call=1/)
+    assert.match(view, /#3 tool_requested step=1 call=2/)
+    assert.match(view, /truncated=true reason=line_limit limit=2 observed=3/)
+    assert.match(view, /Retained answer:\nx{15999}…\n\[Answer preview truncated\]/)
+    assert.match(view, /Elapsed: 0.100s/)
+    assert.doesNotMatch(view, /RAW CONTENT|private-|Other task|Session runs:|\u001b/)
+    assert.match(formatObservationInspection(history, 2), /no final answer/)
+    assert.match(formatObservationInspection(history, 2), /transport_error/)
+    assert.equal(formatObservationInspection(history, 1), view)
+    assert.deepEqual(history, before)
+    assert.match(formatObservationInspection(history, 3), /unavailable/)
+    assert.match(formatObservationInspection([base()], 1), /not settled/)
+    assert.match(formatObservationList([]), /No runs yet/)
+    const list = formatObservationList(history)
+    assert.ok(list.indexOf('#1') < list.indexOf('#2'))
+    assert.match(list, /reason=final_answer/)
+    assert.match(list, /reason=transport_error/)
+    assert.doesNotMatch(list, /Retained answer|event:|xxx/)
+    assert.doesNotMatch(formatObservationResult(first, history), /xxx/)
+})
+
+test('inspection uses safe retained previews and unavailable timing', () => {
+    const record = finalizeRunRecord(
+        createRunRecord(1, 'Bearer secret', clock),
+        1,
+        {
+            status: 'completed',
+            stopReason: 'final_answer',
+            finalAnswer: 'Bearer secret answer',
+        },
+        clock
+    )
+    const view = formatObservationInspection([{ ...record, timingAvailable: false }], 1)
+    assert.match(view, /Retained answer:\n<redacted>/)
+    assert.match(view, /start=unavailable/)
+    assert.match(view, /Elapsed: unavailable/)
+    assert.doesNotMatch(view, /secret|12:00:00|0.000s/)
 })

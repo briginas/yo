@@ -16,8 +16,8 @@ writes only after explicit terminal approval.
 [See the current project state →](IMPLEMENTATION_PLAN.md)
 
 Milestone 4 leaves 10.1–10.2 provide session-local run records, a live event
-feed, and result cards with errors and patch-approval state. Selecting earlier
-runs remains unconfirmed 10.3 work; milestone closure is also pending. The later
+feed, and result cards with errors and patch-approval state. Leaf 10.3 adds
+between-turn inspection through `/runs` and `/run N`; this increment and Milestone 4 closure are verified. The later
 sequence is cancellation, explicit rerun, then Milestone 5 test/build validation.
 General shell execution, persistence, MCP, and subagents are not implemented.
 [Read the implemented observation specification →](openspec/specs/run-observation/spec.md)
@@ -58,6 +58,22 @@ node dist/cli.js --cwd /path/to/workspace --model <name>
 
 Use the exact `/exit` command or EOF to leave chat. The transcript is discarded
 when the process exits.
+
+Between tasks, use `/runs` to list current-session runs and `/run 1` (or another
+positive run number) to inspect a settled run. Inspection prints its ordered
+events, retained answer, and result, then returns to `yo>`. The retained answer
+is a sanitized preview limited to 16,000 characters; truncation or a missing
+answer is explicitly labelled. The original live answer is still delivered in full.
+
+`/runs` and `/run` are reserved local command tokens, including malformed
+arguments. Run numbers use positive decimal digits without leading zeros.
+Surrounding whitespace is accepted for these commands. Other text, including
+unrelated slash commands, is submitted unchanged as a task. Inspection creates
+no model request or run, changes no conversation context, and grants no patch
+consent. At the approval prompt, command-like input is a denial under the
+existing approval vocabulary. Inspection also works in plain non-TTY output.
+History is local to this chat process; no paging, persistence, cancellation,
+or rerun is provided.
 
 When the model proposes a patch, `yo` displays the full diff and asks `Apply
 this patch? [y/N]`. Only `y` or `yes` approves; any other input, EOF, missing
@@ -104,7 +120,7 @@ access is limited to ChatGPT OAuth and the Codex model transport.
 - [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) — current milestone state, permanent constraints, and links to detailed plans.
 - [`docs/requirements/`](docs/requirements/) — milestone-specific scope and acceptance criteria, read when that milestone is relevant.
 - [`docs/plans/`](docs/plans/) — active implementation details and completed milestone summaries.
-- [`openspec/specs/`](openspec/specs/) — current requirements for migrated behavior (initially observation 10.1–10.2).
+- [`openspec/specs/`](openspec/specs/) — current requirements for migrated behavior (observation 10.1–10.3).
 - [`docs/openspec.md`](docs/openspec.md) — pinned OpenSpec setup, Codex skills, source ownership, and bounded change workflow.
 
 These files have separate roles. Requirements and milestone state should not be copied into this README beyond a short orientation because duplicated details become stale.
@@ -120,3 +136,10 @@ git diff --check
 ```
 
 Tests use faux transports, injected HTTP, temporary credential stores, and fixture workspaces so normal verification does not require real credentials, network requests, or paid model calls.
+
+Run `node docs/examples/run-observation-demo.ts` for a repeatable demonstration
+of empty history, retained results, a transport failure, controlled model delay,
+explicit patch approval, and continued chat. It uses a faux transport and a
+temporary file; no OAuth or network is needed. See the
+[captured transcript](docs/examples/run-observation-demo.txt). The demo makes
+progress lines durable for readability; physical TTY behavior remains unverified.

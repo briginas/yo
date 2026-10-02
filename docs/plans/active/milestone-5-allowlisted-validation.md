@@ -4,7 +4,7 @@
 - **Prepared:** 2026-07-27
 - **Updated:** 2026-10-01 for the execution-observation roadmap
 - **Requirements:** [Milestone 5 allowlisted validation](../../requirements/milestone-5-allowlisted-validation.md)
-- **Observation foundation:** [Milestone 4 run observation](milestone-4-run-observation.md)
+- **Observation foundation:** [Milestone 4 run observation](../completed/milestone-4-run-observation.md)
 - **Preceding increments:** separately specified cancellation, then explicit rerun
 
 Review and approve the requirements and this plan before implementation. After

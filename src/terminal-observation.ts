@@ -1,6 +1,9 @@
 import type { ObservationDiagnostic, ObservationView } from './observation-session.ts'
 import type { FeedRow, ObservationHistory, RunRecord } from './run-observation.ts'
 import type { TerminalStatusOutput, TerminalTextWriter } from './terminal-renderer.ts'
+import type { ObservationCommand } from './observation-command.ts'
+
+export const OBSERVATION_USAGE = 'Inspect: /run N | List: /runs'
 
 const duration = (milliseconds: number): string => `${(milliseconds / 1000).toFixed(3)}s`
 const localTime = (milliseconds: number): string => {
@@ -34,7 +37,7 @@ export const formatObservationFeedRow = (record: RunRecord, row: FeedRow): strin
 export const formatObservationState = (record: RunRecord): string =>
     `state: run=${record.summary.id} ${record.summary.activity ?? record.summary.status} elapsed=${elapsedLabel(record)}`
 
-export const formatObservationResult = (record: RunRecord, history: ObservationHistory): string => {
+const formatResultCard = (record: RunRecord): string => {
     const result = record.result
     if (result === null) return ''
     const errors = result.errors.map(
@@ -64,12 +67,55 @@ export const formatObservationResult = (record: RunRecord, history: ObservationH
         ...(errors.length === 0 ? ['- (none)'] : errors),
         'Patches:',
         ...(patches.length === 0 ? ['- (none)'] : patches),
-        'Session runs:',
-        ...history.map(
-            (item) =>
-                `- #${item.summary.id} ${item.summary.taskPreview} | ${item.summary.status} | start=${startLabel(item)} elapsed=${elapsedLabel(item)}`
-        ),
     ].join('\n')
+}
+
+export const formatObservationList = (history: ObservationHistory): string =>
+    [
+        'Session runs:',
+        ...(history.length === 0
+            ? ['No runs yet.']
+            : history.map(
+                  (item) =>
+                      `- #${item.summary.id} ${item.summary.taskPreview} | ${item.summary.status} | start=${startLabel(item)} elapsed=${elapsedLabel(item)} | reason=${item.summary.stopReason ?? 'pending'}`
+              )),
+        OBSERVATION_USAGE,
+    ].join('\n')
+
+export const formatObservationResult = (record: RunRecord, history: ObservationHistory): string =>
+    record.result === null ? '' : `${formatResultCard(record)}\n${formatObservationList(history)}`
+
+export const formatObservationInspection = (history: ObservationHistory, id: number): string => {
+    const record = history.find((item) => item.summary.id === id)
+    if (record === undefined) return `Run #${id} is unavailable.\n${OBSERVATION_USAGE}`
+    if (record.summary.status === 'running' || record.result === null) {
+        return `Run #${id} is not settled.\n${OBSERVATION_USAGE}`
+    }
+    return [
+        `Run #${id}: ${record.summary.taskPreview} | start=${startLabel(record)}`,
+        'Events:',
+        ...(record.feed.length === 0
+            ? ['(none)']
+            : record.feed.map((row) => formatObservationFeedRow(record, row))),
+        'Retained answer:',
+        record.result.answer ?? '(no final answer)',
+        ...(record.result.answerTruncated ? ['[Answer preview truncated]'] : []),
+        formatResultCard(record),
+    ].join('\n')
+}
+
+export const formatObservationCommand = (
+    command: Exclude<ObservationCommand, { type: 'message' }>,
+    history: ObservationHistory
+): string => {
+    switch (command.type) {
+        case 'list':
+            return formatObservationList(history)
+        case 'inspect':
+            return formatObservationInspection(history, command.id)
+        case 'invalid':
+            return `Usage: /runs or /run N (positive run number).`
+    }
 }
 
 export const formatObservationDiagnostic = (diagnostic: ObservationDiagnostic): string => {

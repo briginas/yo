@@ -1,31 +1,28 @@
 # Milestone 4 requirements: in-memory run observation
 
-- **Status:** first-version direction endorsed; 10.1 reviewed; 10.2 complete after checks and independent review
+- **Status:** Milestone 4 complete through 10.4 on 2026-10-02
 - **Prepared:** 2026-10-01
-- **Source of truth for:** remaining, unconfirmed Milestone 4 scope (10.3–10.4) and deferred proposals
+- **Source of truth for:** historical Milestone 4 acceptance criteria and deferred proposals
 - **Related documents:** [product map](../../PRD.md),
   [implementation-state map](../../IMPLEMENTATION_PLAN.md),
-  [active implementation plan](../plans/active/milestone-4-run-observation.md)
+  [completed implementation plan](../plans/completed/milestone-4-run-observation.md)
 
 ## Requirement ownership after OpenSpec adoption
 
 The [OpenSpec run-observation specification](../../openspec/specs/run-observation/spec.md)
-is the sole current requirement source for implemented leaves **10.1–10.2**.
-Descriptions of that implemented behavior below are retained as historical
-design and acceptance context; do not update them as a parallel specification.
-Change that behavior through OpenSpec and follow the [development workflow](../openspec.md).
+is the sole current requirement source for implemented leaves **10.1–10.3**.
+The user selected `/runs` and `/run N` and authorized 10.3 implementation on
+2026-10-02; checks and agent self-review are recorded in
+[the change evidence](../../openspec/changes/archive/2026-10-02-inspect-settled-runs/verification.md).
+No independent review or human acceptance of the implementation is claimed.
 
-This document remains authoritative for the **proposed, unconfirmed** remainder:
-between-turn selection/navigation (10.3), full first-version closure and review
-(10.4), their milestone-wide acceptance criteria below, and deferred directions.
-Those criteria describe completion of the entire milestone, not current runtime
-capabilities. In particular, historical-run inspection is not implemented.
-
-On 2026-10-02 the user endorsed the first-version direction and explicitly
-confirmed implementation of leaf 10.1 only. The user reviewed and accepted its result on the same date.
-The user subsequently accepted the live 10.2 presentation and separately
-explicitly authorized its implementation. The user instructed finishing and committing it after independent review; checks passed and both review findings are closed. Leaves 10.3–10.4, cancellation, rerun, and validation remain unconfirmed.
-Navigation syntax and selection layout require a decision before 10.3.
+The user subsequently authorized **10.4** and a final commit. Milestone-wide
+checks and terminal-flow self-review passed; the completed plan records the
+closure evidence and unverified physical TTY/live-provider scope. This document
+retains historical acceptance criteria and deferred proposals below. Descriptions of 10.1–10.3, including earlier undecided navigation,
+are retained as historical context, not a parallel specification or current
+status. `/runs` and `/run N` now inspect settled runs between turns. Change
+that behavior through OpenSpec and follow the [development workflow](../openspec.md).
 
 ## Objective
 

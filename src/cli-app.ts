@@ -10,10 +10,12 @@ import {
 import { createFileCredentialStore } from './auth/file-credential-store.ts'
 import { OPENAI_CODEX_PROVIDER_ID, type CredentialStore } from './auth/credential.ts'
 import { parseCliCommand, USAGE } from './cli-command.ts'
+import { parseObservationCommand } from './observation-command.ts'
 import { createObservationSession, type ObservationClocks } from './observation-session.ts'
 import {
     createTerminalObservationView,
     formatObservationDiagnostic,
+    formatObservationCommand,
 } from './terminal-observation.ts'
 import { runChatInput, type LineInput } from './line-input.ts'
 import {
@@ -329,6 +331,19 @@ const runChat = async ({
             input,
             clearProgress,
             onMessage: async (task) => {
+                const command = parseObservationCommand(task)
+                if (command.type !== 'message') {
+                    try {
+                        writeOutput(formatObservationCommand(command, observations.getHistory()))
+                    } catch {
+                        try {
+                            writeError(formatObservationDiagnostic('rendering_failed'))
+                        } catch {
+                            // A consumed local command must never fall through to model submission.
+                        }
+                    }
+                    return
+                }
                 const observed = observations.begin(task)
                 let result: Awaited<ReturnType<typeof runConversationTurn>>
                 try {

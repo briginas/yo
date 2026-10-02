@@ -564,3 +564,437 @@ test('one-off progress cleanup failures cannot erase streamed answer text in a v
         })
     }
 })
+
+test('inspection-only input never invokes a turn or clocks and resets between sessions', async () => {
+    const state = await fixture(['/runs', '/run 1', '/run 0', '/runs extra', '/exit'], answer, {
+        runTurn: async () => {
+            throw new Error('unexpected turn')
+        },
+        observationClocks: {
+            wallTime: () => {
+                throw new Error('unexpected clock')
+            },
+            monotonicTime: () => {
+                throw new Error('unexpected clock')
+            },
+        },
+    })
+    try {
+        const result = await runCli(['--cwd', state.workspace], state.dependencies)
+        assert.equal(result.exitCode, 0)
+        assert.equal(result.session, null)
+        assert.deepEqual(state.errors, [])
+        assert.deepEqual(state.statuses, [])
+        assert.match(state.output[0]!, /No runs yet/)
+        assert.match(state.output[1]!, /Run #1 is unavailable/)
+        assert.match(state.output[2]!, /^Usage:/)
+        assert.match(state.output[3]!, /^Usage:/)
+    } finally {
+        await rm(state.workspace, { recursive: true, force: true })
+    }
+})
+
+test('navigation preserves model requests, original task bytes, run IDs and clock count', async () => {
+    const state = await fixture([], answer)
+    const tasks = [' First ', '/runner', ' /exit ']
+    try {
+        const execute = async (inspect: boolean) => {
+            let calls = 0
+            const requests: ModelRequest[] = [],
+                output: string[] = [],
+                headers: string[] = []
+            const lines = inspect
+                ? [
+                      '/runs',
+                      tasks[0]!,
+                      '/run 1',
+                      '/run 99',
+                      '/run -1',
+                      tasks[1]!,
+                      '/run 2',
+                      '/run 1',
+                      tasks[2]!,
+                      '/exit',
+                  ]
+                : [...tasks, '/exit']
+            const result = await runCli(['--cwd', state.workspace], {
+                ...state.dependencies,
+                createLineInput: () => ({
+                    readLine: async () => lines.shift() ?? null,
+                    close: () => undefined,
+                }),
+                observationClocks: {
+                    wallTime: () => {
+                        calls++
+                        return startTime
+                    },
+                    monotonicTime: () => {
+                        calls++
+                        return 100
+                    },
+                },
+                transport: async (request) => {
+                    requests.push(structuredClone(request))
+                    return {
+                        type: 'final_answer',
+                        model: null,
+                        content: `Answer ${requests.length}`,
+                    }
+                },
+                writeOutput: (text) => output.push(text),
+                writeStatus: (text) => headers.push(text),
+            })
+            return { requests, calls, result, output, headers }
+        }
+        const control = await execute(false),
+            inspected = await execute(true)
+        assert.deepEqual(inspected.requests, control.requests)
+        assert.equal(inspected.calls, control.calls)
+        assert.deepEqual(inspected.result.session?.messages, control.result.session?.messages)
+        assert.deepEqual(inspected.headers, control.headers)
+        assert.match(inspected.output[0]!, /No runs yet/)
+        const views = inspected.output.filter((text) => text.includes('Retained answer:'))
+        assert.equal(views.length, 3)
+        assert.equal(views[0], views[2])
+        assert.match(views[1]!, /Retained answer:\nAnswer 2/)
+        assert.doesNotMatch(views[1]!, /Answer 1|event: run=1/)
+        assert.deepEqual(
+            inspected.requests
+                .at(-1)
+                ?.messages.filter((m) => m.role === 'user')
+                .map((m) => m.content),
+            tasks
+        )
+    } finally {
+        await rm(state.workspace, { recursive: true, force: true })
+    }
+})
+
+test('defensive running selection is rejected without creating another run', async () => {
+    let turns = 0
+    const state = await fixture(['First', '/run 1', '/exit'], answer, {
+        runTurn: async (options) => {
+            turns++
+            const result = await runConversationTurn(options)
+            return {
+                ...result,
+                turn: {
+                    ...result.turn,
+                    session: { ...result.turn.session, status: 'running', stopReason: null },
+                },
+            }
+        },
+    })
+    try {
+        const result = await runCli(['--cwd', state.workspace], state.dependencies)
+        assert.equal(result.exitCode, 0)
+        assert.equal(turns, 1)
+        assert.match(state.output.at(-1)!, /Run #1 is not settled/)
+        assert.doesNotMatch(state.output.join(''), /Retained answer:/)
+    } finally {
+        await rm(state.workspace, { recursive: true, force: true })
+    }
+})
+
+test('failed inspection output and diagnostics cannot submit commands or terminate following chat', async () => {
+    const requests: ModelRequest[] = []
+    const state = await fixture(
+        ['First', '/run 1', '/runs extra', 'Second', '/run 1', '/exit'],
+        async (request) => {
+            requests.push(structuredClone(request))
+            return { type: 'final_answer', model: null, content: `Answer ${requests.length}` }
+        }
+    )
+    let failures = 0
+    state.dependencies.writeOutput = (text) => {
+        if ((text.includes('Retained answer:') || text.startsWith('Usage:')) && failures++ < 2) {
+            throw new Error('Bearer private output error')
+        }
+        state.output.push(text)
+    }
+    state.dependencies.writeError = () => {
+        throw new Error('private diagnostic')
+    }
+    try {
+        const result = await runCli(['--cwd', state.workspace], state.dependencies)
+        assert.equal(result.exitCode, 0)
+        assert.equal(result.session?.finalAnswer, 'Answer 2')
+        assert.equal(requests.length, 2)
+        assert.deepEqual(
+            requests[1]?.messages.filter((m) => m.role === 'user').map((m) => m.content),
+            ['First', 'Second']
+        )
+        assert.match(state.output.at(-1)!, /Retained answer:\nAnswer 1/)
+        assert.doesNotMatch(state.output.join(''), /private|Bearer/)
+    } finally {
+        await rm(state.workspace, { recursive: true, force: true })
+    }
+})
+
+test('pending model and faux tool work never start a navigation read', async (context) => {
+    for (const phase of ['model', 'tool'] as const)
+        await context.test(phase, async () => {
+            const waiting = deferred<void>(),
+                release = deferred<void>()
+            const lines = ['Task', '/runs', '/exit']
+            let reads = 0
+            const state = await fixture(
+                lines,
+                async () => {
+                    if (phase === 'model') {
+                        waiting.resolve()
+                        await release.promise
+                    }
+                    return { type: 'final_answer', model: null, content: 'Done' }
+                },
+                {
+                    createLineInput: () => ({
+                        readLine: async () => {
+                            reads++
+                            return lines.shift() ?? null
+                        },
+                        close: () => undefined,
+                    }),
+                    runTurn: async (options) => {
+                        if (phase === 'tool') {
+                            options.onEvent?.({
+                                type: 'tool_requested',
+                                step: 1,
+                                call: {
+                                    id: 'gated',
+                                    name: 'read_file',
+                                    arguments: { path: 'file.ts' },
+                                },
+                            })
+                            waiting.resolve()
+                            await release.promise
+                        }
+                        return runConversationTurn(options)
+                    },
+                }
+            )
+            try {
+                const run = runCli(['--cwd', state.workspace], state.dependencies)
+                await waiting.promise
+                assert.equal(reads, 1)
+                assert.equal(state.output.length, 0)
+                release.resolve()
+                assert.equal((await run).exitCode, 0)
+                assert.equal(reads, 3)
+                assert.match(state.output.at(-1)!, /^Session runs:/)
+            } finally {
+                release.resolve()
+                await rm(state.workspace, { recursive: true, force: true })
+            }
+        })
+})
+
+test('command-like approval responses deny only that patch and later inspection cannot reuse consent', async (context) => {
+    for (const response of ['/runs', '/run 1'])
+        await context.test(response, async () => {
+            const lines = ['Patch first', response, '/run 1', 'Patch again', 'y', '/run 2', '/exit']
+            const prompts: string[] = [],
+                requests: ModelRequest[] = []
+            let step = 0
+            const state = await fixture(
+                lines,
+                async (request) => {
+                    requests.push(structuredClone(request))
+                    if (step++ % 2 === 0)
+                        return {
+                            type: 'tool_calls',
+                            model: null,
+                            toolCalls: [
+                                {
+                                    id: `patch-${step}`,
+                                    name: 'propose_patch',
+                                    arguments: {
+                                        path: 'answer.ts',
+                                        edits: [{ oldText: '42', newText: '43' }],
+                                    },
+                                },
+                            ],
+                        }
+                    return { type: 'final_answer', model: null, content: 'Recorded.' }
+                },
+                { isInteractive: true }
+            )
+            state.dependencies.createLineInput = () => ({
+                readLine: async (prompt) => {
+                    prompts.push(prompt)
+                    if (
+                        prompts.filter((p) => p === PATCH_APPROVAL_PROMPT).length === 1 &&
+                        prompt === 'yo> '
+                    ) {
+                        assert.equal(
+                            await readFile(join(state.workspace, 'answer.ts'), 'utf8'),
+                            'export const answer = 42\n'
+                        )
+                    }
+                    return lines.shift() ?? null
+                },
+                close: () => undefined,
+            })
+            try {
+                await writeFile(join(state.workspace, 'answer.ts'), 'export const answer = 42\n')
+                const result = await runCli(['--cwd', state.workspace], state.dependencies)
+                assert.equal(result.exitCode, 0)
+                assert.equal(prompts.filter((p) => p === PATCH_APPROVAL_PROMPT).length, 2)
+                assert.equal(requests.length, 4)
+                assert.deepEqual(
+                    requests
+                        .at(-1)
+                        ?.messages.filter((m) => m.role === 'user')
+                        .map((m) => m.content),
+                    ['Patch first', 'Patch again']
+                )
+                const views = state.output.filter((s) => s.includes('Retained answer:'))
+                assert.equal(views.length, 2)
+                assert.match(views[0]!, /prepared -> waiting -> denied/)
+                assert.doesNotMatch(views[0]!, /approved|applied/)
+                assert.match(views[1]!, /prepared -> waiting -> approved -> applied/)
+                assert.match(
+                    state.answers.join(''),
+                    /-export const answer = 42\n\+export const answer = 43/
+                )
+                assert.equal(
+                    await readFile(join(state.workspace, 'answer.ts'), 'utf8'),
+                    'export const answer = 43\n'
+                )
+            } finally {
+                await rm(state.workspace, { recursive: true, force: true })
+            }
+        })
+})
+
+test('non-TTY patch denial leaves the following inspection line at the chat prompt', async () => {
+    let step = 0
+    const prompts: string[] = [],
+        lines = ['Patch', '/run 1', '/exit']
+    const state = await fixture(
+        lines,
+        async () =>
+            step++ === 0
+                ? {
+                      type: 'tool_calls',
+                      model: null,
+                      toolCalls: [
+                          {
+                              id: 'patch',
+                              name: 'propose_patch',
+                              arguments: {
+                                  path: 'answer.ts',
+                                  edits: [{ oldText: '42', newText: '43' }],
+                              },
+                          },
+                      ],
+                  }
+                : { type: 'final_answer', model: null, content: 'Denied.' },
+        {
+            createLineInput: () => ({
+                readLine: async (prompt) => {
+                    prompts.push(prompt)
+                    return lines.shift() ?? null
+                },
+                close: () => undefined,
+            }),
+        }
+    )
+    try {
+        await writeFile(join(state.workspace, 'answer.ts'), '42\n')
+        assert.equal((await runCli(['--cwd', state.workspace], state.dependencies)).exitCode, 0)
+        assert.deepEqual(prompts, ['yo> ', 'yo> ', 'yo> '])
+        assert.match(state.output.at(-1)!, /Retained answer:\nDenied/)
+        assert.match(state.output.at(-1)!, /waiting -> denied/)
+        assert.equal(await readFile(join(state.workspace, 'answer.ts'), 'utf8'), '42\n')
+        assert.doesNotMatch(state.output.join(''), /\u001b/)
+    } finally {
+        await rm(state.workspace, { recursive: true, force: true })
+    }
+})
+
+test('multi-turn inspection retains failed/budget evidence and fresh sessions start empty', async () => {
+    const state = await fixture([], answer)
+    const tasks = ['Long answer', 'Missing file', 'Transport error', 'Budget', 'Follow up']
+    try {
+        const execute = async (inspection: boolean) => {
+            const requests: ModelRequest[] = [],
+                output: string[] = [],
+                answers: string[] = []
+            const lines = inspection
+                ? [
+                      '/runs',
+                      tasks[0]!,
+                      '/run 1',
+                      tasks[1]!,
+                      '/run 2',
+                      tasks[2]!,
+                      '/run 3',
+                      tasks[3]!,
+                      '/run 4',
+                      '/run 2',
+                      '/run 999',
+                      tasks[4]!,
+                      '/runs',
+                      '/exit',
+                  ]
+                : [...tasks, '/exit']
+            const result = await runCli(['--cwd', state.workspace], {
+                ...state.dependencies,
+                createLineInput: () => ({
+                    readLine: async () => lines.shift() ?? null,
+                    close: () => undefined,
+                }),
+                writeOutput: (text) => output.push(text),
+                writeAnswer: (text) => answers.push(text),
+                transport: async (request) => {
+                    requests.push(structuredClone(request))
+                    const task = request.messages.filter((m) => m.role === 'user').at(-1)?.content
+                    if (task === 'Transport error') throw new Error('private transport payload')
+                    if (
+                        task === 'Budget' ||
+                        (task === 'Missing file' && request.messages.at(-1)?.role === 'user')
+                    ) {
+                        return {
+                            type: 'tool_calls',
+                            model: null,
+                            toolCalls: [
+                                {
+                                    id: `read-${requests.length}`,
+                                    name: 'read_file',
+                                    arguments: { path: 'missing.ts' },
+                                },
+                            ],
+                        }
+                    }
+                    return {
+                        type: 'final_answer',
+                        model: null,
+                        content: task === 'Long answer' ? 'x'.repeat(17000) : `Done: ${task}`,
+                    }
+                },
+            })
+            return { result, requests, output, answers }
+        }
+        const control = await execute(false),
+            inspected = await execute(true)
+        assert.equal(inspected.result.exitCode, 0)
+        assert.deepEqual(inspected.requests, control.requests)
+        assert.deepEqual(inspected.result.session?.messages, control.result.session?.messages)
+        assert.deepEqual(inspected.answers, control.answers)
+        assert.match(inspected.output[0]!, /No runs yet/)
+        const views = inspected.output.filter((s) => s.includes('Retained answer:'))
+        assert.equal(views.length, 5)
+        assert.match(views[0]!, /Answer preview truncated/)
+        assert.match(views[1]!, /execution_error/)
+        assert.match(views[2]!, /transport_error/)
+        assert.match(views[2]!, /no final answer/)
+        assert.match(views[3]!, /result: budget_exhausted/)
+        assert.match(views[3]!, /step_budget_exhausted/)
+        assert.equal(views[1], views[4])
+        assert.doesNotMatch(inspected.output.join(''), /private transport payload|\u001b/)
+        assert.match(inspected.output.at(-1)!, /#5 Follow up/)
+    } finally {
+        await rm(state.workspace, { recursive: true, force: true })
+    }
+})

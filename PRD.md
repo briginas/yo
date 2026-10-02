@@ -97,13 +97,11 @@ The public CLI also exposes:
 - [Milestone 3: approval-gated patch application](docs/requirements/milestone-3-approval-gated-patches.md)
   requirements are approved. Read them when planning or implementing the
   workspace-mutation boundary.
-- [Run observation baseline](openspec/specs/run-observation/spec.md) is the
-  current requirement source for implemented leaves 10.1–10.2.
-  [Milestone 4: in-memory run observation](docs/requirements/milestone-4-run-observation.md)
-  retains historical context and the unconfirmed remaining scope;
-  first-version direction is endorsed and leaf 10.1 is complete and reviewed. The planned first version shows
-  current-session turns, an ordered event feed, and a result card with errors
-  and patch-approval state. Standalone projection is verified and reviewed. Leaf 10.2 connects CLI observation and the accepted live layout; leaf 10.2 is complete after checks, independent review, and the user’s instruction to finish and commit.
+- [Run observation specification](openspec/specs/run-observation/spec.md) is
+  the current requirement source for implemented leaves **10.1–10.3**: retained
+  runs, live events/results, and between-turn `/runs` and `/run N` inspection.
+  [Milestone 4 historical requirements](docs/requirements/milestone-4-run-observation.md)
+  retain acceptance history and deferred work; milestone closure is complete.
 - [Milestone 5: allowlisted validation](docs/requirements/milestone-5-allowlisted-validation.md)
   is drafted for later review. It proposes exactly `test` and `build`; no
   process implementation is authorized yet.
@@ -121,36 +119,33 @@ records deterministic and real OAuth-backed verification.
 The public agent workflow is now chat-only. Authentication commands remain
 separate trusted CLI operations.
 
-Milestone 4 has implemented live observation through 10.2:
+Milestone 4 is complete through **10.4**:
 [current specification](openspec/specs/run-observation/spec.md),
-[remaining requirements and historical context](docs/requirements/milestone-4-run-observation.md), and
-[active implementation plan](docs/plans/active/milestone-4-run-observation.md).
-Its first version keeps a session-local run list, ordered events, and result
-cards with errors and patch-approval outcomes. The display observes runtime
-state; trusted harness code retains execution and approval authority.
+[historical requirements and deferred work](docs/requirements/milestone-4-run-observation.md), and
+[completed implementation plan](docs/plans/completed/milestone-4-run-observation.md).
 
-The user confirmed only `10.1`, session-local run records and pure event
-projection, on 2026-10-02. Its standalone implementation passed checks and was accepted after human
-review on the same date. Later leaves need separate confirmation; terminal navigation remains
-undecided.
+The user selected `/runs` and `/run N` and explicitly authorized 10.3 on
+2026-10-02. Implementation passed deterministic checks and agent self-review;
+[verification evidence](openspec/changes/archive/2026-10-02-inspect-settled-runs/verification.md)
+records the scope and limitations. Inspection reads retained safe records
+between turns without invoking the model, changing the conversation, sampling
+run clocks, or granting patch consent. Earlier 10.1–10.2 acceptance and review
+records remain in the completed plan. Physical TTY and live-provider behavior were
+not newly verified. The user then authorized **10.4 first-version closure**
+and a final commit. Closure passed 64 focused checks and all 341 project tests,
+plus the repository checks and terminal-flow self-review. The OpenSpec change
+is archived. The next planning boundary is cancellation, requiring its own
+requirements and bounded implementation confirmation.
 
-The user accepted the live layout and explicitly authorized 10.2 implementation.
-It is complete after checks and independent review, under the user’s instruction to finish and commit. Leaf 10.2 follows the agreed same-process order: save the run record,
-prepare its identity-bound observer, then invoke the turn. Missing records need
-safe integration diagnostics; settled records retain the late-update guard.
-These integration behaviors are implemented at CLI composition. Selection and
-navigation remain future 10.3 work and need separate confirmation.
-
-The first OpenSpec adoption step covers development tooling and the implemented
-10.1–10.2 baseline only; see the [development workflow](docs/openspec.md).
-Other milestone requirements retain their existing sources until separately
-migrated. This adds no runtime capability and does not close Milestone 4.
+OpenSpec owns current observation requirements through 10.3; see the
+[development workflow](docs/openspec.md). Other milestone requirements retain
+their existing sources until separately migrated.
 
 The selected follow-up order is cancellation, then explicit rerun, then
 validation results. Cancellation and rerun each need a separate reviewed plan.
 The existing Milestone 5 validation draft remains documentation-only:
 [requirements](docs/requirements/milestone-5-allowlisted-validation.md) and
-[active implementation plan](docs/plans/active/milestone-5-allowlisted-validation.md).
+[completed implementation plan](docs/plans/active/milestone-5-allowlisted-validation.md).
 It will add exactly `test` and `build` and show their results in the observation
 interface after the preceding increments are verified.
 

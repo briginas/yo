@@ -1,20 +1,22 @@
-# Milestone 4 active plan: in-memory run observation
+# Milestone 4 completed plan: in-memory run observation
 
-- **Status:** leaf 10.1 complete and reviewed; leaf 10.2 complete after checks and independent review
+- **Status:** complete through 10.4; verified and reviewed on 2026-10-02
 - **Prepared:** 2026-10-01
-- **Current 10.1–10.2 requirements:** [OpenSpec baseline](../../../openspec/specs/run-observation/spec.md)
+- **Current 10.1–10.3 requirements:** [OpenSpec baseline](../../../openspec/specs/run-observation/spec.md)
 - **Remaining requirements and historical context:** [Milestone 4 run observation](../../requirements/milestone-4-run-observation.md)
 - **Previous milestone:** [Milestone 3 completed plan](../completed/milestone-3-approval-gated-patches.md)
-- **Later validation milestone:** [Milestone 5 allowlisted validation](milestone-5-allowlisted-validation.md)
+- **Later validation milestone:** [Milestone 5 allowlisted validation](../active/milestone-5-allowlisted-validation.md)
 
 On 2026-10-02 the user endorsed the first-version observation direction and
 explicitly authorized only leaf 10.1 after its bounded scope was explained.
 The user reviewed leaf 10.1 through a diagram and discussion and accepted its
 result on 2026-10-02. Leaf 10.1 is complete. That decision did not authorize later leaves.
 The user subsequently accepted the 10.2 presentation below and separately,
-explicitly authorized continuing its implementation. Leaf 10.2 is complete after verification and independent review, under the user’s instruction to finish and commit it after review. Leaves 10.3–10.4 remain
-unconfirmed. Navigation syntax and selection layout remain undecided. Complete and review
-one leaf before confirming the next.
+explicitly authorized continuing its implementation. Leaf 10.2 is complete after verification and independent review, under the user’s instruction to finish and commit it after review. On 2026-10-02 the user selected `/runs` and `/run N` and explicitly authorized
+10.3 implementation. It is complete after checks and agent self-review, with
+evidence below. The user subsequently authorized 10.4 closure and a final commit; closure evidence is recorded below. Earlier walkthrough and 10.1–10.2
+implementation descriptions are historical; the linked OpenSpec specification
+owns current behavior. Complete and review one leaf before confirming the next.
 
 ## Plain-language walkthrough
 
@@ -73,7 +75,7 @@ sequenceDiagram
     CLI->>Store: Finalize run once
     CLI->>Terminal: Existing full-answer delivery exactly once
     Store-->>Terminal: Result card without answer duplication, and run list
-    Note over User,Terminal: Selection below remains future leaf 10.3
+    Note over User,Terminal: Selection implemented by leaf 10.3
     User->>CLI: Inspect a settled run between turns
     CLI->>Store: Select display record
     Store-->>Terminal: Historical feed and result
@@ -282,55 +284,94 @@ Focused checks run with
 
 ### 10.3 Between-turn inspection and multi-turn verification
 
-- [ ] Implement the reviewed local navigation syntax for the run list and
+- [x] Implement the reviewed local navigation syntax for the run list and
       selection of a settled run.
-- [ ] Keep navigation out of user/model messages and approval responses.
-- [ ] Verify multiple turns, previous failed runs, empty history, invalid
+- [x] Keep navigation out of user/model messages and approval responses.
+- [x] Verify multiple turns, previous failed runs, empty history, invalid
       selection, switching between runs without mixed events, and follow-up
       chat after inspection.
-- [ ] Verify keyboard-only navigation and approval, and statuses that remain
+- [x] Verify keyboard-only navigation and approval, and statuses that remain
       understandable with color disabled and in non-TTY output.
-- [ ] Reuse faux transports, injected input/clocks, controlled promise gates,
+- [x] Reuse faux transports, injected input/clocks, controlled promise gates,
       and temporary workspaces for success, transport/tool error, delay, and
       approval-waiting scenarios; require no real OAuth or paid model calls.
-- [ ] Verify session exit discards history and a new process starts empty.
-- [ ] Update README usage only for the newly verified behavior and document
+- [x] Verify session exit discards history and a new process starts empty.
+- [x] Update README usage only for the newly verified behavior and document
       repeatable demo scenarios, architectural choices, and limitations.
 
 **Leaf acceptance:** deterministic CLI flows can inspect earlier runs and then
 continue chat with unchanged conversation and patch-approval semantics.
 
+**Implementation evidence (2026-10-02):**
+The [inspect-settled-runs change](../../../openspec/changes/archive/2026-10-02-inspect-settled-runs/proposal.md)
+implements the selected commands with no persistent selection or new runtime
+capability. The parser and CLI consume inspection before run allocation; pure
+formatters read existing safe records and preserve frozen timing. The user
+explicitly authorized implementation after selecting command syntax/layout.
+
+All **341 tests** passed, along with build, formatting, strict OpenSpec validation,
+and diff checks. Agent self-review and the captured faux demo found no blockers;
+[details and limits](../../../openspec/changes/archive/2026-10-02-inspect-settled-runs/verification.md)
+record model-request equivalence, failure isolation, input ownership, fresh
+consent, and session reset. Physical TTY and live-provider interaction remain
+unverified. This is not an independent review or human acceptance claim.
+The main OpenSpec specification now owns current 10.3 requirements.
+
 ### 10.4 Full verification and first-version closure
 
-- [ ] Run focused checks, `npm test`, `npm run build`,
+- [x] Run focused checks, `npm test`, `npm run build`,
       `npm run format:check`, and `git diff --check`.
-- [ ] Review scope, event order, safe error rendering, and terminal consent.
-- [ ] Review the terminal flow using controlled faux transports and temporary
+- [x] Review scope, event order, safe error rendering, and terminal consent.
+- [x] Review the terminal flow using controlled faux transports and temporary
       fixture workspaces for success, failure, delay, and approval waiting;
       record any unverified behavior explicitly.
-- [ ] Verify state-transition and timing checks are independent of live
+- [x] Verify state-transition and timing checks are independent of live
       network timing; keep UI checks distinct from the future model-facing
       repository validation capability.
-- [ ] Mark complete only after scoped checks and result review; move the plan
+- [x] Mark complete only after scoped checks and result review; move the plan
       to `docs/plans/completed/` and update the project maps.
 
 **Leaf acceptance:** the current-session run list, event feed, and result card
 are verified and reviewed, with no cancellation, rerun, or validation execution
 claimed as implemented.
 
-## Next bounded candidate
+**Closure evidence (2026-10-02):**
+The user authorized 10.4 and requested committing the result. All **64 focused
+checks** and **341 project tests** passed, followed by build, formatting, strict
+OpenSpec validation, and diff checks. Re-running the controlled faux demo
+produced exactly the saved transcript. The six delta blocks match the main
+specification. Closure required documentation/archival changes only.
 
-Leaf 10.2 is complete. On 2026-10-02 the user confirmed the first bounded
-OpenSpec transition: pinned developer tooling, Codex integration, source-of-truth
-links, and a baseline specification of already implemented 10.1–10.2. See
-[the adoption guide](../../openspec.md). This is a documentation/tooling step;
-it does not authorize another runtime leaf or claim human acceptance of the
-migration result. The earlier 10.1–10.2 design and verification records above
-remain historical evidence; the linked OpenSpec baseline owns current behavior.
+| Acceptance area                                 | Evidence reviewed                                                                                   |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Ordered multi-turn inspection and frozen timing | CLI control comparisons; injected monotonic clock and wall-clock rollback tests                     |
+| Correct run, step, and call association         | Projection tests with repeated calls, isolated runs, and late observers                             |
+| One final settlement and immutable history      | Idempotent finalization, running-result rejection, repeated-selection checks                        |
+| Accurate failures and budget exhaustion         | Tool-error, transport-error, and budget-exhausted CLI scenarios                                     |
+| Exact consent and patch outcomes                | Temporary patch fixtures for waiting, denial, conflict, and application; fresh-consent checks       |
+| Observation isolation                           | Unchanged model-request comparisons; projection, rendering, diagnostic, and cleanup fault injection |
+| Full repository checks                          | 64 focused tests; 341 total tests; build, format, OpenSpec, and diff checks                         |
+| Keyboard and plain-text interaction             | Injected line input, TTY-mode terminal emulator, non-TTY denial and inspection checks               |
+| Repeatable terminal flow                        | Faux demo with controlled model/approval gates and exact captured-output comparison                 |
 
-Observation leaf **10.3: between-turn inspection** remains unconfirmed and needs
-navigation syntax/layout plus separate implementation confirmation. Leaves
-10.3–10.4 and milestone 4 remain incomplete.
+Agent self-review covered the command route before run creation, read-only
+formatting, event ordering, safe error categories, frozen clocks, and exclusive
+approval input. No blocking findings remain. This records self-review, not an
+independent review or a human line-by-line review. Physical TTY and live-provider
+interaction were not exercised for closure; injected terminal tests and faux
+transport evidence define the verified scope. No OAuth, paid model calls, or
+runtime permission expansion was involved.
+
+The OpenSpec change is archived and this plan is retained in `completed`.
+Current behavior belongs to the main OpenSpec specification. Cancellation,
+rerun, persistence, and model-visible validation remain unimplemented.
+
+## Next planning boundary
+
+Plan **cancellation** separately: a trusted controller that propagates abort
+and waits for settlement. Its requirements and first bounded implementation
+leaf need user confirmation. The existing Milestone 5 draft is not the next
+authorized implementation step.
 
 ## Follow-up sequence
 

@@ -8,8 +8,8 @@ detailed implementation plan, then confirm its first bounded leaf.
 
 For OpenSpec development tooling and source ownership, read
 [the workflow guide](docs/openspec.md). The current requirements for observation
-10.1–10.2 live in [the baseline specification](openspec/specs/run-observation/spec.md);
-the active milestone plan retains implementation evidence and unconfirmed work.
+10.1–10.3 live in [the baseline specification](openspec/specs/run-observation/spec.md);
+the completed milestone plan retains implementation evidence and deferred work.
 
 ## Current state
 
@@ -33,21 +33,18 @@ the active milestone plan retains implementation evidence and unconfirmed work.
   dispatcher integration, approval propagation through the agent loop and
   conversation, terminal diff rendering, model-visible CLI/provider composition,
   deterministic end-to-end coverage, and a real OAuth-backed approval flow**.
-- **Run observation, leaf 10.1 complete and reviewed:** On 2026-10-01, the next roadmap direction was
-  selected as a current-session run list, event feed, and result card with
-  errors and patch-approval state. See the new
-  [Milestone 4 remaining requirements and historical context](docs/requirements/milestone-4-run-observation.md)
-  and [active plan](docs/plans/active/milestone-4-run-observation.md).
-  On 2026-10-02 the user endorsed this direction and authorized only
-  **10.1: session-local run records and pure event projection**. Its standalone
-  implementation passed checks and was accepted after human review on the same
-  date. The user then accepted the 10.2 live layout and separately authorized its
-  implementation. CLI integration is complete after checks and independent review, under the user’s instruction to finish and commit.
-  Leaves **10.3–10.4** require separate confirmation, and navigation is undecided.
-  The implemented 10.2 order is record creation/insertion, identity-bound
-  observer preparation, then turn invocation. Missing-record diagnostics and
-  synchronous-event integration checks are implemented, distinct from the
-  settled-record guard.
+- **Completed run observation (10.1–10.4):** session-local records, live observation,
+  and between-turn inspection are implemented. The user selected `/runs` and
+  `/run N` and authorized leaf 10.3 on 2026-10-02. All 341 tests and project
+  checks passed; agent self-review and the faux demo are recorded in the
+  [change evidence](openspec/changes/archive/2026-10-02-inspect-settled-runs/verification.md).
+  No independent or human review of this implementation is claimed.
+  Current requirements live in the [OpenSpec specification](openspec/specs/run-observation/spec.md).
+  Earlier decisions and evidence remain in the [completed plan](docs/plans/completed/milestone-4-run-observation.md).
+  The user authorized 10.4 closure and a final commit. Closure passed 64
+  focused checks, all 341 tests, repository checks, and agent self-review of
+  the repeatable terminal flow. The OpenSpec change is archived.
+  **Next: separately plan and approve cancellation.**
 - **Later cancellation:** after the first observation version is verified,
   separately specify and approve a trusted cancellation controller with
   propagation and settle-before-return behavior.
@@ -56,7 +53,7 @@ the active milestone plan retains implementation evidence and unconfirmed work.
   retry is planned.
 - **Draft validation and results:** after those preceding increments, review
   the existing [Milestone 5 requirements](docs/requirements/milestone-5-allowlisted-validation.md)
-  and [active plan](docs/plans/active/milestone-5-allowlisted-validation.md).
+  and [completed plan](docs/plans/active/milestone-5-allowlisted-validation.md).
   Its one `run_validation` tool remains limited to `test` and `build`; leaves
   **11.1–11.7** also include outcomes in the observation feed and result card.
   No process implementation is authorized yet.
@@ -74,11 +71,12 @@ the active milestone plan retains implementation evidence and unconfirmed work.
   explicit terminal approval.
 - Any future workspace mutation must be separately specified, approved, and
   enforced by trusted harness code rather than model instructions.
-- No API-key fallback, persistent sessions, JSONL, run-history inspection,
+- No API-key fallback, persistent sessions, JSONL, cross-session run-history inspection,
   user-controlled run cancellation or rerun, TUI, project configuration file,
   device-code login, multi-provider support, skills, MCP, or subagents exist
   in the current verified harness.
-- Milestone 4 leaf 10.1 is complete and reviewed; 10.2 is complete after checks and independent review under the user’s finish-and-commit instruction. Confirm the next bounded leaf before further implementation.
+- Milestone 4 leaves 10.1–10.4 are complete with recorded checks and review.
+  Confirm the next bounded milestone before implementation.
 - Cancellation and explicit rerun remain separately planned later increments;
   approval of first-version observation does not authorize them.
 - Do not implement Milestone 5 validation until observation, cancellation, and
