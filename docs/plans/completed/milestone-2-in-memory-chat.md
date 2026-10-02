@@ -4,7 +4,11 @@
 - **Verified:** 2026-07-26
 - **Source of truth for:** Milestone 2 completion state
 - **Related documents:** [implementation map](../../../IMPLEMENTATION_PLAN.md),
-  [Milestone 2 requirements](../../requirements/milestone-2-in-memory-chat.md)
+  [current OpenSpec requirements](../../../openspec/specs/cli-chat/spec.md)
+
+This completed plan records execution and verification at the time of the
+milestone. Its historical command names and before/after descriptions are not
+current requirements; use the linked OpenSpec specification for current behavior.
 
 Milestone 2 added a bounded, ephemeral `yo chat` process while preserving the
 read-only harness boundary established by Milestone 1.

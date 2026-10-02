@@ -7,9 +7,18 @@ Before starting a new milestone, create and approve its requirements and
 detailed implementation plan, then confirm its first bounded leaf.
 
 For OpenSpec development tooling and source ownership, read
-[the workflow guide](docs/openspec.md). The current requirements for observation
-10.1–10.3 live in [the baseline specification](openspec/specs/run-observation/spec.md);
-the completed milestone plan retains implementation evidence and deferred work.
+[the workflow guide](docs/openspec.md). Current implemented requirements live in:
+
+- [agent harness](openspec/specs/agent-harness/spec.md);
+- [CLI chat](openspec/specs/cli-chat/spec.md);
+- [Codex authentication and transport](openspec/specs/codex-auth-transport/spec.md);
+- [approval-gated patching](openspec/specs/approval-gated-patching/spec.md);
+- [run observation](openspec/specs/run-observation/spec.md).
+
+Completed milestone plans retain implementation and verification records.
+The user authorized the Milestone 1–3 baseline migration on 2026-10-02 and
+requested removal of the former requirement files. This documentation migration
+adds no runtime capability and does not authorize the next feature milestone.
 
 ## Current state
 
@@ -21,12 +30,12 @@ the completed milestone plan retains implementation evidence and deferred work.
 - **Completed interactive chat:** Milestone 2 was completed and verified on
   2026-07-26. The interactive workflow is now invoked directly as `yo`, with
   optional `--cwd` and `--model` flags. See its
-  [requirements](docs/requirements/milestone-2-in-memory-chat.md) and
+  [current requirements](openspec/specs/cli-chat/spec.md) and
   [completed Milestone 2 summary](docs/plans/completed/milestone-2-in-memory-chat.md).
 - **Completed approval-gated patches:** Milestone 3, approval-gated patch proposal
   and application, was verified on 2026-07-27. Its
-  [requirements](docs/requirements/milestone-3-approval-gated-patches.md) are
-  approved and its
+  [current requirements](openspec/specs/approval-gated-patching/spec.md) are
+  maintained in OpenSpec and its
   [completed plan summary](docs/plans/completed/milestone-3-approval-gated-patches.md)
   records **9.1–9.10, patch contracts, pure transform, immutable proposal
   preparation, approval vocabulary, guarded atomic application, controlled
@@ -53,7 +62,7 @@ the completed milestone plan retains implementation evidence and deferred work.
   retry is planned.
 - **Draft validation and results:** after those preceding increments, review
   the existing [Milestone 5 requirements](docs/requirements/milestone-5-allowlisted-validation.md)
-  and [completed plan](docs/plans/active/milestone-5-allowlisted-validation.md).
+  and [draft plan](docs/plans/active/milestone-5-allowlisted-validation.md).
   Its one `run_validation` tool remains limited to `test` and `build`; leaves
   **11.1–11.7** also include outcomes in the observation feed and result card.
   No process implementation is authorized yet.

@@ -4,12 +4,16 @@
 - **Verified:** 2026-07-27
 - **Source of truth for:** Milestone 3 completion state and verification evidence
 - **Related documents:** [implementation map](../../../IMPLEMENTATION_PLAN.md),
-  [approved requirements](../../requirements/milestone-3-approval-gated-patches.md),
+  [current OpenSpec requirements](../../../openspec/specs/approval-gated-patching/spec.md),
   [product map](../../../PRD.md)
 
 Read this document for Milestone 3 behavior, regression, or compatibility.
 The detailed checklist remains as the implementation record; all numbered
 leaves passed their acceptance criteria and review.
+
+This completed plan records execution and verification at the time of the
+milestone. Its historical command names and before/after descriptions are not
+current requirements; use the linked OpenSpec specification for current behavior.
 
 ## Goal
 

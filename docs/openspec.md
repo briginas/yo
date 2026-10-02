@@ -40,22 +40,24 @@ skill directories so formatting does not rewrite templates.
 
 ## Sources of truth
 
-| Location                                                      | Role                                                                            |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `AGENTS.md`                                                   | Collaboration, bounded user approval, verification and review rules             |
-| `PRD.md`                                                      | Product map, stable boundaries, links to current requirement sources            |
-| `IMPLEMENTATION_PLAN.md`                                      | Roadmap, current state, next candidate and active-plan links                    |
-| `openspec/specs/run-observation/spec.md`                      | Current requirements for implemented observation leaves 10.1–10.3               |
-| `docs/requirements/milestone-4-run-observation.md`            | Historical observation acceptance and deferred later scope                      |
-| `openspec/changes/<name>/`                                    | Proposal, design, task list, and requirement deltas for a future bounded change |
-| Other `docs/requirements/` and `spec/capabilities/` documents | Existing unmigrated requirement sources; migrate only under separate scope      |
-| Completed plans and completed leaf evidence                   | Historical decisions, implementation references, and verification evidence      |
+| Location                                                  | Role                                                                                       |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `AGENTS.md`                                               | Collaboration, bounded approval, verification and review rules                             |
+| `PRD.md`                                                  | Product map, stable boundaries, links to current requirements                              |
+| `IMPLEMENTATION_PLAN.md`                                  | Roadmap, current state, next candidate and plan links                                      |
+| `openspec/specs/`                                         | Current implemented harness, chat, OAuth/transport, patching, and observation requirements |
+| `openspec/changes/<name>/`                                | Proposal, design, task list, and requirement deltas for a bounded change                   |
+| `docs/requirements/milestone-5-allowlisted-validation.md` | Unapproved later validation draft                                                          |
+| `docs/requirements/milestone-4-run-observation.md`        | Earlier observation acceptance and deferred proposals; not current requirements            |
+| Completed plans and change evidence                       | Execution records, decisions, implementation references, and checks                        |
 
-For migrated behavior edit the main specification through a reviewed change;
-do not maintain a second editable requirement copy in the old milestone document.
-Its historical wording is retained for traceability. Future requirements remain
-proposals until their bounded scope is explicitly confirmed and implemented.
-The existing SDD Yo patch capability is outside this migration.
+Edit current requirements through a reviewed OpenSpec change. Do not maintain
+parallel requirement copies. The former Milestone 1–3 requirement files were
+removed after the baseline migration at the user's request. Legacy SDD evidence
+and configuration were removed separately; the remaining SDD patch specification
+and index were checked for coverage and removed with this migration. There is no
+remaining SDD requirement source to consult. Future requirements
+remain proposals until their bounded scope is confirmed and implemented.
 
 ## Working on the next change
 
@@ -89,7 +91,7 @@ On 2026-10-02 the user authorized tooling setup and a specification of the alrea
 implemented observation leaves 10.1–10.2. This is a baseline import, not a new
 runtime feature, so it is written directly into `openspec/specs/` without a
 fictional feature change or archive entry. The historical acceptance and checks
-for 10.1–10.2 remain in the active milestone plan. Migration verification and
+for 10.1–10.2 remain in the completed milestone plan. Migration verification and
 independent review are reported with this adoption result; authorization to do
 this work is not a claim that the user reviewed its final files.
 
@@ -141,6 +143,48 @@ local-command/interface boundary with yo's smaller sequential input loop.
 See [verification evidence](../openspec/changes/archive/2026-10-02-inspect-settled-runs/verification.md)
 and [the captured demo](examples/run-observation-demo.txt). Physical TTY and
 live-provider behavior were not newly verified.
+
+## Harness, chat, authentication, and patch baseline
+
+On 2026-10-02 the user authorized migration of the remaining implemented
+requirements and requested deletion of their former requirement documents.
+The baseline was imported directly into main specifications, as in the first
+adoption step: no new runtime feature or fictional implementation change is
+introduced. The migration uses the remaining Milestone 1–3 requirements,
+completed execution records, current source/tests, and the remaining SDD patch
+specification. Its five requirements are covered by the new patch specification:
+exact transforms, eligible targets, explicit preview consent, revalidation and
+atomic replacement, and one safe lifecycle result. The former SDD specification
+and index are deleted after this coverage review; removed evidence is not restored.
+
+| Current specification                                                                | Imported scope                                                                         | Implementation and existing test families                                            |
+| ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| [Agent harness](../openspec/specs/agent-harness/spec.md)                             | Loop, registry, workspace, read tools, bounds, ordered observation                     | `src/runtime/{agent-loop,tool-dispatcher,workspace,filesystem,tools}`                |
+| [CLI chat](../openspec/specs/cli-chat/spec.md)                                       | Current invocation, transcript, input, budgets, recovery, terminal lifecycle           | `src/{cli-command,cli-app,line-input,terminal-renderer}`, `src/runtime/conversation` |
+| [Codex authentication and transport](../openspec/specs/codex-auth-transport/spec.md) | OAuth, store/refresh, conversion, safe indexed answer delivery                         | `src/auth/`, `src/provider/openai-codex-responses`                                   |
+| [Approval-gated patching](../openspec/specs/approval-gated-patching/spec.md)         | Proposal, exact transform, full preview, consent, revalidation, atomic apply, outcomes | `src/runtime/patch-*`, `src/runtime/tool-dispatcher`, `src/terminal-approval`        |
+
+Each implementation/test family above refers to its `.ts` and `.test.ts` files.
+The baseline reconciles retired `yo ask`/`yo chat` commands to `yo`, the original
+three-tool registry to three read tools plus `propose_patch`, and read-only
+session wording to explicit patch consent. Run presentation remains owned by
+[run observation](../openspec/specs/run-observation/spec.md). Patch timeouts
+reflect abort-and-settle behavior, including successful rename settlement; they
+do not claim a user-facing cancellation capability. Future cancellation, rerun,
+and validation remain deferred.
+
+The design retains pi's separation of session, model transport, tool execution,
+and interface, and its [exact-edit mechanics](../../pi/packages/coding-agent/src/core/tools/edit.ts).
+Yo additionally requires exact terminal consent and workspace policy before a
+patch, without pi's broader editing or extension capabilities.
+
+Migration self-review checked scenario coverage against the source requirements,
+current code and existing tests, deleted-path references, and specification
+structure. All 341 existing tests, the build, strict validation of all five
+OpenSpec specifications, formatting, local Markdown links, and whitespace checks
+passed. The four imported specifications contain 30 requirements and 45 scenarios.
+No new physical TTY, live-provider, independent, or human implementation review is
+claimed. Completed plans remain execution records rather than current specs.
 
 ## Upstream reference
 
