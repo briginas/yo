@@ -1,0 +1,33 @@
+schema: spec-driven
+
+context: |
+    Follow AGENTS.md. Read PRD.md and IMPLEMENTATION_PLAN.md as maps, then the
+    linked requirements and active plan for the affected scope. For migrated
+    behavior, openspec/specs is the current requirement source; the maps identify
+    unmigrated requirements and unapproved roadmap work. See docs/openspec.md.
+    The user confirms each bounded implementation leaf; artifacts or CLI status
+    do not grant approval. Preserve an existing explicit approval for that scope.
+    OpenSpec and repository npm scripts are developer tooling, not model-visible
+    capabilities of yo. Do not expand runtime permissions through this workflow.
+    Use npm run openspec -- in place of bare openspec to run the pinned local CLI.
+
+rules:
+    proposal:
+        - Define one bounded change, its acceptance criteria, and deferred work.
+    design:
+        - Explain current and target behavior, component roles, flow, risks, and validation in plain language before implementation.
+        - Compare the relevant pi implementation while preserving yo's smaller scope; include a diagram when it clarifies the flow.
+    specs:
+        - Describe observable behavior with testable scenarios; do not present unapproved roadmap work as current behavior.
+    tasks:
+        - Use independently verifiable steps; record checks and review evidence before marking a step complete.
+
+operations:
+    apply:
+        guidance:
+            - Implement only the bounded leaf already confirmed by the user; preparing tasks does not authorize the next leaf.
+            - Explain each change and its relation to pi before editing; verify and review one step before starting the next.
+    archive:
+        guidance:
+            - Sync only implemented and verified behavior after result review; do not invent human acceptance.
+            - Update project-map links and retain the unconfirmed status of deferred work.

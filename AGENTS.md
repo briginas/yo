@@ -28,6 +28,23 @@
 - Confirm the bounded milestone with the user before implementation.
 - Mark a plan item complete only after its scoped checks pass and the result is reviewed.
 
+## OpenSpec
+
+- Follow [the OpenSpec development workflow](docs/openspec.md). Use
+  `npm run openspec -- <arguments>` for the pinned local CLI, including commands
+  shown as bare `openspec` in generated skills.
+- `openspec/specs/run-observation/spec.md` is the current requirement source for
+  migrated observation leaves 10.1–10.2. The project maps identify remaining
+  and unmigrated requirement sources; do not keep editable duplicates.
+- Keep project rules here and in `openspec/config.yaml`; do not hand-edit
+  generated `.agents/skills/openspec-*/` files.
+- OpenSpec artifacts and ready/apply status do not replace user confirmation
+  of a bounded leaf. Retain existing explicit authorization for that scope.
+  Check and review the result before completion or spec synchronization, and
+  never infer human acceptance from automated validation.
+- These skills and npm commands are development tools, not capabilities of
+  the running `yo` harness or the future model-visible validation tool.
+
 ## Scope Discipline
 
 - Do not add code, dependencies, API keys, runtime configuration, or broader capabilities unless the current milestone explicitly requires them.

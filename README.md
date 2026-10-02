@@ -15,13 +15,12 @@ one existing workspace file, but the harness displays the complete diff and
 writes only after explicit terminal approval.
 [See the current project state →](IMPLEMENTATION_PLAN.md)
 
-Milestone 4 now drafts an execution-observation interface: a list of turns in
-the current session, an event feed, and a result card with errors and
-patch-approval state. The follow-up sequence is cancellation, explicit rerun,
-then Milestone 5 test/build validation results. Runtime implementation has not
-started; the new requirements and plan need review before confirming `10.1`.
+Milestone 4 leaves 10.1–10.2 provide session-local run records, a live event
+feed, and result cards with errors and patch-approval state. Selecting earlier
+runs remains unconfirmed 10.3 work; milestone closure is also pending. The later
+sequence is cancellation, explicit rerun, then Milestone 5 test/build validation.
 General shell execution, persistence, MCP, and subagents are not implemented.
-[Review the Milestone 4 draft requirements →](docs/requirements/milestone-4-run-observation.md)
+[Read the implemented observation specification →](openspec/specs/run-observation/spec.md)
 
 ## Requirements and setup
 
@@ -105,12 +104,15 @@ access is limited to ChatGPT OAuth and the Codex model transport.
 - [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) — current milestone state, permanent constraints, and links to detailed plans.
 - [`docs/requirements/`](docs/requirements/) — milestone-specific scope and acceptance criteria, read when that milestone is relevant.
 - [`docs/plans/`](docs/plans/) — active implementation details and completed milestone summaries.
+- [`openspec/specs/`](openspec/specs/) — current requirements for migrated behavior (initially observation 10.1–10.2).
+- [`docs/openspec.md`](docs/openspec.md) — pinned OpenSpec setup, Codex skills, source ownership, and bounded change workflow.
 
 These files have separate roles. Requirements and milestone state should not be copied into this README beyond a short orientation because duplicated details become stale.
 
 ## Verification
 
 ```bash
+npm run spec:check
 npm test
 npm run build
 npm run format:check

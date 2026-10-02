@@ -97,7 +97,10 @@ The public CLI also exposes:
 - [Milestone 3: approval-gated patch application](docs/requirements/milestone-3-approval-gated-patches.md)
   requirements are approved. Read them when planning or implementing the
   workspace-mutation boundary.
-- [Milestone 4: in-memory run observation](docs/requirements/milestone-4-run-observation.md)
+- [Run observation baseline](openspec/specs/run-observation/spec.md) is the
+  current requirement source for implemented leaves 10.1–10.2.
+  [Milestone 4: in-memory run observation](docs/requirements/milestone-4-run-observation.md)
+  retains historical context and the unconfirmed remaining scope;
   first-version direction is endorsed and leaf 10.1 is complete and reviewed. The planned first version shows
   current-session turns, an ordered event feed, and a result card with errors
   and patch-approval state. Standalone projection is verified and reviewed. Leaf 10.2 connects CLI observation and the accepted live layout; leaf 10.2 is complete after checks, independent review, and the user’s instruction to finish and commit.
@@ -118,8 +121,9 @@ records deterministic and real OAuth-backed verification.
 The public agent workflow is now chat-only. Authentication commands remain
 separate trusted CLI operations.
 
-Milestone 4 now proposes an interface for observing execution:
-[requirements](docs/requirements/milestone-4-run-observation.md) and
+Milestone 4 has implemented live observation through 10.2:
+[current specification](openspec/specs/run-observation/spec.md),
+[remaining requirements and historical context](docs/requirements/milestone-4-run-observation.md), and
 [active implementation plan](docs/plans/active/milestone-4-run-observation.md).
 Its first version keeps a session-local run list, ordered events, and result
 cards with errors and patch-approval outcomes. The display observes runtime
@@ -136,6 +140,11 @@ prepare its identity-bound observer, then invoke the turn. Missing records need
 safe integration diagnostics; settled records retain the late-update guard.
 These integration behaviors are implemented at CLI composition. Selection and
 navigation remain future 10.3 work and need separate confirmation.
+
+The first OpenSpec adoption step covers development tooling and the implemented
+10.1–10.2 baseline only; see the [development workflow](docs/openspec.md).
+Other milestone requirements retain their existing sources until separately
+migrated. This adds no runtime capability and does not close Milestone 4.
 
 The selected follow-up order is cancellation, then explicit rerun, then
 validation results. Cancellation and rerun each need a separate reviewed plan.

@@ -2,10 +2,24 @@
 
 - **Status:** first-version direction endorsed; 10.1 reviewed; 10.2 complete after checks and independent review
 - **Prepared:** 2026-10-01
-- **Source of truth for:** proposed Milestone 4 scope and acceptance criteria
+- **Source of truth for:** remaining, unconfirmed Milestone 4 scope (10.3–10.4) and deferred proposals
 - **Related documents:** [product map](../../PRD.md),
   [implementation-state map](../../IMPLEMENTATION_PLAN.md),
   [active implementation plan](../plans/active/milestone-4-run-observation.md)
+
+## Requirement ownership after OpenSpec adoption
+
+The [OpenSpec run-observation specification](../../openspec/specs/run-observation/spec.md)
+is the sole current requirement source for implemented leaves **10.1–10.2**.
+Descriptions of that implemented behavior below are retained as historical
+design and acceptance context; do not update them as a parallel specification.
+Change that behavior through OpenSpec and follow the [development workflow](../openspec.md).
+
+This document remains authoritative for the **proposed, unconfirmed** remainder:
+between-turn selection/navigation (10.3), full first-version closure and review
+(10.4), their milestone-wide acceptance criteria below, and deferred directions.
+Those criteria describe completion of the entire milestone, not current runtime
+capabilities. In particular, historical-run inspection is not implemented.
 
 On 2026-10-02 the user endorsed the first-version direction and explicitly
 confirmed implementation of leaf 10.1 only. The user reviewed and accepted its result on the same date.

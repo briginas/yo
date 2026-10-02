@@ -6,6 +6,11 @@ only for behavior, regression, or compatibility work.
 Before starting a new milestone, create and approve its requirements and
 detailed implementation plan, then confirm its first bounded leaf.
 
+For OpenSpec development tooling and source ownership, read
+[the workflow guide](docs/openspec.md). The current requirements for observation
+10.1–10.2 live in [the baseline specification](openspec/specs/run-observation/spec.md);
+the active milestone plan retains implementation evidence and unconfirmed work.
+
 ## Current state
 
 - **Historical baseline:** Milestone 1, the read-only `yo ask` harness, was
@@ -31,7 +36,7 @@ detailed implementation plan, then confirm its first bounded leaf.
 - **Run observation, leaf 10.1 complete and reviewed:** On 2026-10-01, the next roadmap direction was
   selected as a current-session run list, event feed, and result card with
   errors and patch-approval state. See the new
-  [Milestone 4 requirements](docs/requirements/milestone-4-run-observation.md)
+  [Milestone 4 remaining requirements and historical context](docs/requirements/milestone-4-run-observation.md)
   and [active plan](docs/plans/active/milestone-4-run-observation.md).
   On 2026-10-02 the user endorsed this direction and authorized only
   **10.1: session-local run records and pure event projection**. Its standalone

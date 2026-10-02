@@ -2,7 +2,8 @@
 
 - **Status:** leaf 10.1 complete and reviewed; leaf 10.2 complete after checks and independent review
 - **Prepared:** 2026-10-01
-- **Requirements:** [Milestone 4 run observation](../../requirements/milestone-4-run-observation.md)
+- **Current 10.1–10.2 requirements:** [OpenSpec baseline](../../../openspec/specs/run-observation/spec.md)
+- **Remaining requirements and historical context:** [Milestone 4 run observation](../../requirements/milestone-4-run-observation.md)
 - **Previous milestone:** [Milestone 3 completed plan](../completed/milestone-3-approval-gated-patches.md)
 - **Later validation milestone:** [Milestone 5 allowlisted validation](milestone-5-allowlisted-validation.md)
 
@@ -319,7 +320,17 @@ claimed as implemented.
 
 ## Next bounded candidate
 
-Leaf 10.2 is complete. The user selected gradual OpenSpec adoption for subsequent work, including eventually specifying the whole project. The first bounded transition leaf is not yet confirmed; this step installs or migrates nothing. Observation leaf **10.3: between-turn inspection** remains unconfirmed and needs navigation syntax/layout plus separate implementation confirmation. Leaves 10.3–10.4 and milestone 4 remain incomplete.
+Leaf 10.2 is complete. On 2026-10-02 the user confirmed the first bounded
+OpenSpec transition: pinned developer tooling, Codex integration, source-of-truth
+links, and a baseline specification of already implemented 10.1–10.2. See
+[the adoption guide](../../openspec.md). This is a documentation/tooling step;
+it does not authorize another runtime leaf or claim human acceptance of the
+migration result. The earlier 10.1–10.2 design and verification records above
+remain historical evidence; the linked OpenSpec baseline owns current behavior.
+
+Observation leaf **10.3: between-turn inspection** remains unconfirmed and needs
+navigation syntax/layout plus separate implementation confirmation. Leaves
+10.3–10.4 and milestone 4 remain incomplete.
 
 ## Follow-up sequence
 
