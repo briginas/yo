@@ -78,9 +78,12 @@ subagent on the same date. Its settled read/preparation behavior, checks, and
 pending human result acceptance are recorded in verification. The user then
 requested committing group 2 and implementing the next bounded group 3 in a
 separate subagent. Group 2 was committed as `b061aee`; group 3 checks and pending
-human result acceptance are recorded in verification. Group 4 and later still
-require separate bounded confirmation; these approvals do not approve the full
-feature or specification synchronization.
+human result acceptance are recorded in verification. The user then requested
+committing group 3 and implementing the next bounded group 4 in a separate
+subagent. Group 3 was committed as `c77cdf9`; group 4 checks and pending human
+result acceptance are recorded in verification. Group 5 and later still require
+separate bounded confirmation; these approvals do not approve the full feature
+or specification synchronization.
 
 Explicit rerun, validation, automatic retry/repair, rollback, force termination,
 multiple active turns, `/cancel` line commands, TUI, durable history, and login

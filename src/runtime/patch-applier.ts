@@ -6,6 +6,7 @@ import { basename, dirname, join } from 'node:path'
 import { PATCH_MAX_FILE_BYTES, type PatchConflict, type PatchProposal } from './patch-contracts.ts'
 import {
     resolvePatchTarget,
+    readBoundedFile,
     type PatchPreparationOperations,
     type PatchTarget,
 } from './patch-preparer.ts'
@@ -36,8 +37,12 @@ type TemporaryFile = Readonly<{
 }>
 
 export type PatchApplicationOperations = Readonly<{
-    resolveTarget: (workspaceRoot: string, path: string) => Promise<PatchTarget>
-    readFile: (path: string, maxBytes: number) => Promise<Uint8Array>
+    resolveTarget: (
+        workspaceRoot: string,
+        path: string,
+        signal?: AbortSignal
+    ) => Promise<PatchTarget>
+    readFile: (path: string, maxBytes: number, signal?: AbortSignal) => Promise<Uint8Array>
     openTemporaryFile: (path: string, mode: number) => Promise<TemporaryFile>
     rename: (from: string, to: string) => Promise<void>
     unlink: (path: string) => Promise<void>
@@ -51,29 +56,9 @@ export type ApplyPatchProposalOptions = Readonly<{
 
 const hashBytes = (value: Uint8Array): string => createHash('sha256').update(value).digest('hex')
 
-const readBoundedFile = async (path: string, maxBytes: number): Promise<Uint8Array> => {
-    let handle: Awaited<ReturnType<typeof open>> | undefined
-
-    try {
-        handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW)
-        const buffer = Buffer.allocUnsafe(maxBytes + 1)
-        const { bytesRead } = await handle.read(buffer, 0, buffer.byteLength, 0)
-
-        if (bytesRead > maxBytes) {
-            throw new PatchApplicationError(
-                'filesystem_error',
-                `Patch source must not exceed ${maxBytes} bytes`
-            )
-        }
-
-        return buffer.subarray(0, bytesRead)
-    } finally {
-        await handle?.close()
-    }
-}
-
 const defaultOperations: PatchApplicationOperations = {
-    resolveTarget: (workspaceRoot, path) => resolvePatchTarget(workspaceRoot, path),
+    resolveTarget: (workspaceRoot, path, signal) =>
+        resolvePatchTarget(workspaceRoot, path, undefined, signal),
     readFile: readBoundedFile,
     openTemporaryFile: async (path, mode) =>
         open(path, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL, mode),
@@ -106,9 +91,8 @@ const toApplicationError = (error: unknown): PatchApplicationError => {
 const createTemporaryPath = (proposal: PatchProposal, id: string): string =>
     join(dirname(proposal.absolutePath), `.${basename(proposal.absolutePath)}.yo-patch-${id}`)
 
-// This remains internal until the specialized patch dispatcher supplies approval, lifecycle
-// events, and a timeout controller. The signal is checked only after each temporary-file await,
-// so an aborted call always settles and cleans up before it can report completion.
+// The dispatcher owns consent. Stop before rename, but once replacement begins its actual
+// result is authoritative even while cancellation and temporary-file cleanup are settling.
 export const applyPatchProposal = async (
     workspaceRoot: string,
     proposal: PatchProposal,
@@ -118,10 +102,15 @@ export const applyPatchProposal = async (
     let temporaryPath: string | undefined
     let temporaryFile: TemporaryFile | undefined
     let renamed = false
+    let renameStarted = false
 
     try {
         assertNotAborted(options.signal)
-        const target = await operations.resolveTarget(workspaceRoot, proposal.relativePath)
+        const target = await operations.resolveTarget(
+            workspaceRoot,
+            proposal.relativePath,
+            options.signal
+        )
         assertNotAborted(options.signal)
 
         if (
@@ -135,9 +124,16 @@ export const applyPatchProposal = async (
             )
         }
 
-        const sourceBytes = await operations.readFile(target.absolutePath, PATCH_MAX_FILE_BYTES)
+        const sourceBytes = await operations.readFile(
+            target.absolutePath,
+            PATCH_MAX_FILE_BYTES,
+            options.signal
+        )
         assertNotAborted(options.signal)
 
+        if (sourceBytes.byteLength > PATCH_MAX_FILE_BYTES) {
+            throw new PatchApplicationError('filesystem_error', 'Unable to apply approved patch')
+        }
         if (hashBytes(sourceBytes) !== proposal.baseHash) {
             return conflict('base_changed', 'Patch target changed after approval')
         }
@@ -170,10 +166,17 @@ export const applyPatchProposal = async (
         temporaryFile = undefined
         assertNotAborted(options.signal)
 
+        renameStarted = true
         await operations.rename(temporaryPath, target.absolutePath)
         renamed = true
         return { status: 'applied' }
     } catch (error) {
+        if (renameStarted) {
+            throw new PatchApplicationError('filesystem_error', 'Unable to apply approved patch')
+        }
+        if (isAborted(options.signal)) {
+            return { status: 'aborted' }
+        }
         const applicationError = toApplicationError(error)
 
         if (applicationError.code === 'aborted') {
@@ -202,22 +205,35 @@ export const applyPatchProposalWithTimeout = async (
     workspaceRoot: string,
     proposal: PatchProposal,
     timeoutMs: number,
-    options: Omit<ApplyPatchProposalOptions, 'signal'> = {}
+    options: ApplyPatchProposalOptions = {}
 ): Promise<PatchApplicationOutcome | Readonly<{ status: 'timeout' }>> => {
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), timeoutMs)
+    let stopCause: 'timeout' | 'aborted' | undefined
+    const requestStop = (cause: 'timeout' | 'aborted'): void => {
+        if (stopCause === undefined) {
+            stopCause = cause
+            controller.abort()
+        }
+    }
+    const onAbort = (): void => requestStop('aborted')
+    options.signal?.addEventListener('abort', onAbort, { once: true })
+    const timeout = setTimeout(() => requestStop('timeout'), timeoutMs)
 
     try {
+        if (options.signal?.aborted) requestStop('aborted')
         const outcome = await applyPatchProposal(workspaceRoot, proposal, {
             ...options,
             signal: controller.signal,
         })
 
-        return controller.signal.aborted && outcome.status !== 'applied'
-            ? { status: 'timeout' }
+        // Only a stopped pre-rename outcome is classified by the first stop cause.
+        // Committed conflicts, failures, and initiated rename outcomes are preserved.
+        return outcome.status === 'aborted' && stopCause !== undefined
+            ? { status: stopCause }
             : outcome
     } finally {
         clearTimeout(timeout)
+        options.signal?.removeEventListener('abort', onAbort)
     }
 }
 

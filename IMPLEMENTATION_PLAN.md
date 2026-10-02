@@ -34,15 +34,17 @@ now has a [design](openspec/changes/cancel-active-runs/design.md),
 [requirement deltas](openspec/changes/cancel-active-runs/specs/), and
 [bounded tasks](openspec/changes/cancel-active-runs/tasks.md). Planning artifacts
 were reviewed for bounded group 1 implementation, confirmed by the user on
-2026-10-02 and committed as `7a79dfa`. The user then confirmed groups 2 and 3 as successive bounded
-steps in separate subagents, with group 2 committed as `b061aee` before group 3.
-Groups 1–3 provide the internal controller, optional signal contracts, settled
-read/preparation operations, and cancellable single-reader patch approval APIs.
-CLI, loop, transport, and patch dispatch/application cancellation remain unwired.
+2026-10-02 and committed as `7a79dfa`. The user then confirmed groups 2–4 as
+successive bounded steps in separate subagents, with group 2 committed as
+`b061aee` and group 3 as `c77cdf9` before the following step. Groups 1–4 provide
+the internal controller, optional signal contracts, settled read/preparation
+operations, cancellable single-reader approval APIs, and settled patch dispatch/
+application cancellation with preserved initiated-rename outcomes. CLI, loop,
+conversation, transport, and observation cancellation remain unwired.
 The [verification](openspec/changes/cancel-active-runs/verification.md) records
-390 passing tests, build and repository checks, and agent review; human acceptance
-of the group 3 result remains pending. The next candidate is group 4, patch
-cancellation and atomic replacement, after separate bounded confirmation.
+407 passing tests, build and repository checks, and agent review; human acceptance
+of the group 4 result remains pending. The next candidate is group 5, signal-aware
+Codex request and credential work, after separate bounded confirmation.
 Full cancellation is not implemented or approved for specification synchronization.
 
 A trusted controller must propagate abort through transport, loop, tools, and pending approval, and

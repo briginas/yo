@@ -1,9 +1,9 @@
 # Tasks
 
-The user confirmed group 1 on 2026-10-02, then authorized groups 2 and 3 as
+The user confirmed group 1 on 2026-10-02, then authorized groups 2–4 as
 successive bounded steps in separate subagents. Their implementation checks and
 agent review are recorded in [verification](verification.md); human result
-acceptance is not inferred from automated checks. The next candidate is group 4
+acceptance is not inferred from automated checks. The next candidate is group 5
 and needs separate bounded confirmation. Keep boxes unchecked until scoped checks
 pass and review evidence is recorded. See [design](design.md) and
 [capability deltas](specs/) for the behavior and flow.
@@ -28,9 +28,9 @@ pass and review evidence is recorded. See [design](design.md) and
 
 ## 4. Patch cancellation and atomic replacement
 
-- [ ] 4.1 Thread the run signal through specialized patch dispatch, settled preparation, approval, revalidation, and application; verify pre-abort, cancellation after consent, pending-review invalidation, no unapproved mutation, and one lifecycle/result trail per call.
-- [ ] 4.2 Compose external cancellation with the existing patch timer and pre-rename checks; verify held temporary-write/cleanup, both stop-cause orders, no rename before cancelled pre-check, and successful or failing already-started rename without fabricated rollback.
-- [ ] 4.3 Record focused patch/dispatcher checks, build, and review evidence; verify file bytes and applied events agree and approval-only abort still affects only that call.
+- [x] 4.1 Thread the run signal through specialized patch dispatch, settled preparation, approval, revalidation, and application; verify pre-abort, cancellation after consent, pending-review invalidation, no unapproved mutation, and one lifecycle/result trail per call.
+- [x] 4.2 Compose external cancellation with the existing patch timer and pre-rename checks; verify held temporary-write/cleanup, both stop-cause orders, no rename before cancelled pre-check, and successful or failing already-started rename without fabricated rollback.
+- [x] 4.3 Record focused patch/dispatcher checks, build, and review evidence; verify file bytes and applied events agree and approval-only abort still affects only that call.
 
 ## 5. Signal-aware Codex request and credential work
 

@@ -82,7 +82,8 @@ type PatchPreparation = (
 type PatchApplication = (
     workspaceRoot: string,
     proposal: PatchProposal,
-    timeoutMs: number
+    timeoutMs: number,
+    options?: ToolExecutionOptions
 ) => Promise<PatchApplicationOutcome | Readonly<{ status: 'timeout' }>>
 
 export type PatchDispatchOptions = Readonly<{
@@ -236,7 +237,7 @@ const dispatchPatchCall = async (
     notifyPatchLifecycle(options, { type: 'prepared', metadata })
     notifyPatchLifecycle(options, { type: 'approval_requested', metadata })
 
-    const approval = await requestPatchApproval(proposal, options?.approver)
+    const approval = await requestPatchApproval(proposal, options?.approver, executionOptions)
     notifyPatchLifecycle(options, { type: 'approval_resolved', metadata, decision: approval })
 
     if (approval === 'aborted') {
@@ -251,9 +252,18 @@ const dispatchPatchCall = async (
         return createErrorResult(call.id, 'denied', 'approval_denied', 'Patch approval denied')
     }
 
+    if (executionOptions?.signal?.aborted) {
+        return createErrorResult(call.id, 'aborted', 'aborted', 'Patch application was aborted')
+    }
+
     const applyProposal = options?.operations?.applyProposal ?? applyPatchProposalWithTimeout
     try {
-        const outcome = await applyProposal(workspaceRoot, proposal, perToolTimeoutMs)
+        const outcome = await applyProposal(
+            workspaceRoot,
+            proposal,
+            perToolTimeoutMs,
+            executionOptions
+        )
         if (outcome.status === 'timeout') {
             return createErrorResult(
                 call.id,

@@ -1,6 +1,93 @@
 # Verification
 
-## Current status: group 3
+## Current status: group 4
+
+On 2026-10-02 the user again requested “коммить и делай след шаг в отдельном
+субагенте”. The ready group 3 was committed as `c77cdf9`; the next bounded
+candidate was group 4, so this authorizes tasks 4.1–4.3 only in a separate
+subagent. Groups 1–4 have scoped checks and agent review. Human acceptance of
+the group 4 result remains pending. Later groups, full-feature completion,
+main-spec synchronization, and archive are not authorized by these checks.
+
+### Patch signal and consent boundaries
+
+The specialized [dispatcher](../../../src/runtime/tool-dispatcher.ts) now forwards
+the optional execution signal through settled preparation, trusted review, and
+application. Approval receives the signal separately from its immutable complete
+view; a cancelled review is awaited, resolves `aborted`, and cannot reuse late
+consent. A cancellation after accepted approval is checked before application,
+even when raised by the approval-resolved lifecycle observer. No approval timeout
+was added. Approval-only abort still affects just that call; a later proposal
+requires fresh consent.
+
+Preparation stopped before commitment emits no approval trail. Once preparation
+has committed, the dispatcher retains prepared/requested/resolved evidence. If
+cancellation occurs during permission/prepared notification before review starts,
+requesting review records an aborted decision without invoking the approver or
+showing a prompt. This attempted-review trail supplies no consent. Pending review
+produces one resolved-aborted event after its owned work settles. Each dispatch
+returns one result with its original call identifier. Tool-requested/completed
+run events remain owned by the unchanged loop; group 4 introduces no new loop
+accounting or whole-run outcome.
+
+### Settled application and atomic replacement
+
+[Application](../../../src/runtime/patch-applier.ts) combines external cancellation
+and its existing execution timer with the first observed stop-cause latch. The
+combined signal reaches path revalidation (component lstat/canonical realpath)
+and the shared bounded source reader, including awaited handle close. Checks
+between temporary open/chmod/write/sync/close and immediately before rename
+prevent further work after a stop. Temporary I/O, close, and existing best-effort
+cleanup remain owned and awaited; timeout is an execution bound, not an immediate
+settlement deadline.
+
+Before rename, a stop observed before accepting an I/O result/failure yields a
+stopped outcome, classified as `timeout` or `aborted` by the first cause. An
+already accepted conflict or error is committed inside application before its
+`finally` cleanup; a later stop during cleanup or outer settlement does not
+relabel it. The wrapper classifies only stopped outcomes and removes its signal
+listener and timer on all exits.
+
+Once rename is initiated, its actual settled outcome wins. Successful native
+replacement remains `success` with one applied event and the exact approved
+bytes, even when cancellation and timeout arrive while rename is pending.
+Failing initiated rename remains a fixed sanitized execution error, including
+an injected error labelled aborted; cleanup is awaited and no applied evidence
+or rollback is fabricated. Application does not undo an earlier patch or create
+additional write authority.
+
+### Scoped checks and review
+
+- Focused patch-cancellation/application/preparation/approval/dispatcher/transform/
+  runtime-barrel suite: 73 passed, 0 failed. The 17 new cancellation tests cover
+  held review with late consent and review outside the timer, accepted consent
+  followed by cancellation, prepared-notification cancellation with no prompt,
+  fresh consent after denied/approval-only-aborted calls, both stop-cause orders
+  through real temporary writing/close/unlink, acquired source-read close, nested
+  path checkpoint propagation, committed errors during held cleanup, listener
+  disposal and later cancellation after success/conflict/error, pre-abort, and
+  successful or failing initiated rename with byte/event agreement.
+- `npm test`: 407 passed, 0 failed, 0 skipped, 0 cancelled (27 suites).
+- `npm run build`: strict TypeScript checks and CLI bundle passed.
+- `npm run format:check`, `npm run spec:check` (7 items, 0 failures), and
+  `git diff --check` passed. Existing main-spec informational length hints remain.
+- Local Markdown link checks passed for all 47 references in the project maps
+  and change artifacts.
+- Subagent self-review covered first-stop classification versus application
+  commit, rename-start arbitration, awaited I/O/cleanup, signal propagation
+  through revalidation, skipped/pending review trails, safe output and fixed
+  rename error text, optional no-signal compatibility, exact consent, and unchanged
+  runtime registry. Parent review found and confirmed the fix for typed-abort
+  rename failure and reviewed the patch and native byte/lifecycle tests. These
+  are agent reviews, not human acceptance. Group 4 changes remain uncommitted
+  for result review.
+
+No physical TTY or live-provider cancellation check was performed. Loop,
+conversation, transport, CLI interrupts, and observation remain unwired. Main
+specifications remain unchanged. The next candidate is group 5, signal-aware
+Codex request and credential work, after separate bounded confirmation.
+
+## Group 3 evidence (before group 4)
 
 On 2026-10-02 the user requested “коммить и делай след шаг в отдельном
 субагенте”. The ready group 2 was committed as `b061aee`; the next bounded
