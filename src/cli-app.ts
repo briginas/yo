@@ -10,7 +10,11 @@ import {
 import { createFileCredentialStore } from './auth/file-credential-store.ts'
 import { OPENAI_CODEX_PROVIDER_ID, type CredentialStore } from './auth/credential.ts'
 import { parseCliCommand, USAGE } from './cli-command.ts'
-import { formatEvidenceReport } from './evidence-report.ts'
+import { createObservationSession, type ObservationClocks } from './observation-session.ts'
+import {
+    createTerminalObservationView,
+    formatObservationDiagnostic,
+} from './terminal-observation.ts'
 import { runChatInput, type LineInput } from './line-input.ts'
 import {
     canonicalizeWorkspaceRoot,
@@ -33,6 +37,8 @@ const RUN_BUDGET = {
 
 export type CliDependencies = {
     transport: ModelTransport
+    observationClocks?: ObservationClocks
+    runTurn?: typeof runConversationTurn
     writeOutput: (message: string) => void
     writeError: (message: string) => void
     createLineInput?: () => LineInput
@@ -234,8 +240,15 @@ const createTerminalComposition = ({
         isInteractive,
     })
     const renderer = createTerminalRenderer({
-        writeAnswer,
-        writeStatus: statusOutput.writeStatus,
+        writeAnswer: (message) => {
+            try {
+                statusOutput.clearProgress()
+            } catch {
+                /* Answer delivery survives progress cleanup. */
+            }
+            writeAnswer(message)
+        },
+        writeStatus: () => undefined,
         writeError,
         isInteractive,
     })
@@ -250,6 +263,8 @@ type ChatDependencies = TerminalDependencies & {
     transport: ModelTransport
     writeOutput: CliDependencies['writeOutput']
     createLineInput: () => LineInput
+    observationClocks: ObservationClocks
+    runTurn: typeof runConversationTurn
 }
 
 type RunChatOptions = ChatDependencies & {
@@ -271,6 +286,8 @@ const runChat = async ({
     clearStatusLine,
     moveStatusCursorToStart,
     isInteractive,
+    observationClocks,
+    runTurn,
 }: RunChatOptions): Promise<CliResult> => {
     const { renderer, statusOutput } = createTerminalComposition({
         writeError,
@@ -280,6 +297,19 @@ const runChat = async ({
         moveStatusCursorToStart,
         isInteractive,
     })
+    const observations = createObservationSession({
+        clocks: observationClocks,
+        view: createTerminalObservationView(statusOutput, writeOutput),
+        onRuntimeEvent: renderer.onEvent,
+        diagnose: (diagnostic) => writeError(formatObservationDiagnostic(diagnostic)),
+    })
+    const clearProgress = (): void => {
+        try {
+            statusOutput.clearProgress()
+        } catch {
+            /* Terminal cleanup cannot own input or consent. */
+        }
+    }
     const initialConversation = createConversation({
         workspaceRoot,
         model,
@@ -297,32 +327,34 @@ const runChat = async ({
     try {
         await runChatInput({
             input,
-            clearProgress: statusOutput.clearProgress,
+            clearProgress,
             onMessage: async (task) => {
+                const observed = observations.begin(task)
+                let result: Awaited<ReturnType<typeof runConversationTurn>>
                 try {
-                    const result = await runConversationTurn({
+                    result = await runTurn({
                         conversation,
                         task,
                         budget: RUN_BUDGET,
                         transport,
-                        onEvent: renderer.onEvent,
+                        onEvent: observed.onEvent,
                         patchApprover: createTerminalPatchApprover({
                             input,
                             write: writeAnswer,
-                            clearProgress: statusOutput.clearProgress,
+                            clearProgress,
                             isInteractive,
                         }),
                     })
-                    const session = result.turn.session
-
-                    conversation = result.conversation
-                    lastSession = session
-
-                    renderer.finishAnswer(session.finalAnswer)
-                    writeOutput(formatEvidenceReport(session))
                 } catch {
+                    observations.fail(observed.id)
                     throw new ChatTurnError()
                 }
+                const session = result.turn.session
+                conversation = result.conversation
+                lastSession = session
+                observations.settle(observed.id, session, () =>
+                    renderer.finishAnswer(session.finalAnswer)
+                )
             },
         })
 
@@ -331,7 +363,11 @@ const runChat = async ({
             session: lastSession,
         }
     } catch (error) {
-        writeError(error instanceof ChatTurnError ? 'Chat turn failed.' : 'Chat input failed.')
+        try {
+            writeError(error instanceof ChatTurnError ? 'Chat turn failed.' : 'Chat input failed.')
+        } catch {
+            // Error output cannot prevent returning the already settled CLI outcome.
+        }
 
         return {
             exitCode: 1,
@@ -344,6 +380,8 @@ export const runCli = async (
     argv: readonly string[],
     {
         transport,
+        observationClocks,
+        runTurn,
         writeOutput,
         writeError,
         createAuthorization,
@@ -424,5 +462,10 @@ export const runCli = async (
         clearStatusLine,
         moveStatusCursorToStart,
         isInteractive,
+        observationClocks: observationClocks ?? {
+            wallTime: Date.now,
+            monotonicTime: () => performance.now(),
+        },
+        runTurn: runTurn ?? runConversationTurn,
     })
 }

@@ -55,25 +55,17 @@ test('production entrypoint reaches the Codex transport without a real credentia
     })
 
     assert.equal(result.exitCode, 0)
-    assert.equal(
-        result.stdout,
-        [
-            'yo> Evidence:',
-            'Stop reason: transport_error',
-            'Tools: (none)',
-            'Files:',
-            '- (none)',
-            'yo> ',
-        ].join('\n')
-    )
-    assert.equal(
-        result.stderr,
-        [
-            'status: model_waiting step=1',
-            'status: turn_finished status=failed reason=transport_error',
-            '',
-        ].join('\n')
-    )
+    assert.match(result.stdout, /Run #1 result: failed/)
+    assert.match(result.stdout, /Stop reason: transport_error/)
+    assert.match(result.stdout, /Tools: \(none\)/)
+    assert.match(result.stdout, /Errors:\n- transport_error/)
+    assert.match(result.stdout, /Session runs:\n- #1 Inspect the workspace\. \| failed/)
+    assert.equal((result.stdout.match(/Evidence:/g) ?? []).length, 1)
+    assert.match(result.stderr, /Run #1: Inspect the workspace\. \| start=/)
+    assert.match(result.stderr, /event: run=1 #1 run_started/)
+    assert.match(result.stderr, /event: run=1 #2 model_requested step=1/)
+    assert.match(result.stderr, /event: run=1 #3 run_finished outcome=transport_error/)
+    assert.doesNotMatch(result.stderr, /status: model_waiting|status: turn_finished/)
 })
 
 test('production entrypoint rejects the removed ask command with usage exit code 2', async () => {

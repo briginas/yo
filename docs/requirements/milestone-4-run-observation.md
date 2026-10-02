@@ -1,6 +1,6 @@
 # Milestone 4 requirements: in-memory run observation
 
-- **Status:** first-version direction endorsed; leaf 10.1 complete and reviewed
+- **Status:** first-version direction endorsed; 10.1 reviewed; 10.2 complete after checks and independent review
 - **Prepared:** 2026-10-01
 - **Source of truth for:** proposed Milestone 4 scope and acceptance criteria
 - **Related documents:** [product map](../../PRD.md),
@@ -9,8 +9,9 @@
 
 On 2026-10-02 the user endorsed the first-version direction and explicitly
 confirmed implementation of leaf 10.1 only. The user reviewed and accepted its result on the same date.
-This does not authorize later leaves, cancellation, rerun, or validation.
-Navigation syntax and layout still require a review decision before CLI work.
+The user subsequently accepted the live 10.2 presentation and separately
+explicitly authorized its implementation. The user instructed finishing and committing it after independent review; checks passed and both review findings are closed. Leaves 10.3–10.4, cancellation, rerun, and validation remain unconfirmed.
+Navigation syntax and selection layout require a decision before 10.3.
 
 ## Objective
 
@@ -27,12 +28,12 @@ then explicit rerun, then validation results through the separately reviewed
 
 ## Current and target behavior
 
-Today, `runAgent` records structured `RunEvent` values and sends detached,
+The existing `runAgent` records structured `RunEvent` values and sends detached,
 immutable snapshots to `onEvent`. The terminal renderer shows live model/tool
 status, final text, and an evidence report. Patch approval uses a separate
 trusted callback that displays the exact diff and reads explicit consent.
-The CLI retains the conversation and only the latest completed session; it
-does not provide a browsable collection of run records.
+Through 10.2 the CLI retains session-local run records and prints their summaries
+beneath each result. Selecting a prior run remains future 10.3 behavior.
 
 After this milestone, a session-local observation store retains the ordered
 runs and their display state. It receives existing lifecycle events while the
@@ -41,6 +42,21 @@ lets the user inspect prior turns without sending inspection input to the
 model or changing the conversation history.
 
 ## Presentation
+
+### Accepted live presentation for leaf 10.2
+
+The accepted layout is a run-number/task-preview/local-start-time header,
+numbered event rows, and a separate current-state/elapsed-time line. Interactive
+terminals replace that state line; non-TTY output writes separate lines, with
+no color dependency or timer. State changes derive from events; timing freezes
+from settlement before answer printing. Clock failure displays `unavailable`.
+
+Preserve full answer delivery once through the existing renderer. Afterwards
+print one compact result card and the current-session list. The card includes
+status, reason, time, tools, files, errors, and patch-state trails, but does not
+print the stored answer preview again. Replace legacy operational status lines
+rather than duplicating them. The full trusted patch diff and approval prompt
+remain unchanged. Presentation acceptance preceded implementation. Completion rests on passed checks, independent review, and the user’s subsequent instruction to finish and commit after review; no manual code review is claimed. No past-run selection is included yet.
 
 ### Run list
 
@@ -52,7 +68,7 @@ model or changing the conversation history.
 - Distinguish a failed transport, budget exhaustion, and a completed answer.
 - Retain earlier runs until the process exits; restarting starts an empty list.
 - Allow inspection of settled runs between turns. Exact navigation syntax and
-  terminal layout must be settled during plan review before CLI implementation.
+  selection layout must be settled during plan review before leaf 10.3.
 - Keep one active run; no queue, concurrent runs, or background jobs.
 
 ### Event feed
@@ -64,9 +80,14 @@ model or changing the conversation history.
   distinct outcomes. A tool failure need not mean the whole run failed.
 - Use safe summaries and bounded previews; never dump raw arguments, transport
   payloads, credentials, or hidden reasoning.
+- Preserve tool-output truncation on completion rows: show the flag and, when
+  validated details are available, reason, limit, and observed count. Keep a
+  generic truncation warning if details are absent; retain no raw tool output.
 - Keep final-answer text in the answer/result view rather than displaying each
   text delta as a separate operational feed row.
 - Isolate observer and rendering failures from runtime execution and results.
+  A failed progress cleanup must not allow subsequent cleanup to erase already
+  delivered answer fragments, whether clearing the line or moving the cursor failed.
 
 ### Result card and approval
 
@@ -123,7 +144,7 @@ extensions, RPC server, or new model-visible capability.
 
 ### Same-process initialization invariant
 
-The user agreed on 2026-10-02 that future CLI composition must first create and
+The user agreed on 2026-10-02 that CLI composition must first create and
 save the run record, then prepare/connect an observer bound to its identity,
 then invoke the existing conversation/agent turn. Even a synchronously emitted
 initial event must find the record and observer. Feed updates follow; only the
@@ -132,17 +153,16 @@ ordering within one process; no buffering, replay, persistence, or network
 mechanism is needed.
 
 A missing record is an integration error, distinct from an already settled
-record's expected late-update guard. Future leaf 10.2 must make absence observable
+record's expected late-update guard. Leaf 10.2 makes absence observable
 through a safe trusted CLI/observation diagnostic path. Observer or diagnostic
 failures must not fail execution, authorize actions, alter patch consent, or
 change the transcript. Do not expose raw event data or sensitive diagnostics.
 
 Currently `updateObservedRun` leaves history unchanged for an absent ID and
-skips updates for settled records. Safe missing-record diagnostics and the
-initialization wiring are future 10.2 behavior; this decision documents them
-without implementing that leaf.
+skips updates for settled records. Leaf 10.2 now adds safe missing-record diagnostics and initialization wiring
+at CLI composition, keeping the pure helper unchanged.
 
-Reproducible integration checks must use a synchronously emitting faux runtime
+Reproducible integration checks use a synchronously emitting faux runtime
 to verify record creation/insertion and observer preparation before invocation,
 correct run identity, distinct missing/settled handling, and execution isolation
 when observers or diagnostic writers fail. No paid requests or real timing waits

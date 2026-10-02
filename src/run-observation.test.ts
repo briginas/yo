@@ -343,3 +343,79 @@ test('shows permission denial and final-answer activity without executing or reo
     assert.equal(unknown.feed[0]?.tool, 'unknown_tool')
     assert.doesNotMatch(JSON.stringify(unknown), /private/)
 })
+
+test('search evidence never retains matched source text containing another line delimiter', () => {
+    let record = project(initial(), {
+        type: 'tool_requested',
+        step: 1,
+        call: { id: 'search', name: 'search_code', arguments: { query: 'marker' } },
+    })
+    record = project(record, {
+        type: 'tool_completed',
+        step: 1,
+        result: {
+            status: 'success',
+            callId: 'search',
+            content: 'src/a.ts:12:private_source_text:99:other text',
+            metadata: { truncated: false, truncation: null },
+        },
+    })
+    assert.deepEqual(record.files, ['src/a.ts'])
+    assert.doesNotMatch(JSON.stringify(record), /private_source_text|other text/)
+})
+
+test('retains only detached safe truncation fields and handles absent or invalid details', () => {
+    for (const reason of ['line_limit', 'byte_limit', 'result_limit'] as const) {
+        const details = { reason, limit: 2000, observed: 2001, rawOutput: 'private metadata' }
+        const event: RunEventSnapshot = {
+            type: 'tool_completed',
+            step: 1,
+            result: {
+                status: 'success',
+                callId: 'read',
+                content: 'private source',
+                metadata: { truncated: true, truncation: details },
+            },
+        }
+        const record = project(project(initial(), request('read')), event)
+        assert.equal(record.feed.at(-1)?.truncated, true)
+        assert.deepEqual(record.feed.at(-1)?.truncation, { reason, limit: 2000, observed: 2001 })
+        details.observed = 9999
+        assert.equal(record.feed.at(-1)?.truncation?.observed, 2001)
+        assert.doesNotMatch(JSON.stringify(record), /private metadata|private source|rawOutput/)
+    }
+    for (const details of [
+        null,
+        { reason: 'Bearer private reason', limit: 10, observed: 11 },
+        { reason: 'line_limit', limit: -1, observed: 11 },
+        { reason: 'line_limit', limit: 10, observed: Infinity },
+    ]) {
+        const record = project(initial(), {
+            type: 'tool_completed',
+            step: 1,
+            result: {
+                status: 'success',
+                callId: 'read',
+                content: '',
+                metadata: { truncated: true, truncation: details },
+            },
+        } as RunEventSnapshot)
+        assert.equal(record.feed.at(-1)?.truncated, true)
+        assert.equal(record.feed.at(-1)?.truncation, null)
+    }
+    const ordinary = project(initial(), {
+        type: 'tool_completed',
+        step: 1,
+        result: {
+            status: 'success',
+            callId: 'ordinary',
+            content: '',
+            metadata: {
+                truncated: false,
+                truncation: { reason: 'line_limit', limit: 2000, observed: 2001 },
+            },
+        },
+    })
+    assert.equal(ordinary.feed.at(-1)?.truncated, false)
+    assert.equal(ordinary.feed.at(-1)?.truncation, null)
+})

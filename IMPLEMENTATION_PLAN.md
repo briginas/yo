@@ -36,12 +36,13 @@ detailed implementation plan, then confirm its first bounded leaf.
   On 2026-10-02 the user endorsed this direction and authorized only
   **10.1: session-local run records and pure event projection**. Its standalone
   implementation passed checks and was accepted after human review on the same
-  date; no CLI integration has started.
-  Leaves **10.2–10.4** require separate confirmation, and navigation is undecided.
-  The agreed future 10.2 order is record creation/insertion, identity-bound
+  date. The user then accepted the 10.2 live layout and separately authorized its
+  implementation. CLI integration is complete after checks and independent review, under the user’s instruction to finish and commit.
+  Leaves **10.3–10.4** require separate confirmation, and navigation is undecided.
+  The implemented 10.2 order is record creation/insertion, identity-bound
   observer preparation, then turn invocation. Missing-record diagnostics and
-  synchronous-event integration checks remain future work, distinct from the
-  implemented settled-record guard.
+  synchronous-event integration checks are implemented, distinct from the
+  settled-record guard.
 - **Later cancellation:** after the first observation version is verified,
   separately specify and approve a trusted cancellation controller with
   propagation and settle-before-return behavior.
@@ -72,8 +73,7 @@ detailed implementation plan, then confirm its first bounded leaf.
   user-controlled run cancellation or rerun, TUI, project configuration file,
   device-code login, multi-provider support, skills, MCP, or subagents exist
   in the current verified harness.
-- Milestone 4 leaf 10.1 is complete and reviewed; confirm the next bounded leaf
-  before further implementation.
+- Milestone 4 leaf 10.1 is complete and reviewed; 10.2 is complete after checks and independent review under the user’s finish-and-commit instruction. Confirm the next bounded leaf before further implementation.
 - Cancellation and explicit rerun remain separately planned later increments;
   approval of first-version observation does not authorize them.
 - Do not implement Milestone 5 validation until observation, cancellation, and

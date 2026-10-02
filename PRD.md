@@ -100,7 +100,7 @@ The public CLI also exposes:
 - [Milestone 4: in-memory run observation](docs/requirements/milestone-4-run-observation.md)
   first-version direction is endorsed and leaf 10.1 is complete and reviewed. The planned first version shows
   current-session turns, an ordered event feed, and a result card with errors
-  and patch-approval state. Standalone projection is verified and reviewed; the CLI is not connected.
+  and patch-approval state. Standalone projection is verified and reviewed. Leaf 10.2 connects CLI observation and the accepted live layout; leaf 10.2 is complete after checks, independent review, and the user’s instruction to finish and commit.
 - [Milestone 5: allowlisted validation](docs/requirements/milestone-5-allowlisted-validation.md)
   is drafted for later review. It proposes exactly `test` and `build`; no
   process implementation is authorized yet.
@@ -130,10 +130,12 @@ projection, on 2026-10-02. Its standalone implementation passed checks and was a
 review on the same date. Later leaves need separate confirmation; terminal navigation remains
 undecided.
 
-Future leaf 10.2 follows the agreed same-process order: save the run record,
+The user accepted the live layout and explicitly authorized 10.2 implementation.
+It is complete after checks and independent review, under the user’s instruction to finish and commit. Leaf 10.2 follows the agreed same-process order: save the run record,
 prepare its identity-bound observer, then invoke the turn. Missing records need
 safe integration diagnostics; settled records retain the late-update guard.
-These integration behaviors are documented, not implemented.
+These integration behaviors are implemented at CLI composition. Selection and
+navigation remain future 10.3 work and need separate confirmation.
 
 The selected follow-up order is cancellation, then explicit rerun, then
 validation results. Cancellation and rerun each need a separate reviewed plan.

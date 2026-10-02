@@ -1,0 +1,35 @@
+Run #1: Read answer.ts | start=12:00:00
+state: run=1 starting elapsed=0.000s
+event: run=1 #1 run_started
+state: run=1 starting elapsed=0.000s
+event: run=1 #2 model_requested step=1
+state: run=1 model elapsed=0.000s
+event: run=1 #3 model_responded step=1
+state: run=1 tools elapsed=0.025s
+event: run=1 #4 tool_requested step=1 call=1 tool=read_file
+state: run=1 tools elapsed=0.025s
+event: run=1 #5 tool_authorized step=1 call=1 tool=read_file outcome=allow
+state: run=1 tools elapsed=0.025s
+event: run=1 #6 tool_completed step=1 call=1 tool=read_file outcome=success
+state: run=1 tools elapsed=0.025s
+event: run=1 #7 model_requested step=2
+state: run=1 model elapsed=0.025s
+event: run=1 #8 model_responded step=2
+state: run=1 finishing elapsed=0.050s
+event: run=1 #9 run_finished outcome=final_answer
+state: run=1 finishing elapsed=0.050s
+The answer is 42 in answer.ts:1.
+
+Run #1 result: completed
+Elapsed: 0.050s
+Evidence:
+Stop reason: final_answer
+Tools: read_file
+Files:
+- answer.ts
+Errors:
+- (none)
+Patches:
+- (none)
+Session runs:
+- #1 Read answer.ts | completed | start=12:00:00 elapsed=0.050s

@@ -1,9 +1,17 @@
+import { normalize, relative, resolve } from 'node:path'
+import { z } from 'zod'
 import type { RunEventSnapshot, SessionState, StopReason } from './runtime/run.ts'
 import type { PatchApprovalDecision, PatchConflict } from './runtime/patch-contracts.ts'
-import { readFileArgumentsSchema, type ToolName, type ToolResultStatus } from './runtime/tools.ts'
+import {
+    readFileArgumentsSchema,
+    type ToolName,
+    type ToolResultStatus,
+    type ToolResultTruncation,
+} from './runtime/tools.ts'
 
 export type RunIdentity = number
 export type ClockSample = Readonly<{ wallTimeMs: number; monotonicTimeMs: number }>
+export type ObservationStopReason = StopReason | 'cli_turn_error'
 export type RunOutcome = 'completed' | 'failed' | 'aborted' | 'budget_exhausted'
 export type RunActivity = 'starting' | 'model' | 'tools' | 'approval' | 'finishing'
 export type ApprovalState = 'prepared' | 'waiting' | PatchApprovalDecision | 'conflict' | 'applied'
@@ -15,6 +23,8 @@ export type ApprovalSummary = Readonly<{
     conflict: PatchConflict['code'] | null
 }>
 export type FeedRow = Readonly<{
+    truncated: boolean
+    truncation: Readonly<ToolResultTruncation> | null
     sequence: number
     runId: RunIdentity
     type: Exclude<RunEventSnapshot['type'], 'final_answer' | 'final_answer_delta'>
@@ -26,11 +36,11 @@ export type FeedRow = Readonly<{
 export type ObservationError = Readonly<{
     step: number | null
     callId: string | null
-    reason: Exclude<ToolResultStatus, 'success'> | 'transport_error'
+    reason: Exclude<ToolResultStatus, 'success'> | 'transport_error' | 'cli_turn_error'
 }>
 export type ResultCard = Readonly<{
     outcome: RunOutcome
-    stopReason: StopReason
+    stopReason: ObservationStopReason
     answer: string | null
     answerTruncated: boolean
     tools: readonly (ToolName | 'unknown_tool')[]
@@ -46,7 +56,7 @@ export type RunSummary = Readonly<{
 }> &
     (
         | Readonly<{ status: 'running'; activity: RunActivity; stopReason: null }>
-        | Readonly<{ status: RunOutcome; activity: null; stopReason: StopReason }>
+        | Readonly<{ status: RunOutcome; activity: null; stopReason: ObservationStopReason }>
     )
 type CallSummary = Readonly<{
     step: number
@@ -56,6 +66,9 @@ type CallSummary = Readonly<{
 }>
 export type RunRecord = Readonly<{
     summary: RunSummary
+    // False means fallback numeric clock values must not be presented as measured time.
+    timingAvailable: boolean
+    workspaceRoot: string | null
     startedMonotonicMs: number
     feed: readonly FeedRow[]
     calls: readonly CallSummary[]
@@ -67,6 +80,14 @@ export type RunRecord = Readonly<{
 }>
 export type ObservationHistory = readonly RunRecord[]
 export type SettledSession = Pick<SessionState, 'status' | 'stopReason' | 'finalAnswer'>
+
+const truncationSchema = z
+    .object({
+        reason: z.enum(['byte_limit', 'line_limit', 'result_limit']),
+        limit: z.number().int().nonnegative(),
+        observed: z.number().int().nonnegative(),
+    })
+    .loose()
 
 const PREVIEW_CHARACTERS = 160
 const EVIDENCE_ITEMS = 200
@@ -122,6 +143,8 @@ export const createRunRecord = (id: RunIdentity, task: string, sample: ClockSamp
             activity: 'starting',
             stopReason: null,
         },
+        timingAvailable: true,
+        workspaceRoot: null,
         startedMonotonicMs: sample.monotonicTimeMs,
         feed: [],
         calls: [],
@@ -141,6 +164,7 @@ export const projectRunEvent = (
 ): RunRecord => {
     if (record.summary.id !== runId || record.summary.status !== 'running') return record
     if (event.type === 'final_answer' || event.type === 'final_answer_delta') return record
+    let workspaceRoot = record.workspaceRoot
     let activity = record.summary.activity
     let calls = record.calls
     let tools = record.tools
@@ -159,9 +183,12 @@ export const projectRunEvent = (
     const call = calls.find((item) => item.step === step && item.callId === callId)
     let tool = call?.tool ?? null
     let outcome: FeedRow['outcome'] = null
+    let truncated = false
+    let truncation: FeedRow['truncation'] = null
 
     switch (event.type) {
         case 'run_started':
+            workspaceRoot = event.workspaceRoot
             break
         case 'model_requested':
             activity = 'model'
@@ -182,7 +209,16 @@ export const projectRunEvent = (
                     step: event.step,
                     callId: event.call.id,
                     tool,
-                    readPath: parsed?.success ? safeText(parsed.data.path) : null,
+                    readPath: parsed?.success
+                        ? safeText(
+                              workspaceRoot === null
+                                  ? normalize(parsed.data.path)
+                                  : relative(
+                                        workspaceRoot,
+                                        resolve(workspaceRoot, parsed.data.path)
+                                    )
+                          )
+                        : null,
                 },
             ]
             break
@@ -191,7 +227,15 @@ export const projectRunEvent = (
             outcome = event.decision.decision
             if (outcome === 'allow' && tool !== null) tools = unique(tools, tool)
             break
-        case 'tool_completed':
+        case 'tool_completed': {
+            truncated = event.result.metadata.truncated === true
+            const parsed = truncated
+                ? truncationSchema.safeParse(event.result.metadata.truncation)
+                : null
+            if (parsed?.success) {
+                const { reason, limit, observed } = parsed.data
+                truncation = { reason, limit, observed }
+            }
             activity = 'tools'
             outcome = event.result.status
             if (event.result.status !== 'success') {
@@ -206,12 +250,13 @@ export const projectRunEvent = (
                             ? line.endsWith('/')
                                 ? null
                                 : line
-                            : /^(.*):\d+:/.exec(line)?.[1]
+                            : /^(.*?):\d+:/.exec(line)?.[1]
                     if (path) files = unique(files, safeText(path))
                     if (files.length >= EVIDENCE_ITEMS) break
                 }
             }
             break
+        }
         case 'patch_prepared':
         case 'patch_approval_requested':
         case 'patch_approval_resolved':
@@ -254,6 +299,7 @@ export const projectRunEvent = (
     }
     return {
         ...record,
+        workspaceRoot,
         summary: { ...record.summary, activity, elapsedMs: elapsed(record, sample) },
         calls,
         tools,
@@ -263,6 +309,8 @@ export const projectRunEvent = (
         feed: [
             ...record.feed,
             {
+                truncated,
+                truncation,
                 sequence: record.feed.length + 1,
                 runId,
                 type: event.type,
@@ -333,3 +381,37 @@ export const updateObservedRun = (
         const next = update(record)
         return next.summary.id === id ? next : record
     })
+
+// A CLI invocation failure is not evidence of a transport failure or user cancellation.
+export const failRunRecord = (
+    record: RunRecord,
+    runId: RunIdentity,
+    sample: ClockSample
+): RunRecord => {
+    if (record.summary.id !== runId || record.summary.status !== 'running') return record
+    const errors: readonly ObservationError[] = [
+        ...record.errors,
+        { step: null, callId: null, reason: 'cli_turn_error' },
+    ]
+    return {
+        ...record,
+        summary: {
+            ...record.summary,
+            status: 'failed',
+            activity: null,
+            stopReason: 'cli_turn_error',
+            elapsedMs: elapsed(record, sample),
+        },
+        errors,
+        result: {
+            outcome: 'failed',
+            stopReason: 'cli_turn_error',
+            answer: null,
+            answerTruncated: false,
+            tools: record.tools,
+            files: record.files,
+            errors,
+            approvals: record.approvals,
+        },
+    }
+}

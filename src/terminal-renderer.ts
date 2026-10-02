@@ -44,6 +44,8 @@ export type CreateTerminalStatusOutputOptions = {
 export type TerminalStatusOutput = {
     readonly writeStatus: TerminalStatusWriter
     readonly clearProgress: () => void
+    readonly writeLine: (message: string) => void
+    readonly writeProgress: (message: string) => void
 }
 
 export type CreateTerminalRendererOptions = {
@@ -233,15 +235,31 @@ export const createTerminalStatusOutput = ({
             return
         }
 
+        // A failed cleanup may be followed by answer bytes on this line; never retry erasing them.
+        hasActiveProgress = false
         clearLine()
         moveCursorToStart()
-        hasActiveProgress = false
     }
 
     const writeInteractiveProgress = (status: TerminalStatus): void => {
         clearLine()
         moveCursorToStart()
         write(formatTerminalStatusLine(status))
+        hasActiveProgress = true
+    }
+
+    const writeLine = (message: string): void => {
+        clearProgress()
+        write(`${message}\n`)
+    }
+    const writeProgress = (message: string): void => {
+        if (!isInteractive) {
+            writeLine(message)
+            return
+        }
+        clearLine()
+        moveCursorToStart()
+        write(message)
         hasActiveProgress = true
     }
 
@@ -273,6 +291,8 @@ export const createTerminalStatusOutput = ({
     return {
         writeStatus,
         clearProgress,
+        writeLine,
+        writeProgress,
     }
 }
 
@@ -345,6 +365,7 @@ export const createTerminalRenderer = ({
                 return
             case 'model_responded':
                 settleModelWaiting(event.step)
+                if (event.metadata.hasFinalAnswer) finishReleasedAnswer()
                 return
             case 'final_answer_delta':
                 settleModelWaiting()
