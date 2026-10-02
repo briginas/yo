@@ -130,6 +130,11 @@ projection, on 2026-10-02. Its standalone implementation passed checks and was a
 review on the same date. Later leaves need separate confirmation; terminal navigation remains
 undecided.
 
+Future leaf 10.2 follows the agreed same-process order: save the run record,
+prepare its identity-bound observer, then invoke the turn. Missing records need
+safe integration diagnostics; settled records retain the late-update guard.
+These integration behaviors are documented, not implemented.
+
 The selected follow-up order is cancellation, then explicit rerun, then
 validation results. Cancellation and rerun each need a separate reviewed plan.
 The existing Milestone 5 validation draft remains documentation-only:

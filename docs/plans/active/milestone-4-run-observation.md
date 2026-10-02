@@ -59,8 +59,10 @@ sequenceDiagram
     participant Store as Observation store
     participant Terminal
     User->>CLI: Submit task
-    CLI->>Store: Allocate session-local run number
-    CLI->>Runtime: Run existing conversation turn
+    CLI->>Store: Create numbered run record and save in history
+    CLI->>CLI: Prepare observer bound to that run identity
+    CLI->>Runtime: Invoke existing conversation turn
+    Runtime-->>CLI: Synchronous initial event (record and observer already exist)
     Runtime-->>CLI: Ordered event snapshots
     CLI->>Store: Update display projection
     Store-->>Terminal: Active feed and approval state
@@ -71,6 +73,40 @@ sequenceDiagram
     CLI->>Store: Select display record
     Store-->>Terminal: Historical feed and result
 ```
+
+## Agreed same-process ordering for future leaf 10.2
+
+On 2026-10-02 the user reviewed and agreed this integration invariant. Observation
+and execution live in the same process. CLI composition must perform these steps
+in order for every task:
+
+1. Create the run record and save it in session observation history.
+2. Prepare/connect the event observer bound to that exact run identity.
+3. Invoke the existing conversation/agent turn with that observer.
+
+An event emitted synchronously during invocation must already find both its
+record and observer. Thereafter project feed updates into that record and
+finalize only from the settled session, not merely `run_finished`. No event
+buffer, replay, persistence, or network mechanism is required.
+
+Two cases must remain distinct:
+
+- **Missing record:** an integration error. Future leaf 10.2 must expose a safe
+  diagnostic through trusted CLI/observation output, without raw event data,
+  arguments, credentials, or transport errors. Diagnostic/observer failures
+  must remain isolated from agent execution, permissions, consent, and transcript.
+- **Already settled record:** an expected late-update guard; leave its result
+  unchanged and do not report it as a missing-record error.
+
+Current leaf 10.1 `updateObservedRun` leaves history unchanged when the requested
+ID is absent and does not call the updater for settled records. It provides no
+missing-record diagnostic. That diagnostic and lifecycle wiring are future
+10.2 work, not implemented or authorized by this documentation change.
+
+This adopts `pi` interactive mode's subscription-before-task pattern: its
+`rebindCurrentSession` precedes the initial prompt, `AgentSession.subscribe`
+registers listeners, and `_emit` calls those listeners directly. Keep only the
+in-process ordering boundary; do not adopt broader session infrastructure.
 
 ## Scope boundaries and risks
 
@@ -134,8 +170,12 @@ was added. The user accepted the result after diagram-based review and discussio
 
 ### 10.2 CLI observation lifecycle and safe terminal rendering
 
-- [ ] Allocate a record for each user task and compose observation with the
-      existing terminal event observer without changing runtime semantics.
+- [ ] Create and save each run record, prepare/connect its identity-bound
+      observer, then invoke the existing turn, in that mandatory order.
+      Compose with the existing terminal observer without changing runtime semantics.
+- [ ] Distinguish a missing record from a settled record: report only absence
+      as a safe trusted integration diagnostic; retain settled-run late guards.
+      Isolate both observer and diagnostic-output failures from execution.
 - [ ] Inject wall and monotonic clocks at CLI composition, sample timing for
       display updates, and freeze elapsed duration on settlement.
 - [ ] Finalize records from settled sessions; represent unexpected CLI turn
@@ -144,7 +184,11 @@ was added. The user accepted the result after diagram-based review and discussio
       actions, from safe projected fields with explicit text labels.
 - [ ] Preserve final-answer delivery, evidence, complete patch diff, and
       explicit approval input ownership.
-- [ ] Test observer/render failure isolation and deterministic non-TTY output.
+- [ ] Use a synchronously emitting faux runtime to prove record insertion and
+      observer preparation precede invocation and the first event finds the
+      correct run; verify distinct missing-record and settled-record handling.
+- [ ] Test observer/render/diagnostic failure isolation, unchanged permissions
+      and transcript, and deterministic non-TTY output.
 
 **Leaf acceptance:** faux turns produce accurate live and settled display
 records; rendering failures do not affect execution or consent.

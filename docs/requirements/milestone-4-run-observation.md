@@ -121,6 +121,33 @@ existing runtime observer, terminal renderer, and observation view.
 boundary, with the smaller `yo` scope of one terminal session and no persistence,
 extensions, RPC server, or new model-visible capability.
 
+### Same-process initialization invariant
+
+The user agreed on 2026-10-02 that future CLI composition must first create and
+save the run record, then prepare/connect an observer bound to its identity,
+then invoke the existing conversation/agent turn. Even a synchronously emitted
+initial event must find the record and observer. Feed updates follow; only the
+settled session finalizes the record. This follows `pi` subscription-before-task
+ordering within one process; no buffering, replay, persistence, or network
+mechanism is needed.
+
+A missing record is an integration error, distinct from an already settled
+record's expected late-update guard. Future leaf 10.2 must make absence observable
+through a safe trusted CLI/observation diagnostic path. Observer or diagnostic
+failures must not fail execution, authorize actions, alter patch consent, or
+change the transcript. Do not expose raw event data or sensitive diagnostics.
+
+Currently `updateObservedRun` leaves history unchanged for an absent ID and
+skips updates for settled records. Safe missing-record diagnostics and the
+initialization wiring are future 10.2 behavior; this decision documents them
+without implementing that leaf.
+
+Reproducible integration checks must use a synchronously emitting faux runtime
+to verify record creation/insertion and observer preparation before invocation,
+correct run identity, distinct missing/settled handling, and execution isolation
+when observers or diagnostic writers fail. No paid requests or real timing waits
+are required.
+
 ## Scope and deferred work
 
 Included: current-session run list, event feed, result cards, existing patch

@@ -38,6 +38,10 @@ detailed implementation plan, then confirm its first bounded leaf.
   implementation passed checks and was accepted after human review on the same
   date; no CLI integration has started.
   Leaves **10.2–10.4** require separate confirmation, and navigation is undecided.
+  The agreed future 10.2 order is record creation/insertion, identity-bound
+  observer preparation, then turn invocation. Missing-record diagnostics and
+  synchronous-event integration checks remain future work, distinct from the
+  implemented settled-record guard.
 - **Later cancellation:** after the first observation version is verified,
   separately specify and approve a trusted cancellation controller with
   propagation and settle-before-return behavior.
