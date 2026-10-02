@@ -1,15 +1,16 @@
 # Milestone 4 requirements: in-memory run observation
 
-- **Status:** draft; roadmap direction selected, implementation not authorized
+- **Status:** first-version direction endorsed; leaf 10.1 complete and reviewed
 - **Prepared:** 2026-10-01
 - **Source of truth for:** proposed Milestone 4 scope and acceptance criteria
 - **Related documents:** [product map](../../PRD.md),
   [implementation-state map](../../IMPLEMENTATION_PLAN.md),
   [active implementation plan](../plans/active/milestone-4-run-observation.md)
 
-Review the requirements and linked plan, then confirm one bounded leaf before
-runtime implementation. The earlier approval of a different Milestone 4 scope
-does not approve this implementation.
+On 2026-10-02 the user endorsed the first-version direction and explicitly
+confirmed implementation of leaf 10.1 only. The user reviewed and accepted its result on the same date.
+This does not authorize later leaves, cancellation, rerun, or validation.
+Navigation syntax and layout still require a review decision before CLI work.
 
 ## Objective
 

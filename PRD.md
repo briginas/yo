@@ -98,9 +98,9 @@ The public CLI also exposes:
   requirements are approved. Read them when planning or implementing the
   workspace-mutation boundary.
 - [Milestone 4: in-memory run observation](docs/requirements/milestone-4-run-observation.md)
-  requirements and active plan are drafted for review. The first version shows
+  first-version direction is endorsed and leaf 10.1 is complete and reviewed. The planned first version shows
   current-session turns, an ordered event feed, and a result card with errors
-  and patch-approval state; no runtime implementation has started.
+  and patch-approval state. Standalone projection is verified and reviewed; the CLI is not connected.
 - [Milestone 5: allowlisted validation](docs/requirements/milestone-5-allowlisted-validation.md)
   is drafted for later review. It proposes exactly `test` and `build`; no
   process implementation is authorized yet.
@@ -125,9 +125,10 @@ Its first version keeps a session-local run list, ordered events, and result
 cards with errors and patch-approval outcomes. The display observes runtime
 state; trusted harness code retains execution and approval authority.
 
-Review the new requirements and plan before implementation. The first candidate
-is `10.1`: session-local run records and pure event projection; confirm that
-bounded leaf before changing runtime code.
+The user confirmed only `10.1`, session-local run records and pure event
+projection, on 2026-10-02. Its standalone implementation passed checks and was accepted after human
+review on the same date. Later leaves need separate confirmation; terminal navigation remains
+undecided.
 
 The selected follow-up order is cancellation, then explicit rerun, then
 validation results. Cancellation and rerun each need a separate reviewed plan.

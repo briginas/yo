@@ -28,14 +28,16 @@ detailed implementation plan, then confirm its first bounded leaf.
   dispatcher integration, approval propagation through the agent loop and
   conversation, terminal diff rendering, model-visible CLI/provider composition,
   deterministic end-to-end coverage, and a real OAuth-backed approval flow**.
-- **Draft run observation:** On 2026-10-01, the next roadmap direction was
+- **Run observation, leaf 10.1 complete and reviewed:** On 2026-10-01, the next roadmap direction was
   selected as a current-session run list, event feed, and result card with
   errors and patch-approval state. See the new
   [Milestone 4 requirements](docs/requirements/milestone-4-run-observation.md)
   and [active plan](docs/plans/active/milestone-4-run-observation.md).
-  Runtime implementation has not started. Review these documents, then confirm
-  the first candidate: **10.1: session-local run records and pure event
-  projection**. Leaves **10.1–10.4** cover only the first observation version.
+  On 2026-10-02 the user endorsed this direction and authorized only
+  **10.1: session-local run records and pure event projection**. Its standalone
+  implementation passed checks and was accepted after human review on the same
+  date; no CLI integration has started.
+  Leaves **10.2–10.4** require separate confirmation, and navigation is undecided.
 - **Later cancellation:** after the first observation version is verified,
   separately specify and approve a trusted cancellation controller with
   propagation and settle-before-return behavior.
@@ -66,8 +68,8 @@ detailed implementation plan, then confirm its first bounded leaf.
   user-controlled run cancellation or rerun, TUI, project configuration file,
   device-code login, multi-provider support, skills, MCP, or subagents exist
   in the current verified harness.
-- Do not implement Milestone 4 behavior until its new requirements and active
-  plan are reviewed and approved, and one bounded leaf is explicitly confirmed.
+- Milestone 4 leaf 10.1 is complete and reviewed; confirm the next bounded leaf
+  before further implementation.
 - Cancellation and explicit rerun remain separately planned later increments;
   approval of first-version observation does not authorize them.
 - Do not implement Milestone 5 validation until observation, cancellation, and

@@ -1,13 +1,17 @@
 # Milestone 4 active plan: in-memory run observation
 
-- **Status:** draft; implementation not authorized
+- **Status:** leaf 10.1 complete and reviewed; remaining leaves draft
 - **Prepared:** 2026-10-01
 - **Requirements:** [Milestone 4 run observation](../../requirements/milestone-4-run-observation.md)
 - **Previous milestone:** [Milestone 3 completed plan](../completed/milestone-3-approval-gated-patches.md)
 - **Later validation milestone:** [Milestone 5 allowlisted validation](milestone-5-allowlisted-validation.md)
 
-Review the requirements and this plan, then confirm exactly one incomplete leaf
-before editing runtime code. Complete and review each leaf before the next.
+On 2026-10-02 the user endorsed the first-version observation direction and
+explicitly authorized only leaf 10.1 after its bounded scope was explained.
+The user reviewed leaf 10.1 through a diagram and discussion and accepted its
+result on 2026-10-02. Leaf 10.1 is complete. Leaves 10.2–10.4 are not authorized by this decision.
+Terminal navigation syntax and layout remain undecided. Complete and review
+one leaf before confirming the next.
 
 ## Plain-language walkthrough
 
@@ -95,23 +99,38 @@ browser interface as part of that decision.
 
 ### 10.1 Session-local run records and pure event projection
 
-- [ ] Define narrow `type` contracts for run identity, summaries, feed rows,
+- [x] Define narrow `type` contracts for run identity, summaries, feed rows,
       result cards, approval state, and sampled start/elapsed timing.
-- [ ] Define allowed running/activity/settled transitions; make finalization
+- [x] Define allowed running/activity/settled transitions; make finalization
       idempotent and reject display updates that reopen a settled record.
-- [ ] Add a pure projection of existing `RunEventSnapshot` values with ordered
+- [x] Add a pure projection of existing `RunEventSnapshot` values with ordered
       run/step/call association and one settled result per run.
-- [ ] Keep answer deltas out of the operational feed; bound display previews
+- [x] Keep answer deltas out of the operational feed; bound display previews
       and avoid duplicating full tool outputs or model transcripts.
-- [ ] Test multi-call ordering, tool failures, transport failure, budget stop,
+- [x] Test multi-call ordering, tool failures, transport failure, budget stop,
       patch waiting/denial/conflict/application, duplicate finalization, late
       updates, and distinct runs with repeated tool names.
-- [ ] Test start-time samples, monotonic non-negative elapsed time, wall-clock
+- [x] Test start-time samples, monotonic non-negative elapsed time, wall-clock
       changes, and duration freezing without reading real clocks in projection.
-- [ ] Keep CLI behavior, provider schemas, permissions, and transcript unchanged.
+- [x] Keep CLI behavior, provider schemas, permissions, and transcript unchanged.
 
 **Leaf acceptance:** pure projection checks pass; no user-facing behavior or
 execution authority changes.
+
+**Verified and human-reviewed implementation (2026-10-02):**
+[`src/run-observation.ts`](../../../src/run-observation.ts) contains standalone
+read-only display contracts, pure event projection, explicit run identity,
+activity states, settled-session finalization, sampled timing, and bounded safe
+answer/task/file previews. It retains no raw arguments, tool output, transcript,
+transport diagnostics, or patch contents. Answer truncation is explicit. The
+current CLI and runtime do not import this module.
+[`src/run-observation.test.ts`](../../../src/run-observation.test.ts) covers
+ordering, failures, patch states, run isolation, late updates, repeated
+finalization, timing, safe previews, and file evidence. All 9 focused checks and all 295 project tests passed, along with
+`npm run build`, `npm run format:check`, and `git diff --check`. No live OAuth
+or model requests were needed.
+No navigation, cancellation, rerun, validation process, dependency, or new tool
+was added. The user accepted the result after diagram-based review and discussion.
 
 ### 10.2 CLI observation lifecycle and safe terminal rendering
 
@@ -168,11 +187,10 @@ continue chat with unchanged conversation and patch-approval semantics.
 are verified and reviewed, with no cancellation, rerun, or validation execution
 claimed as implemented.
 
-## First bounded candidate
+## Next bounded candidate
 
-After requirements/plan review and explicit confirmation, start with **10.1:
-session-local run records and pure event projection**. This leaf introduces
-display data and transformations only.
+Leaf 10.1 is complete. The next candidate is **10.2: CLI observation lifecycle
+and safe terminal rendering**; implementation requires separate confirmation.
 
 ## Follow-up sequence
 
