@@ -29,8 +29,19 @@ plans under `docs/`; use the relevant change's proposal, design, deltas, and tas
 
 ## Next planning boundary: cancellation
 
-Create a separate OpenSpec change before implementation. A trusted controller
-must propagate abort through transport, loop, tools, and pending approval, and
+The proposed [cancellation change](openspec/changes/cancel-active-runs/proposal.md)
+now has a [design](openspec/changes/cancel-active-runs/design.md),
+[requirement deltas](openspec/changes/cancel-active-runs/specs/), and
+[bounded tasks](openspec/changes/cancel-active-runs/tasks.md). Planning artifacts
+were reviewed for bounded group 1 implementation, confirmed by the user on
+2026-10-02. Group 1 now has an internal controller and optional signal contracts,
+without CLI or execution wiring. Its [verification](openspec/changes/cancel-active-runs/verification.md)
+records 349 passing tests, build and repository checks, and agent self-review;
+human result acceptance remains pending. The next candidate is group 2, settled
+read and preparation operations, after separate bounded confirmation. Full
+cancellation is not yet implemented or approved for specification synchronization.
+
+A trusted controller must propagate abort through transport, loop, tools, and pending approval, and
 wait for settlement. Display cancellation requested while work settles; display
 cancelled only after runtime confirmation. If completion wins the race, preserve
 completion. Already applied patches remain applied.

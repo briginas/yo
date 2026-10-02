@@ -35,6 +35,7 @@ export type ModelResponse =
       }
 
 export type ModelTransportOptions = {
+    signal?: AbortSignal
     onFinalAnswerDelta?: (delta: string) => void
 }
 
@@ -60,6 +61,9 @@ export type RunEvent =
           task: string
           workspaceRoot: string
           budget: RunBudget
+      }
+    | {
+          type: 'run_cancellation_requested'
       }
     | {
           type: 'model_requested'

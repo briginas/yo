@@ -10,7 +10,11 @@ import type {
     SessionState,
     StopReason,
 } from './run.ts'
-import { dispatchToolCall, type PatchDispatchOptions } from './tool-dispatcher.ts'
+import {
+    dispatchToolCall,
+    type PatchDispatchOptions,
+    type ToolExecutionOptions,
+} from './tool-dispatcher.ts'
 import type { PatchApprover } from './patch-contracts.ts'
 import { DEFAULT_SYSTEM_PROMPT } from './system-prompt.ts'
 import type { ToolCall, ToolName, ToolResult } from './tools.ts'
@@ -31,6 +35,7 @@ export type RunAgentOptions = {
     onEvent?: RunEventObserver
     initialMessages?: readonly SessionMessage[]
     patchApprover?: PatchApprover
+    signal?: AbortSignal
 }
 
 type ToolDispatcher = (
@@ -38,7 +43,8 @@ type ToolDispatcher = (
     call: ToolCall,
     perToolTimeoutMs: number,
     onPermissionDecision?: (decision: PermissionDecision) => void,
-    patchOptions?: PatchDispatchOptions
+    patchOptions?: PatchDispatchOptions,
+    executionOptions?: ToolExecutionOptions
 ) => Promise<ToolResult>
 
 type PatchLifecycleObserver = NonNullable<PatchDispatchOptions['onLifecycleEvent']>

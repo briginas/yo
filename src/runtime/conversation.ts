@@ -35,6 +35,7 @@ export type RunConversationTurnOptions = {
     transport: ModelTransport
     onEvent?: RunEventObserver
     patchApprover?: PatchApprover
+    signal?: AbortSignal
 }
 
 export type RunConversationTurnResult = {

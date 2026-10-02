@@ -17,6 +17,7 @@ export type {
     PatchApprovalDecision,
     PatchApprovalView,
     PatchApprover,
+    PatchApproverOptions,
     PatchConflict,
     PatchLifecycleMetadata,
     PatchProposal,
@@ -26,5 +27,6 @@ export * from './permissions.ts'
 export * from './run.ts'
 export type { RunEventObserver, RunEventSnapshot } from './run.ts'
 export { dispatchToolCall } from './tool-dispatcher.ts'
+export type { ToolExecutionOptions } from './tool-dispatcher.ts'
 export * from './tools.ts'
 export * from './workspace.ts'

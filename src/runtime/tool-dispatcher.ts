@@ -100,6 +100,10 @@ export type PatchDispatchOptions = Readonly<{
     }>
 }>
 
+export type ToolExecutionOptions = Readonly<{
+    signal?: AbortSignal
+}>
+
 const completeMetadata = (): ToolResultMetadata => ({
     truncated: false,
     truncation: null,
@@ -439,7 +443,8 @@ export const dispatchToolCall = async (
     call: ToolCall,
     perToolTimeoutMs: number,
     onPermissionDecision?: (decision: PermissionDecision) => void,
-    patchOptions?: PatchDispatchOptions
+    patchOptions?: PatchDispatchOptions,
+    _executionOptions?: ToolExecutionOptions
 ): Promise<ToolResult> => {
     if (call.name === 'propose_patch') {
         return dispatchPatchCall(
