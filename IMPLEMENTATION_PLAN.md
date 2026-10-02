@@ -1,93 +1,75 @@
 # Implementation plan
 
-This file is the current project-state map. Read linked completed requirements
-only for behavior, regression, or compatibility work.
+This is the current project-state and sequencing map. Detailed implemented
+requirements live in OpenSpec specifications; proposed work lives in OpenSpec
+changes. Read the [workflow guide](docs/openspec.md) before starting a change.
 
-Before starting a new milestone, create and approve its requirements and
-detailed implementation plan, then confirm its first bounded leaf.
+## Implemented behavior
 
-For OpenSpec development tooling and source ownership, read
-[the workflow guide](docs/openspec.md). Current implemented requirements live in:
+- [Agent harness](openspec/specs/agent-harness/spec.md): bounded sequential loop,
+  closed tool registry, workspace policy, and read-tool limits.
+- [CLI chat](openspec/specs/cli-chat/spec.md): the `yo` entrypoint, ephemeral
+  transcript, sequential input, and recoverable turn failures.
+- [Codex authentication and transport](openspec/specs/codex-auth-transport/spec.md):
+  trusted OAuth, credential refresh/storage, provider conversion, and safe answers.
+- [Approval-gated patching](openspec/specs/approval-gated-patching/spec.md):
+  exact single-file proposals, complete preview, fresh consent, revalidation,
+  and atomic application.
+- [Run observation](openspec/specs/run-observation/spec.md): session-local run
+  history, live display, and local `/runs` and `/run N` inspection.
 
-- [agent harness](openspec/specs/agent-harness/spec.md);
-- [CLI chat](openspec/specs/cli-chat/spec.md);
-- [Codex authentication and transport](openspec/specs/codex-auth-transport/spec.md);
-- [approval-gated patching](openspec/specs/approval-gated-patching/spec.md);
-- [run observation](openspec/specs/run-observation/spec.md).
+Milestones 1–4 are complete. The last recorded full implementation check passed
+341 tests, build, formatting, strict OpenSpec validation, and diff checks.
+The [archived inspection evidence](openspec/changes/archive/2026-10-02-inspect-settled-runs/verification.md)
+records 10.3–10.4 self-review and faux terminal verification. Physical TTY and
+live-provider behavior were not newly verified for observation closure.
 
-Completed milestone plans retain implementation and verification records.
-The user authorized the Milestone 1–3 baseline migration on 2026-10-02 and
-requested removal of the former requirement files. This documentation migration
-adds no runtime capability and does not authorize the next feature milestone.
+Old milestone documents have been removed. Do not look for active/completed
+plans under `docs/`; use the relevant change's proposal, design, deltas, and tasks.
 
-## Current state
+## Next planning boundary: cancellation
 
-- **Historical baseline:** Milestone 1, the read-only `yo ask` harness, was
-  completed and verified on 2026-07-24, then its one-shot CLI command was
-  retired after chat became the single agent workflow. See the
-  [completed Milestone 1 summary](docs/plans/completed/milestone-1-read-only-ask.md)
-  for the historical implementation.
-- **Completed interactive chat:** Milestone 2 was completed and verified on
-  2026-07-26. The interactive workflow is now invoked directly as `yo`, with
-  optional `--cwd` and `--model` flags. See its
-  [current requirements](openspec/specs/cli-chat/spec.md) and
-  [completed Milestone 2 summary](docs/plans/completed/milestone-2-in-memory-chat.md).
-- **Completed approval-gated patches:** Milestone 3, approval-gated patch proposal
-  and application, was verified on 2026-07-27. Its
-  [current requirements](openspec/specs/approval-gated-patching/spec.md) are
-  maintained in OpenSpec and its
-  [completed plan summary](docs/plans/completed/milestone-3-approval-gated-patches.md)
-  records **9.1–9.10, patch contracts, pure transform, immutable proposal
-  preparation, approval vocabulary, guarded atomic application, controlled
-  dispatcher integration, approval propagation through the agent loop and
-  conversation, terminal diff rendering, model-visible CLI/provider composition,
-  deterministic end-to-end coverage, and a real OAuth-backed approval flow**.
-- **Completed run observation (10.1–10.4):** session-local records, live observation,
-  and between-turn inspection are implemented. The user selected `/runs` and
-  `/run N` and authorized leaf 10.3 on 2026-10-02. All 341 tests and project
-  checks passed; agent self-review and the faux demo are recorded in the
-  [change evidence](openspec/changes/archive/2026-10-02-inspect-settled-runs/verification.md).
-  No independent or human review of this implementation is claimed.
-  Current requirements live in the [OpenSpec specification](openspec/specs/run-observation/spec.md).
-  Earlier decisions and evidence remain in the [completed plan](docs/plans/completed/milestone-4-run-observation.md).
-  The user authorized 10.4 closure and a final commit. Closure passed 64
-  focused checks, all 341 tests, repository checks, and agent self-review of
-  the repeatable terminal flow. The OpenSpec change is archived.
-  **Next: separately plan and approve cancellation.**
-- **Later cancellation:** after the first observation version is verified,
-  separately specify and approve a trusted cancellation controller with
-  propagation and settle-before-return behavior.
-- **Later explicit rerun:** after cancellation, separately specify and approve
-  a new linked run, its context policy, and fresh patch consent; no automatic
-  retry is planned.
-- **Draft validation and results:** after those preceding increments, review
-  the existing [Milestone 5 requirements](docs/requirements/milestone-5-allowlisted-validation.md)
-  and [draft plan](docs/plans/active/milestone-5-allowlisted-validation.md).
-  Its one `run_validation` tool remains limited to `test` and `build`; leaves
-  **11.1–11.7** also include outcomes in the observation feed and result card.
-  No process implementation is authorized yet.
+Create a separate OpenSpec change before implementation. A trusted controller
+must propagate abort through transport, loop, tools, and pending approval, and
+wait for settlement. Display cancellation requested while work settles; display
+cancelled only after runtime confirmation. If completion wins the race, preserve
+completion. Already applied patches remain applied.
+
+Review cancellation before execution, during model/tool/approval work, repeated
+requests, and both completion/cancellation race orders. Follow pi's session
+abort-and-wait separation while preserving yo's sequential scope. Confirm the
+first bounded implementation leaf with the user after the design review.
+
+## Subsequent work
+
+1. **Explicit rerun:** separately specify original-snapshot versus current-context
+   policy. Create a new numbered run linked to its source, use current workspace
+   state, retain the previous attempt, and require fresh patch consent. Repeated
+   submission of one pending rerun action must not allocate duplicate runs; a
+   deliberate later attempt remains possible. Verify source immutability, changed
+   files, terminal source runs, repeated input, and absence of automatic retries.
+2. **Allowlisted validation:** the imported
+   [proposal](openspec/changes/allowlisted-validation/proposal.md),
+   [design](openspec/changes/allowlisted-validation/design.md),
+   [deltas](openspec/changes/allowlisted-validation/specs/allowlisted-validation/spec.md),
+   and [tasks](openspec/changes/allowlisted-validation/tasks.md) remain unapproved.
+   Rebase and review against verified cancellation/rerun contracts before starting
+   its first implementation candidate, pure contracts/catalog/output bounds
+   (former 11.1). Artifact completeness does not make this the next authorized task.
+   Validation proposes exactly `test` and `build`, with outcomes in observation;
+   npm scripts are trusted process code, not a filesystem/network sandbox.
 
 ## Permanent constraints
 
-- No model-visible tool may directly perform an unapproved write, shell,
-  process, network, credential, or connector action.
-- Trusted network access remains limited to ChatGPT OAuth and the OpenAI Codex
-  model transport. Milestone 4 observation adds no network capability.
-  Proposed Milestone 5 npm scripts are explicitly
-  documented as trusted process code rather than a network sandbox.
-- The current verified harness writes the OAuth credential store at
-  `~/.yo/auth.json` and may atomically apply one exact workspace patch after
-  explicit terminal approval.
-- Any future workspace mutation must be separately specified, approved, and
-  enforced by trusted harness code rather than model instructions.
-- No API-key fallback, persistent sessions, JSONL, cross-session run-history inspection,
-  user-controlled run cancellation or rerun, TUI, project configuration file,
-  device-code login, multi-provider support, skills, MCP, or subagents exist
-  in the current verified harness.
-- Milestone 4 leaves 10.1–10.4 are complete with recorded checks and review.
-  Confirm the next bounded milestone before implementation.
-- Cancellation and explicit rerun remain separately planned later increments;
-  approval of first-version observation does not authorize them.
-- Do not implement Milestone 5 validation until observation, cancellation, and
-  explicit rerun are verified and the validation draft is separately reviewed
-  and approved against their settled contracts.
+- No model-visible tool may perform an unapproved write, process, shell, network,
+  credential, or connector action. Current trusted network access is limited to
+  ChatGPT OAuth and the Codex transport.
+- The verified harness may write its OAuth store at `~/.yo/auth.json` and apply
+  one exact workspace patch only after explicit terminal consent.
+- There is no current process/validation tool, API-key fallback, persistent
+  session, JSONL, cross-session history, user-controlled cancellation/rerun, TUI,
+  project runtime configuration, device-code login, multi-provider support,
+  skills, MCP, or subagents.
+- Draft requirements do not grant capabilities. Each new behavior needs reviewed
+  OpenSpec artifacts, confirmation of its bounded leaf, scoped checks, and result
+  review before completion or synchronization into main specifications.

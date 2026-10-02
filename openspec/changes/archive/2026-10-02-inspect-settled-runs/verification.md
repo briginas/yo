@@ -67,7 +67,8 @@ Agent self-review found no blocking event-order, safe-rendering, timing, or
 consent issues. No new runtime changes were needed.
 
 The earlier pending/unarchived statements above record the end of 10.3.
-10.4 is now complete, the plan moved to `docs/plans/completed/`, and this change
-is archived. Physical TTY and live-provider behavior remain unverified.
+10.4 is complete and this change is archived. The former milestone plan was
+subsequently removed during documentation consolidation; this record and the
+main specification remain available. Physical TTY and live-provider behavior remain unverified.
 Independent review or human code review is not claimed. Cancellation and later
 work remain subject to separate planning and approval.

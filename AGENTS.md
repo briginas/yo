@@ -18,13 +18,14 @@
   `IMPLEMENTATION_PLAN.md`. Treat them as maps to the detailed source-of-truth
   documents, not as complete specifications.
 - For work on the active milestone, follow the links in those maps and read its
-  requirements and active implementation plan before proposing or making
-  changes.
-- Read completed milestone documents only when the task concerns historical
-  behavior, regression, or compatibility with that milestone.
+  OpenSpec specifications and change proposal, design, deltas, and tasks before
+  proposing or making changes.
+- Read archived OpenSpec changes only when the task concerns historical
+  decisions, regression, or compatibility.
 - Inspect `git status --short` and recent commits to confirm the current repository state.
-- Treat the first incomplete leaf item in the linked active implementation plan
-  as the next candidate milestone.
+- Follow the sequencing in `IMPLEMENTATION_PLAN.md`; within the selected
+  approved change, treat the first incomplete task group as the next candidate
+  leaf. An unapproved later draft is not the next implementation task.
 - Confirm the bounded milestone with the user before implementation.
 - Mark a plan item complete only after its scoped checks pass and the result is reviewed.
 
@@ -36,7 +37,7 @@
 - `openspec/specs/` is the current requirement source for implemented harness,
   chat, OAuth/transport, patching, and observation behavior. The project maps
   identify the relevant specifications and unapproved roadmap drafts; do not
-  keep editable duplicates. Completed plans are verification records.
+  keep editable duplicates. Completed change evidence belongs in the OpenSpec archive.
 - Keep project rules here and in `openspec/config.yaml`; do not hand-edit
   generated `.agents/skills/openspec-*/` files.
 - OpenSpec artifacts and ready/apply status do not replace user confirmation

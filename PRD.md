@@ -1,7 +1,6 @@
 # PRD: Read-only CLI Coding-Agent Harness
 
-This file is the stable product map. Read the linked milestone requirements only
-when the task concerns that milestone.
+This file is the stable product map. Read the linked OpenSpec specifications and change artifacts for the affected scope.
 
 ## Objective
 
@@ -97,59 +96,30 @@ The public CLI also exposes:
   answer delivery.
 - [Approval-gated patching](openspec/specs/approval-gated-patching/spec.md) owns
   exact proposals, full-diff consent, revalidation, and atomic application.
-- [Run observation specification](openspec/specs/run-observation/spec.md) is
-  the current requirement source for implemented leaves **10.1–10.3**: retained
-  runs, live events/results, and between-turn `/runs` and `/run N` inspection.
-  [Milestone 4 historical requirements](docs/requirements/milestone-4-run-observation.md)
-  retain acceptance history and deferred work; milestone closure is complete.
-- [Milestone 5: allowlisted validation](docs/requirements/milestone-5-allowlisted-validation.md)
-  is drafted for later review. It proposes exactly `test` and `build`; no
-  process implementation is authorized yet.
+- [Run observation](openspec/specs/run-observation/spec.md) owns retained runs,
+  live events/results, and between-turn `/runs` and `/run N` inspection.
+- [Allowlisted validation proposal](openspec/changes/allowlisted-validation/proposal.md)
+  is an unapproved later draft for exactly `test` and `build`.
 
-Current milestone status and the next planning boundary are indexed from
+Current state and the next planning boundary are indexed from
 [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md).
 
 ## Current planning boundary
 
-Milestone 3 is complete. `yo` may propose one exact patch to an existing file,
-but trusted terminal approval remains required before any workspace write. Its
-[completed plan summary](docs/plans/completed/milestone-3-approval-gated-patches.md)
-records deterministic and real OAuth-backed verification.
+The implemented harness, ephemeral chat, exact approval-gated patches, and
+run observation are complete. The sole agent entrypoint is `yo`; OAuth commands
+remain separate trusted CLI operations. Current requirements live exclusively
+in `openspec/specs/`; changes use `openspec/changes/`. See the
+[development workflow](docs/openspec.md).
 
-The public agent workflow is now chat-only. Authentication commands remain
-separate trusted CLI operations.
-
-Milestone 4 is complete through **10.4**:
-[current specification](openspec/specs/run-observation/spec.md),
-[historical requirements and deferred work](docs/requirements/milestone-4-run-observation.md), and
-[completed implementation plan](docs/plans/completed/milestone-4-run-observation.md).
-
-The user selected `/runs` and `/run N` and explicitly authorized 10.3 on
-2026-10-02. Implementation passed deterministic checks and agent self-review;
-[verification evidence](openspec/changes/archive/2026-10-02-inspect-settled-runs/verification.md)
-records the scope and limitations. Inspection reads retained safe records
-between turns without invoking the model, changing the conversation, sampling
-run clocks, or granting patch consent. Earlier 10.1–10.2 acceptance and review
-records remain in the completed plan. Physical TTY and live-provider behavior were
-not newly verified. The user then authorized **10.4 first-version closure**
-and a final commit. Closure passed 64 focused checks and all 341 project tests,
-plus the repository checks and terminal-flow self-review. The OpenSpec change
-is archived. The next planning boundary is cancellation, requiring its own
-requirements and bounded implementation confirmation.
-
-OpenSpec owns the current implemented requirements for the harness, chat,
-authentication/transport, patches, and observation; see the
-[development workflow](docs/openspec.md). Milestone 1–3 requirement files have
-been removed after migration. Completed plans retain execution and verification
-records, not a parallel current specification.
-
-The selected follow-up order is cancellation, then explicit rerun, then
-validation results. Cancellation and rerun each need a separate reviewed plan.
-The existing Milestone 5 validation draft remains documentation-only:
-[requirements](docs/requirements/milestone-5-allowlisted-validation.md) and
-[draft implementation plan](docs/plans/active/milestone-5-allowlisted-validation.md).
-It will add exactly `test` and `build` and show their results in the observation
-interface after the preceding increments are verified.
+The next feature to plan is cancellation, then explicit rerun, then validation.
+Each needs separate requirements review and bounded implementation confirmation.
+The [validation draft](openspec/changes/allowlisted-validation/proposal.md),
+[design](openspec/changes/allowlisted-validation/design.md), and
+[tasks](openspec/changes/allowlisted-validation/tasks.md) do not authorize process
+execution. Review them against the preceding increments once those are verified.
+Old milestone requirements and plans have been removed; the OpenSpec archive
+retains the completed [inspection change evidence](openspec/changes/archive/2026-10-02-inspect-settled-runs/verification.md).
 
 ## Later direction
 

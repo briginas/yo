@@ -6,11 +6,11 @@ Describe the implemented Milestone 4 leaves 10.1–10.3: session-local run
 records, ordered display projection, live terminal observation, and local
 between-turn inspection with `/runs` and `/run N`. This is
 the current requirement source for that migrated behavior. The
-[adoption guide](../../../docs/openspec.md) records implementation and test
-links; the [historical milestone requirements](../../../docs/requirements/milestone-4-run-observation.md)
-retain milestone acceptance history and deferred later work. Milestone 4
-closure (10.4) is recorded in the
-[completed plan](../../../docs/plans/completed/milestone-4-run-observation.md).
+[development guide](../../../docs/openspec.md) describes the workflow;
+[archived change evidence](../../changes/archive/2026-10-02-inspect-settled-runs/verification.md)
+records inspection and first-version closure checks. Deferred cancellation,
+rerun, and validation are sequenced in the
+[project-state map](../../../IMPLEMENTATION_PLAN.md).
 
 ## Requirements
 

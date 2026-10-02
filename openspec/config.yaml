@@ -2,7 +2,7 @@ schema: spec-driven
 
 context: |
     Follow AGENTS.md. Read PRD.md and IMPLEMENTATION_PLAN.md as maps, then the
-    linked requirements and active plan for the affected scope. For implemented
+    linked specifications and change artifacts for the affected scope. For implemented
     behavior, openspec/specs is the current requirement source; the maps identify
     the relevant specifications and unapproved roadmap work. See docs/openspec.md.
     The user confirms each bounded implementation leaf; artifacts or CLI status

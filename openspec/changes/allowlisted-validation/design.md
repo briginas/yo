@@ -1,48 +1,14 @@
-# Milestone 5 active plan: allowlisted validation
+# Design
 
-- **Status:** draft; implementation not authorized
-- **Prepared:** 2026-07-27
-- **Updated:** 2026-10-01 for the execution-observation roadmap
-- **Requirements:** [Milestone 5 allowlisted validation](../../requirements/milestone-5-allowlisted-validation.md)
-- **Observation foundation:** [Milestone 4 run observation](../completed/milestone-4-run-observation.md)
-- **Preceding increments:** separately specified cancellation, then explicit rerun
+## Context
 
-Review and approve the requirements and this plan before implementation. After
-approval, confirm exactly one incomplete leaf before editing runtime code.
+**Unapproved imported draft.** See [proposal](proposal.md) for motivation and
+scope. This migration adds no runtime behavior. Cancellation and explicit rerun
+are prerequisite projects, not capabilities supplied by this change. Before
+implementation, rebase these deltas against their completed specifications and
+confirm the validation permission model and the first bounded leaf.
 
-## Roadmap dependency
-
-Implement only after run observation, cancellation, and explicit rerun are
-verified and this draft is reviewed against their settled contracts. The
-current-behavior section below describes the verified Milestone 3 baseline;
-refresh integration assumptions during that review. Validation reuses the
-existing observation interface and cancellation controller.
-
-## Goal
-
-Add one narrow process capability to `yo`: the model may request either the
-repository's `test` script or its `build` script through one strict
-`run_validation` tool. Trusted harness code owns the fixed npm mapping,
-workspace root, minimal environment, timeout, process-tree termination, bounded
-output, structured result, observability, and provider exposure.
-
-The milestone preserves this control boundary:
-
-```text
-model selects test | build
-    -> harness validates the enum
-    -> harness selects fixed executable and argv
-    -> harness runs and settles the bounded process
-    -> model receives one structured observation
-```
-
-It does not add a general shell. It also does not claim sandboxing: the selected
-repository scripts are trusted local code running with the operating-system
-permissions of `yo`.
-
-## Current behavior
-
-The verified Milestone 3 runtime has these relevant properties:
+The currently implemented runtime has these relevant properties:
 
 - `ToolCall.name` is an open string and `arguments` is `unknown` until the
   dispatcher performs closed lookup and strict Zod validation;
@@ -55,8 +21,8 @@ The verified Milestone 3 runtime has these relevant properties:
   abort-and-settle application semantics;
 - the agent loop executes tool calls sequentially, records one result per call,
   and continues within a fixed model-step budget;
-- terminal status output is one-line and bounded; tool result content is not
-  streamed live;
+- the CLI retains session-local observation records and supports `/runs` and
+  `/run N`; terminal summaries are bounded and raw tool results are not streamed;
 - evidence records authorized tools, files, and patch outcomes;
 - the CLI default per-tool timeout is five seconds, which is intentionally
   suitable for bounded reads but too short for repository tests and builds;
@@ -64,7 +30,7 @@ The verified Milestone 3 runtime has these relevant properties:
   or process-tree cleanup exists;
 - child-process code is absent from the model-visible runtime boundary.
 
-## Target behavior
+### Target execution flow
 
 `yo` uses the provider-neutral validation flow:
 
@@ -114,7 +80,19 @@ sequenceDiagram
     Loop-->>Model: validation observation
 ```
 
-## Component design
+## Goals / Non-Goals
+
+Preserve the current loop, transcript, observation, and explicit patch-consent
+owners while adding a narrowly bounded process executor. Select `test` or
+`build` through a fixed catalog rather than model text evaluated by a shell.
+The complete behavioral contract is in [the validation delta](specs/allowlisted-validation/spec.md).
+
+No general executor API, configurable timeout, per-call approval UX, persistent
+logs, live process-output UI, or automatic validation loop is introduced. npm
+script bodies remain trusted repository code; environment minimization cannot
+provide filesystem or network isolation.
+
+## Decisions
 
 ### Validation contracts and catalog
 
@@ -234,7 +212,7 @@ default. Do not expose the executor from `src/runtime/index.ts`.
 
 Thread the validation dispatch option through `runAgent` and
 `runConversationTurn` without changing transcript ownership or conversation
-rollback semantics.
+retention semantics.
 
 No validation-specific control loop is added. The existing model-step budget
 remains authoritative:
@@ -317,7 +295,7 @@ and dispatcher remain authoritative.
 Use faux model transports and injected validation execution for deterministic
 CLI tests. Cover:
 
-- `chat`: read, approved patch, `test`, final evidence, then a follow-up turn;
+- `yo`: read, approved patch, `test`, final evidence, then a follow-up turn;
 - `test` pass and failure;
 - `build` pass and failure;
 - timeout and abort;
@@ -341,36 +319,25 @@ prove:
 Normal automated tests do not use real OAuth, network, home credentials, or the
 project checkout as an execution target.
 
-## Scope boundaries
+### Alternatives and rationale
 
-### Included
+- A generic shell tool would expose commands and arguments beyond the selected
+  scope; use the two-entry immutable catalog.
+- A generic read-tool timeout can return while a process keeps running; use a
+  dedicated executor that signals termination and waits for settlement.
+- Full environment inheritance exposes ambient secrets; build a minimal child
+  environment with per-call temporary home/cache.
+- Collecting all output then truncating allows unbounded memory; accumulate a
+  bounded sanitized diagnostic tail incrementally.
+- Automatic post-patch validation would couple two permissions; keep the model's
+  explicit validation call distinct from exact patch approval.
 
-- `run_validation` with strict `test | build`.
-- Fixed npm catalog and fixed workspace root.
-- npm offline flags and lifecycle-hook suppression.
-- Minimal environment and temporary home/cache.
-- Bounded process execution, output, timeout, abort, and cleanup.
-- Provider-neutral result metadata and existing operational events.
-- Runtime, conversation, terminal, observation feed/result card, evidence,
-  provider, prompt, and CLI integration.
-- Deterministic and controlled real-process coverage.
-- Documentation updates and one final reviewed real OAuth-backed flow.
+The reference is [pi's bash execution](../../../../pi/packages/coding-agent/src/core/tools/bash.ts):
+reuse streamed capture, abort signals, tree termination, and settlement mechanics,
+while keeping free-form commands, configurable shells, hooks, and remote execution
+outside yo's scope.
 
-### Excluded
-
-- General shell, command text, arguments, selectors, paths, environment, or
-  configurable timeouts.
-- Any validation beyond test and build.
-- Any package manager beyond npm.
-- Dependency installation or network package access.
-- Automatic validation, retry, repair, rollback, or ordering.
-- Live process-output UI or persistent logs.
-- Per-validation approval UX.
-- Filesystem/network sandboxing and untrusted repositories.
-- Session persistence, new terminal framework, skills, MCP, connectors, subagents,
-  provider portability, git operations, or deployment.
-
-## Risks and mitigations
+## Risks / Trade-offs
 
 ### Trusted script body is broader than a command identifier
 
@@ -421,7 +388,18 @@ process.
 Keep `ToolName`, visible-tools, provider definitions, and prompt unchanged
 until the activation leaf after executor and dispatcher tests pass.
 
-## Validation strategy
+## Migration Plan
+
+No deployment or runtime migration occurs during this documentation move.
+Implementation starts only after the prerequisite review gate in [tasks](tasks.md).
+Build pure contracts/output bounds first, then the internal executor, dispatcher,
+and integration. Activate provider visibility only after enforcement passes.
+Before activation the four-tool registry stays unchanged. If activation must be
+reverted, remove validation visibility and routing together; do not attempt to
+undo files already changed by trusted repository scripts. No persistent validation
+state or data migration is planned.
+
+### Validation
 
 Each implementation leaf runs:
 
@@ -430,7 +408,7 @@ Each implementation leaf runs:
 3. `npm test`;
 4. `npm run build`;
 5. `npm run format:check`;
-6. `git diff --check`.
+6. `npm run spec:check` and `git diff --check`.
 
 Documentation-only preparation runs targeted Markdown/link/checklist checks,
 Prettier validation, and `git diff --check`; it does not require runtime tests.
@@ -443,127 +421,5 @@ The milestone closes only after:
 - the final diff contains only intended files;
 - one manually reviewed ChatGPT Plus-backed temporary-workspace flow confirms
   patch approval, selected validation, accurate output, and evidence;
-- requirements and plan move from draft to approved/completed state only after
-  the corresponding review and verification.
-
-## Implementation leaves
-
-### 11.1 Validation contracts, catalog, and pure output bounds
-
-- [ ] Add strict `test | build` contracts and constants.
-- [ ] Add the immutable npm command catalog with lifecycle-hook suppression and
-      offline flags.
-- [ ] Add pure validation result formatting and incremental bounded-output
-      accumulation.
-- [ ] Add focused tests for schema rejection, catalog exactness, byte/line
-      boundaries, ANSI/control sanitization, malformed UTF-8, and bounded
-      memory behavior.
-- [ ] Do not add child processes, dispatcher registration, public exports,
-      provider definitions, prompt changes, or CLI behavior.
-
-**Leaf acceptance:** pure contracts and accumulator tests pass; no process can
-start and the model-visible registry is unchanged.
-
-### 11.2 Abort-and-settle validation executor
-
-- [ ] Add the internal executor and injected process-operation boundary.
-- [ ] Add minimal environment and temporary home/cache preparation.
-- [ ] Add no-stdin spawn, streamed capture, fixed timeout, process-tree
-      termination, settle-before-return, and cleanup.
-- [ ] Add focused deterministic tests for pass, non-zero exit, spawn failure,
-      timeout, abort, late settlement, termination escalation, stream error,
-      cleanup, environment isolation, and exact cwd/argv.
-- [ ] Do not register or expose `run_validation`.
-
-**Leaf acceptance:** executor tests prove bounded settled outcomes; model and
-CLI behavior remain unchanged.
-
-### 11.3 Closed dispatcher integration
-
-- [ ] Add a specialized `run_validation` dispatcher branch with strict schema
-      validation and fixed allowlist authorization.
-- [ ] Map executor outcomes to one structured `ToolResult` with validation and
-      truncation metadata.
-- [ ] Preserve call IDs, safe errors, one permission decision, and one result.
-- [ ] Add focused dispatcher tests for both commands, invalid inputs, failure,
-      timeout, abort, and injected operation errors.
-- [ ] Keep `ToolName`, visible-tools, provider definitions, and prompt
-      unchanged.
-
-**Leaf acceptance:** direct internal dispatch tests pass while the model still
-cannot discover or request the tool through normal provider composition.
-
-### 11.4 Agent-loop, conversation, terminal, and evidence propagation
-
-- [ ] Thread injected validation execution through agent and conversation
-      options for deterministic tests.
-- [ ] Preserve ordered one-result transcript and event semantics.
-- [ ] Add safe terminal argument summaries and completion status mapping.
-- [ ] Add ordered validation outcomes to the evidence report.
-- [ ] Extend the observation feed and result card with command, outcome, exit
-      code, and bounded diagnostics from each structured tool result.
-- [ ] Test exact-once display, test failure versus executor failure, and no
-      inferred pass for a command without a confirming result.
-- [ ] Cover multi-call order, failed validation continuation, chat rollback,
-      renderer failure isolation, and exact evidence.
-- [ ] Keep provider visibility disabled.
-
-**Leaf acceptance:** internal faux calls propagate safely through all
-provider-neutral and terminal layers without changing existing tool behavior.
-
-### 11.5 Provider activation and prompt guidance
-
-- [ ] Add `run_validation` to `ToolName` and the loop's visible-tools list.
-- [ ] Add only the strict enum schema to the Codex provider definition table.
-- [ ] Update provider parity and runtime barrel allowlist tests.
-- [ ] Update the system prompt with the two validations, trusted-script
-      boundary, accurate evidence rule, and one-at-a-time guidance.
-- [ ] Export the schema and safe types only; do not export raw executor or
-      process operations.
-
-**Leaf acceptance:** provider, runtime, loop, and prompt agree on exactly one
-new tool and two identifiers; malformed or broader calls still fail closed.
-
-### 11.6 Deterministic CLI and controlled real-process coverage
-
-- [ ] Add chat faux-transport flows for test and build pass/failure.
-- [ ] Add patch-then-validation evidence coverage without extra approval input.
-- [ ] Add one controlled temporary npm fixture for exact script selection,
-      lifecycle-hook suppression, environment isolation, output bounds,
-      non-zero exit, timeout settlement, and cleanup.
-- [ ] Verify normal automated tests use no real credentials, network, or user
-      checkout mutation.
-- [ ] Update README safety and usage orientation without duplicating detailed
-      requirements.
-
-**Leaf acceptance:** deterministic CLI and controlled process tests pass with
-no capability beyond the approved enum.
-
-### 11.7 Full verification and milestone closure
-
-- [ ] Run focused tests, `npm test`, `npm run build`,
-      `npm run format:check`, and `git diff --check`.
-- [ ] Review the complete diff for scope, process safety, secret exposure,
-      model-visible drift, and unrelated churn.
-- [ ] Manually verify one ChatGPT Plus-backed flow in a disposable trusted
-      workspace: inspect, approve a patch, run one selected validation, and
-      report exact evidence.
-- [ ] Record any platform limitation or skipped real verification explicitly.
-- [ ] Mark requirements approved/completed only after review and move this plan
-      to `docs/plans/completed/`.
-- [ ] Update `PRD.md`, `IMPLEMENTATION_PLAN.md`, and README to the verified
-      post-milestone state.
-
-**Leaf acceptance:** all checks and review pass, real verification is recorded,
-and the documentation no longer describes proposed behavior as current until
-that evidence exists.
-
-## First bounded candidate
-
-After the user approves the requirements and this plan, the first candidate is
-**11.1: validation contracts, fixed catalog, and pure bounded-output
-accumulator**.
-
-That leaf creates only typed data and pure transformations. It starts no
-process, changes no provider-visible tool, and is independently verifiable
-before the higher-risk executor work begins.
+- only implemented and verified deltas are synchronized to main specs, the
+  change is archived, and project maps are updated after result review.
