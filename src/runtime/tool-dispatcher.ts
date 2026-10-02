@@ -1,5 +1,6 @@
 import type { ZodType } from 'zod'
 
+import { executeSettledOperation } from './settled-operation.ts'
 import { listFiles, readFile, searchCode } from './filesystem.ts'
 import { applyPatchProposalWithTimeout, type PatchApplicationOutcome } from './patch-applier.ts'
 import { requestPatchApproval } from './patch-approval.ts'
@@ -43,17 +44,9 @@ type RegisteredTool = (
     workspaceRoot: string,
     call: ToolCall,
     perToolTimeoutMs: number,
-    onPermissionDecision?: (decision: PermissionDecision) => void
+    onPermissionDecision?: (decision: PermissionDecision) => void,
+    executionOptions?: ToolExecutionOptions
 ) => Promise<ToolResult>
-
-type ExecutionOutcome<Value> =
-    | {
-          status: 'completed'
-          result: Value
-      }
-    | {
-          status: 'timeout'
-      }
 
 type PatchLifecycleEvent =
     | Readonly<{
@@ -82,7 +75,8 @@ type PatchLifecycleEvent =
 type PatchPreparation = (
     workspaceRoot: string,
     path: string,
-    edits: readonly { oldText: string; newText: string }[]
+    edits: readonly { oldText: string; newText: string }[],
+    options?: ToolExecutionOptions
 ) => Promise<PatchProposal>
 
 type PatchApplication = (
@@ -134,30 +128,6 @@ const formatValidationIssues = (issues: readonly { path: PropertyKey[]; message:
         })
         .join('; ')
 
-const executeWithTimeout = async <Value>(
-    execute: () => Promise<Value>,
-    timeoutMs: number
-): Promise<ExecutionOutcome<Value>> => {
-    let timeout: ReturnType<typeof setTimeout> | undefined
-    const timeoutOutcome = new Promise<Extract<ExecutionOutcome<Value>, { status: 'timeout' }>>(
-        (resolve) => {
-            timeout = setTimeout(() => resolve({ status: 'timeout' }), timeoutMs)
-        }
-    )
-    const executionOutcome = Promise.resolve()
-        .then(execute)
-        .then((result): Extract<ExecutionOutcome<Value>, { status: 'completed' }> => ({
-            status: 'completed',
-            result,
-        }))
-
-    try {
-        return await Promise.race([executionOutcome, timeoutOutcome])
-    } finally {
-        clearTimeout(timeout)
-    }
-}
-
 const patchLifecycleMetadata = (proposal: PatchProposal): PatchLifecycleMetadata =>
     Object.freeze({
         proposalId: proposal.id,
@@ -194,7 +164,8 @@ const dispatchPatchCall = async (
     call: ToolCall,
     perToolTimeoutMs: number,
     onPermissionDecision: ((decision: PermissionDecision) => void) | undefined,
-    options: PatchDispatchOptions | undefined
+    options: PatchDispatchOptions | undefined,
+    executionOptions?: ToolExecutionOptions
 ): Promise<ToolResult> => {
     const parsedArguments = proposePatchArgumentsSchema.safeParse(call.arguments)
     if (!parsedArguments.success) {
@@ -203,17 +174,21 @@ const dispatchPatchCall = async (
         return createErrorResult(call.id, 'invalid_arguments', 'invalid_arguments', message)
     }
 
-    const prepareProposal = options?.operations?.prepareProposal ?? preparePatchProposal
+    const prepareProposal: PatchPreparation =
+        options?.operations?.prepareProposal ??
+        ((root, path, edits, execution) =>
+            preparePatchProposal(root, path, edits, undefined, execution?.signal))
     let proposal: PatchProposal
     try {
-        const outcome = await executeWithTimeout(
-            () =>
+        const outcome = await executeSettledOperation(
+            (signal) =>
                 prepareProposal(
                     workspaceRoot,
                     parsedArguments.data.path,
-                    parsedArguments.data.edits
+                    parsedArguments.data.edits,
+                    { signal }
                 ),
-            perToolTimeoutMs
+            { timeoutMs: perToolTimeoutMs, signal: executionOptions?.signal }
         )
 
         if (outcome.status === 'timeout') {
@@ -223,6 +198,9 @@ const dispatchPatchCall = async (
                 'timeout',
                 `Tool execution timed out after ${perToolTimeoutMs} ms`
             )
+        }
+        if (outcome.status === 'aborted') {
+            return createErrorResult(call.id, 'aborted', 'aborted', 'Tool execution was aborted')
         }
         proposal = outcome.result
     } catch (error) {
@@ -324,11 +302,22 @@ export const registerTool = <TArguments>(
     schema: ZodType<TArguments>,
     authorize: (
         workspaceRoot: string,
-        arguments_: TArguments
+        arguments_: TArguments,
+        options?: ToolExecutionOptions
     ) => Promise<WorkspacePathPermissionDecision>,
-    execute: (workspaceRoot: string, arguments_: TArguments) => Promise<ToolExecutionResult>
+    execute: (
+        workspaceRoot: string,
+        arguments_: TArguments,
+        options?: ToolExecutionOptions
+    ) => Promise<ToolExecutionResult>
 ): RegisteredTool => {
-    return async (workspaceRoot, call, perToolTimeoutMs, onPermissionDecision) => {
+    return async (
+        workspaceRoot,
+        call,
+        perToolTimeoutMs,
+        onPermissionDecision,
+        executionOptions
+    ) => {
         const parsedArguments = schema.safeParse(call.arguments)
 
         if (!parsedArguments.success) {
@@ -338,7 +327,19 @@ export const registerTool = <TArguments>(
         }
 
         try {
-            const permissionDecision = await authorize(workspaceRoot, parsedArguments.data)
+            const authorization = await executeSettledOperation(
+                (signal) => authorize(workspaceRoot, parsedArguments.data, { signal }),
+                { signal: executionOptions?.signal }
+            )
+            if (authorization.status !== 'completed') {
+                return createErrorResult(
+                    call.id,
+                    'aborted',
+                    'aborted',
+                    'Tool execution was aborted'
+                )
+            }
+            const permissionDecision = authorization.result
             onPermissionDecision?.(
                 permissionDecision.decision === 'allow' ? { decision: 'allow' } : permissionDecision
             )
@@ -349,9 +350,9 @@ export const registerTool = <TArguments>(
                 return createErrorResult(call.id, 'denied', permissionDecision.reason, message)
             }
 
-            const outcome = await executeWithTimeout(
-                () => execute(workspaceRoot, parsedArguments.data),
-                perToolTimeoutMs
+            const outcome = await executeSettledOperation(
+                (signal) => execute(workspaceRoot, parsedArguments.data, { signal }),
+                { timeoutMs: perToolTimeoutMs, signal: executionOptions?.signal }
             )
 
             if (outcome.status === 'timeout') {
@@ -360,6 +361,14 @@ export const registerTool = <TArguments>(
                 return createErrorResult(call.id, 'timeout', 'timeout', message)
             }
 
+            if (outcome.status === 'aborted') {
+                return createErrorResult(
+                    call.id,
+                    'aborted',
+                    'aborted',
+                    'Tool execution was aborted'
+                )
+            }
             const result = outcome.result
 
             // Filesystem tools repeat path authorization internally so the safety boundary does
@@ -390,9 +399,10 @@ export const registerTool = <TArguments>(
 const registeredTools = {
     list_files: registerTool(
         listFilesArgumentsSchema,
-        (workspaceRoot, arguments_) => resolveWorkspacePath(workspaceRoot, arguments_.path),
-        async (workspaceRoot, arguments_) => {
-            const result = await listFiles(workspaceRoot, arguments_)
+        (workspaceRoot, arguments_, options) =>
+            resolveWorkspacePath(workspaceRoot, arguments_.path, options?.signal),
+        async (workspaceRoot, arguments_, options) => {
+            const result = await listFiles(workspaceRoot, arguments_, options)
 
             return result.status === 'success'
                 ? {
@@ -405,9 +415,10 @@ const registeredTools = {
     ),
     search_code: registerTool(
         searchCodeArgumentsSchema,
-        (workspaceRoot, arguments_) => resolveWorkspacePath(workspaceRoot, arguments_.path ?? '.'),
-        async (workspaceRoot, arguments_) => {
-            const result = await searchCode(workspaceRoot, arguments_)
+        (workspaceRoot, arguments_, options) =>
+            resolveWorkspacePath(workspaceRoot, arguments_.path ?? '.', options?.signal),
+        async (workspaceRoot, arguments_, options) => {
+            const result = await searchCode(workspaceRoot, arguments_, options)
 
             return result.status === 'success'
                 ? {
@@ -420,9 +431,10 @@ const registeredTools = {
     ),
     read_file: registerTool(
         readFileArgumentsSchema,
-        (workspaceRoot, arguments_) => resolveWorkspacePath(workspaceRoot, arguments_.path),
-        async (workspaceRoot, arguments_) => {
-            const result = await readFile(workspaceRoot, arguments_)
+        (workspaceRoot, arguments_, options) =>
+            resolveWorkspacePath(workspaceRoot, arguments_.path, options?.signal),
+        async (workspaceRoot, arguments_, options) => {
+            const result = await readFile(workspaceRoot, arguments_, options)
 
             return result.status === 'success'
                 ? {
@@ -444,7 +456,7 @@ export const dispatchToolCall = async (
     perToolTimeoutMs: number,
     onPermissionDecision?: (decision: PermissionDecision) => void,
     patchOptions?: PatchDispatchOptions,
-    _executionOptions?: ToolExecutionOptions
+    executionOptions?: ToolExecutionOptions
 ): Promise<ToolResult> => {
     if (call.name === 'propose_patch') {
         return dispatchPatchCall(
@@ -452,7 +464,8 @@ export const dispatchToolCall = async (
             call,
             perToolTimeoutMs,
             onPermissionDecision,
-            patchOptions
+            patchOptions,
+            executionOptions
         )
     }
 
@@ -463,5 +476,11 @@ export const dispatchToolCall = async (
         return createErrorResult(call.id, 'unknown_tool', 'unknown_tool', message)
     }
 
-    return registeredTools[call.name](workspaceRoot, call, perToolTimeoutMs, onPermissionDecision)
+    return registeredTools[call.name](
+        workspaceRoot,
+        call,
+        perToolTimeoutMs,
+        onPermissionDecision,
+        executionOptions
+    )
 }

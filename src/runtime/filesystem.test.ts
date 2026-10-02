@@ -1,5 +1,14 @@
 import assert from 'node:assert/strict'
-import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
+import {
+    mkdir,
+    mkdtemp,
+    rm,
+    symlink,
+    writeFile,
+    readdir,
+    stat,
+    readFile as fsReadFile,
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, test } from 'node:test'
@@ -11,7 +20,8 @@ import {
     LIST_FILES_MAX_LIMIT,
     SEARCH_CODE_DEFAULT_LIMIT,
 } from './filesystem-limits.ts'
-import { listFiles, readFile, searchCode } from './filesystem.ts'
+import { listFiles, readFile, searchCode, type FilesystemExecutionOptions } from './filesystem.ts'
+import { OperationAbortedError } from './settled-operation.ts'
 import { canonicalizeWorkspaceRoot } from './workspace.ts'
 
 const temporaryDirectories = new Set<string>()
@@ -654,4 +664,95 @@ describe('readFile', () => {
             /Cannot decode file as UTF-8: invalid\.txt/
         )
     })
+})
+
+test('pre-aborted filesystem operations perform no path or content I/O', async () => {
+    const controller = new AbortController()
+    controller.abort('private reason')
+    for (const pending of [
+        listFiles('/missing-root', { path: '.' }, { signal: controller.signal }),
+        searchCode('/missing-root', { query: 'needle' }, { signal: controller.signal }),
+        readFile('/missing-root', { path: 'missing' }, { signal: controller.signal }),
+    ]) {
+        await assert.rejects(pending, OperationAbortedError)
+    }
+})
+
+test('cancelled directory discovery waits for readdir and stops recursive traversal', async () => {
+    const root = await canonicalizeWorkspaceRoot(await mkdtemp(join(tmpdir(), 'yo-cancel-list-')))
+    temporaryDirectories.add(root)
+    await mkdir(join(root, 'child'))
+    await writeFile(join(root, 'child', 'file.txt'), 'needle')
+    for (const discover of [
+        (signal: AbortSignal, operations: NonNullable<FilesystemExecutionOptions['operations']>) =>
+            listFiles(root, { path: '.', glob: '**/*' }, { signal, operations }),
+        (signal: AbortSignal, operations: NonNullable<FilesystemExecutionOptions['operations']>) =>
+            searchCode(root, { query: 'needle' }, { signal, operations }),
+    ]) {
+        const controller = new AbortController()
+        const started = Promise.withResolvers<void>()
+        const held = Promise.withResolvers<void>()
+        let calls = 0
+        let settled = false
+        const pending = discover(controller.signal, {
+            stat,
+            readFile: fsReadFile,
+            readdir: async (path, options) => {
+                calls += 1
+                const entries = await readdir(path, options)
+                started.resolve()
+                await held.promise
+                return entries
+            },
+        })
+        const assertion = assert.rejects(pending, OperationAbortedError).then(() => {
+            settled = true
+        })
+        await started.promise
+        controller.abort()
+        assert.equal(settled, false)
+        held.resolve()
+        await assertion
+        assert.equal(calls, 1)
+    }
+})
+
+test('cancellation during content read awaits completion and never reads the next candidate', async () => {
+    const root = await canonicalizeWorkspaceRoot(await mkdtemp(join(tmpdir(), 'yo-cancel-read-')))
+    temporaryDirectories.add(root)
+    await writeFile(join(root, 'a.txt'), 'needle')
+    await writeFile(join(root, 'b.txt'), 'needle')
+    for (const read of [
+        (signal: AbortSignal, operations: NonNullable<FilesystemExecutionOptions['operations']>) =>
+            searchCode(root, { query: 'needle' }, { signal, operations }),
+        (signal: AbortSignal, operations: NonNullable<FilesystemExecutionOptions['operations']>) =>
+            readFile(root, { path: 'a.txt' }, { signal, operations }),
+    ]) {
+        const controller = new AbortController()
+        const started = Promise.withResolvers<void>()
+        const held = Promise.withResolvers<void>()
+        let reads = 0
+        let settled = false
+        const pending = read(controller.signal, {
+            stat,
+            readdir,
+            readFile: async (path, options) => {
+                assert.equal(options.signal, controller.signal)
+                reads += 1
+                const contents = await fsReadFile(path)
+                started.resolve()
+                await held.promise
+                return contents
+            },
+        })
+        const assertion = assert.rejects(pending, OperationAbortedError).then(() => {
+            settled = true
+        })
+        await started.promise
+        controller.abort()
+        assert.equal(settled, false)
+        held.resolve()
+        await assertion
+        assert.equal(reads, 1)
+    }
 })

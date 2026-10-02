@@ -1,11 +1,12 @@
 # Tasks
 
-The user confirmed **group 1 only** on 2026-10-02. Its implementation checks and
-self-review are recorded in [verification](verification.md); human result
-acceptance remains pending. The next candidate is group 2 and needs its own
-bounded confirmation. Keep boxes unchecked until scoped checks pass and review evidence is recorded; automated validation
-and agent self-review do not constitute human acceptance. See [design](design.md)
-and [capability deltas](specs/) for the behavior and flow.
+The user confirmed group 1 on 2026-10-02 and then explicitly authorized the next
+bounded group 2 in a separate subagent. Their implementation checks and agent
+review are recorded in [verification](verification.md); human result acceptance
+is not inferred from automated checks. The next candidate is group 3 and needs
+separate bounded confirmation. Keep boxes unchecked until scoped checks pass and
+review evidence is recorded. See [design](design.md) and [capability deltas](specs/)
+for the behavior and flow.
 
 ## 1. Trusted controller and signal contracts
 
@@ -15,9 +16,9 @@ and [capability deltas](specs/) for the behavior and flow.
 
 ## 2. Settled read and preparation operations
 
-- [ ] 2.1 Replace detached read/preparation timeout races with a signal-aware settled wrapper and first-stop-cause latch; verify held execution/cleanup tests, both timer/cancellation orders, prior committed outcomes, and exactly one result per call.
-- [ ] 2.2 Propagate execution signals through read authorization, file listing/search/reading, and patch preparation with checkpoints before further I/O; verify pre-abort and mid-operation tests stop subsequent paths and preserve workspace policy, output limits, and resource cleanup.
-- [ ] 2.3 Update affected dispatcher/filesystem tests and change-local evidence for delayed settled timeout return; verify focused tests and build, and record review of the execution-timeout versus settlement distinction before completing the group.
+- [x] 2.1 Replace detached read/preparation timeout races with a signal-aware settled wrapper and first-stop-cause latch; verify held execution/cleanup tests, both timer/cancellation orders, prior committed outcomes, and exactly one result per call.
+- [x] 2.2 Propagate execution signals through read authorization, file listing/search/reading, and patch preparation with checkpoints before further I/O; verify pre-abort and mid-operation tests stop subsequent paths and preserve workspace policy, output limits, and resource cleanup.
+- [x] 2.3 Update affected dispatcher/filesystem tests and change-local evidence for delayed settled timeout return; verify focused tests and build, and record review of the execution-timeout versus settlement distinction before completing the group.
 
 ## 3. Cancellable input and patch review ownership
 

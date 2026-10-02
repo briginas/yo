@@ -6,6 +6,7 @@ import { relative, resolve, sep } from 'node:path'
 import { z } from 'zod'
 
 import { PATCH_MAX_FILE_BYTES, type PatchEdit, type PatchProposal } from './patch-contracts.ts'
+import { checkOperationSignal } from './settled-operation.ts'
 import { isSensitivePath } from './permissions.ts'
 import { preparePatchTransform } from './patch-transform.ts'
 import { isPathInsideWorkspace, toWorkspaceRelativePath } from './workspace-path.ts'
@@ -19,7 +20,7 @@ type PatchTargetStats = Readonly<{
 export type PatchPreparationOperations = Readonly<{
     lstat: (path: string) => Promise<PatchTargetStats>
     realpath: (path: string) => Promise<string>
-    readFile: (path: string, maxBytes: number) => Promise<Uint8Array>
+    readFile: (path: string, maxBytes: number, signal?: AbortSignal) => Promise<Uint8Array>
     randomUUID: () => string
 }>
 
@@ -68,14 +69,33 @@ const asFilesystemError = (error: unknown, action: string): never => {
     return fail('filesystem_error', `Unable to ${action} patch target`)
 }
 
-const readBoundedFile = async (path: string, maxBytes: number): Promise<Uint8Array> => {
-    let handle: Awaited<ReturnType<typeof open>> | undefined
+type BoundedReadHandle = Readonly<{
+    read: (
+        buffer: Buffer,
+        offset: number,
+        length: number,
+        position: number
+    ) => Promise<{ bytesRead: number }>
+    close: () => Promise<void>
+}>
+
+// Internal export allows held-open/close tests; it is not a model or public barrel capability.
+export const readBoundedFile = async (
+    path: string,
+    maxBytes: number,
+    signal?: AbortSignal,
+    openFile: (path: string, flags: number) => Promise<BoundedReadHandle> = open
+): Promise<Uint8Array> => {
+    let handle: BoundedReadHandle | undefined
 
     try {
-        handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW)
+        checkOperationSignal(signal)
+        handle = await openFile(path, constants.O_RDONLY | constants.O_NOFOLLOW)
+        checkOperationSignal(signal)
         const buffer = Buffer.allocUnsafe(maxBytes + 1)
         const { bytesRead } = await handle.read(buffer, 0, buffer.byteLength, 0)
 
+        checkOperationSignal(signal)
         if (bytesRead > maxBytes) {
             return fail('source_too_large', `Source file must not exceed ${maxBytes} bytes`)
         }
@@ -106,8 +126,10 @@ const getPathComponents = (workspaceRoot: string, absolutePath: string): string[
 export const resolvePatchTarget = async (
     workspaceRoot: string,
     requestedPath: string,
-    operations: PatchPreparationOperations = defaultOperations
+    operations: PatchPreparationOperations = defaultOperations,
+    signal?: AbortSignal
 ): Promise<PatchTarget> => {
+    checkOperationSignal(signal)
     const absolutePath = resolve(workspaceRoot, requestedPath)
 
     if (!isPathInsideWorkspace(workspaceRoot, absolutePath)) {
@@ -122,13 +144,16 @@ export const resolvePatchTarget = async (
     const components = getPathComponents(workspaceRoot, absolutePath)
     let targetStats: PatchTargetStats | undefined
     for (const component of components) {
+        checkOperationSignal(signal)
         let stats: PatchTargetStats
         try {
             stats = await operations.lstat(component)
         } catch (error) {
+            checkOperationSignal(signal)
             return asFilesystemError(error, 'inspect')
         }
 
+        checkOperationSignal(signal)
         if (stats.isSymbolicLink()) {
             return fail('symlink_path', 'Patch target path must not contain symbolic links')
         }
@@ -143,9 +168,11 @@ export const resolvePatchTarget = async (
     try {
         canonicalPath = await operations.realpath(absolutePath)
     } catch (error) {
+        checkOperationSignal(signal)
         return asFilesystemError(error, 'resolve')
     }
 
+    checkOperationSignal(signal)
     if (!isPathInsideWorkspace(workspaceRoot, canonicalPath)) {
         return fail('outside_workspace', 'Patch target must be inside the approved workspace')
     }
@@ -166,16 +193,19 @@ export const preparePatchProposal = async (
     workspaceRoot: string,
     path: string,
     edits: readonly PatchEdit[],
-    operations: PatchPreparationOperations = defaultOperations
+    operations: PatchPreparationOperations = defaultOperations,
+    signal?: AbortSignal
 ): Promise<PatchProposal> => {
-    const target = await resolvePatchTarget(workspaceRoot, path, operations)
+    const target = await resolvePatchTarget(workspaceRoot, path, operations, signal)
     let sourceBytes: Uint8Array
     try {
-        sourceBytes = await operations.readFile(target.absolutePath, PATCH_MAX_FILE_BYTES)
+        sourceBytes = await operations.readFile(target.absolutePath, PATCH_MAX_FILE_BYTES, signal)
     } catch (error) {
+        checkOperationSignal(signal)
         return asFilesystemError(error, 'read')
     }
 
+    checkOperationSignal(signal)
     if (sourceBytes.byteLength > PATCH_MAX_FILE_BYTES) {
         return fail('source_too_large', `Source file must not exceed ${PATCH_MAX_FILE_BYTES} bytes`)
     }

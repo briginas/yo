@@ -114,9 +114,9 @@ in `openspec/specs/`; changes use `openspec/changes/`. See the
 
 The next feature is the proposed
 [cancellation change](openspec/changes/cancel-active-runs/proposal.md), then
-explicit rerun, then validation. Its first bounded group, trusted controller and
-signal contracts, was authorized and implemented; execution and CLI cancellation
-are still proposed. See the implementation map and change verification for the
+explicit rerun, then validation. Its first two bounded groups, trusted controller/signal
+contracts and settled read/preparation operations, were authorized and implemented.
+Whole-turn and CLI cancellation are still proposed. See the implementation map and change verification for the
 scoped checks and pending human result review.
 Each needs separate requirements review and bounded implementation confirmation.
 The [validation draft](openspec/changes/allowlisted-validation/proposal.md),

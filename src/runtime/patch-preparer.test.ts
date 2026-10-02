@@ -19,9 +19,11 @@ import {
     PatchPreparationError,
     preparePatchProposal,
     resolvePatchTarget,
+    readBoundedFile,
     type PatchPreparationErrorCode,
     type PatchPreparationOperations,
 } from './patch-preparer.ts'
+import { OperationAbortedError } from './settled-operation.ts'
 import { PatchTransformError } from './patch-transform.ts'
 import { canonicalizeWorkspaceRoot } from './workspace.ts'
 
@@ -231,3 +233,136 @@ describe('preparePatchProposal', () => {
         )
     })
 })
+
+test('pre-aborted preparation starts no target inspection', async () => {
+    const controller = new AbortController()
+    controller.abort(new Error('private reason'))
+    let touched = false
+    await assert.rejects(
+        preparePatchProposal(
+            '/workspace',
+            'file',
+            oneEdit,
+            {
+                lstat: async () => {
+                    touched = true
+                    throw new Error('unexpected')
+                },
+                realpath: async () => {
+                    touched = true
+                    return '/workspace/file'
+                },
+                readFile: async () => {
+                    touched = true
+                    return Buffer.from('before')
+                },
+                randomUUID: () => {
+                    touched = true
+                    return 'id'
+                },
+            },
+            controller.signal
+        ),
+        OperationAbortedError
+    )
+    assert.equal(touched, false)
+})
+
+for (const stage of ['lstat', 'realpath', 'readFile'] as const) {
+    test(`cancelled preparation awaits ${stage} and stops subsequent operations`, async () => {
+        const controller = new AbortController()
+        const started = Promise.withResolvers<void>()
+        const held = Promise.withResolvers<void>()
+        const calls: string[] = []
+        const pause = async (name: string): Promise<void> => {
+            calls.push(name)
+            if (name === stage) {
+                started.resolve()
+                await held.promise
+            }
+        }
+        const pending = preparePatchProposal(
+            '/workspace',
+            'dir/file',
+            oneEdit,
+            {
+                lstat: async () => {
+                    await pause('lstat')
+                    return { mode: 0o644, isSymbolicLink: () => false, isFile: () => true }
+                },
+                realpath: async () => {
+                    await pause('realpath')
+                    return '/workspace/dir/file'
+                },
+                readFile: async (_path, _maxBytes, signal) => {
+                    assert.equal(signal, controller.signal)
+                    await pause('readFile')
+                    return Buffer.from('before')
+                },
+                randomUUID: () => {
+                    calls.push('id')
+                    return 'id'
+                },
+            },
+            controller.signal
+        )
+        let settled = false
+        const assertion = assert.rejects(pending, OperationAbortedError).then(() => {
+            settled = true
+        })
+        await started.promise
+        controller.abort()
+        assert.equal(settled, false)
+        const beforeRelease = [...calls]
+        held.resolve()
+        await assertion
+        assert.deepEqual(calls, beforeRelease)
+    })
+}
+
+for (const stage of ['open', 'read'] as const) {
+    test(`bounded reader closes an acquired handle after cancellation during ${stage}`, async () => {
+        const controller = new AbortController()
+        const started = Promise.withResolvers<void>()
+        const work = Promise.withResolvers<void>()
+        const closing = Promise.withResolvers<void>()
+        const cleanup = Promise.withResolvers<void>()
+        let reads = 0
+        let closes = 0
+        let settled = false
+        const pending = readBoundedFile('/workspace/file', 100, controller.signal, async () => {
+            if (stage === 'open') {
+                started.resolve()
+                await work.promise
+            }
+            return {
+                read: async () => {
+                    reads += 1
+                    if (stage === 'read') {
+                        started.resolve()
+                        await work.promise
+                    }
+                    return { bytesRead: 0 }
+                },
+                close: async () => {
+                    closes += 1
+                    closing.resolve()
+                    await cleanup.promise
+                },
+            }
+        })
+        const assertion = assert.rejects(pending, OperationAbortedError).then(() => {
+            settled = true
+        })
+        await started.promise
+        controller.abort('private reason')
+        assert.equal(settled, false)
+        work.resolve()
+        await closing.promise
+        assert.equal(settled, false)
+        assert.equal(closes, 1)
+        assert.equal(reads, stage === 'read' ? 1 : 0)
+        cleanup.resolve()
+        await assertion
+    })
+}

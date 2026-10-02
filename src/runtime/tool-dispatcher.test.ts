@@ -287,29 +287,33 @@ describe('dispatchToolCall', () => {
         }
     })
 
-    test('returns one timeout result and ignores late executor settlement', async () => {
+    test('returns one timeout only after executor settlement and cleanup', async () => {
         for (const lateSettlement of ['success', 'error'] as const) {
             const executorResult = Promise.withResolvers<{
                 status: 'success'
                 content: string
                 metadata: typeof completeMetadata
             }>()
+            const stopped = Promise.withResolvers<void>()
+            const cleanup = Promise.withResolvers<void>()
             let executionCount = 0
+            let settled = false
             const dispatchControlledTool = registerTool(
                 z.object({ path: z.string() }).strict(),
-                async () => ({
-                    decision: 'allow',
-                    absolutePath: workspaceRoot,
-                    relativePath: '.',
-                }),
-                async () => {
+                async () => ({ decision: 'allow', absolutePath: workspaceRoot, relativePath: '.' }),
+                async (_root, _args, options) => {
                     executionCount += 1
-
-                    return executorResult.promise
+                    options?.signal?.addEventListener('abort', () => stopped.resolve(), {
+                        once: true,
+                    })
+                    try {
+                        return await executorResult.promise
+                    } finally {
+                        await cleanup.promise
+                    }
                 }
             )
-
-            const result = await dispatchControlledTool(
+            const pending = dispatchControlledTool(
                 workspaceRoot,
                 {
                     id: `${lateSettlement}-after-timeout`,
@@ -317,20 +321,12 @@ describe('dispatchToolCall', () => {
                     arguments: { path: '.' },
                 },
                 1
-            )
-
-            assert.deepEqual(result, {
-                status: 'timeout',
-                callId: `${lateSettlement}-after-timeout`,
-                content: 'Tool execution timed out after 1 ms',
-                metadata: completeMetadata,
-                error: {
-                    code: 'timeout',
-                    message: 'Tool execution timed out after 1 ms',
-                },
+            ).then((result) => {
+                settled = true
+                return result
             })
-            assert.equal(executionCount, 1)
-
+            await stopped.promise
+            assert.equal(settled, false)
             if (lateSettlement === 'success') {
                 executorResult.resolve({
                     status: 'success',
@@ -340,10 +336,215 @@ describe('dispatchToolCall', () => {
             } else {
                 executorResult.reject(new Error('late failure'))
             }
-
             await new Promise<void>((resolve) => setImmediate(resolve))
-            assert.equal(result.status, 'timeout')
+            assert.equal(settled, false)
+            cleanup.resolve()
+            const result = await pending
+            assert.deepEqual(result, {
+                status: 'timeout',
+                callId: `${lateSettlement}-after-timeout`,
+                content: 'Tool execution timed out after 1 ms',
+                metadata: completeMetadata,
+                error: { code: 'timeout', message: 'Tool execution timed out after 1 ms' },
+            })
+            assert.equal(executionCount, 1)
         }
+    })
+
+    test('pre-aborted calls skip authorization, execution, and patch preparation', async () => {
+        const controller = new AbortController()
+        controller.abort(new Error('secret abort reason'))
+        for (const [name, arguments_] of [
+            ['read_file', { path: 'missing-file' }],
+            [
+                'propose_patch',
+                { path: 'src/agent.ts', edits: [{ oldText: 'found', newText: 'after' }] },
+            ],
+        ] as const) {
+            let touched = false
+            const result = await dispatchToolCall(
+                workspaceRoot,
+                { id: name, name, arguments: arguments_ },
+                100,
+                () => {
+                    touched = true
+                },
+                {
+                    operations: {
+                        prepareProposal: async () => {
+                            touched = true
+                            throw new Error('unexpected')
+                        },
+                    },
+                },
+                { signal: controller.signal }
+            )
+            assert.equal(result.status, 'aborted')
+            assert.equal(result.callId, name)
+            assert.equal(result.content, 'Tool execution was aborted')
+            assert.equal(touched, false)
+        }
+    })
+
+    test('awaits cancelled authorization without starting execution or its timer', async () => {
+        const controller = new AbortController()
+        const started = Promise.withResolvers<AbortSignal>()
+        const held = Promise.withResolvers<void>()
+        let executions = 0
+        let settled = false
+        const dispatch = registerTool(
+            z.object({}),
+            async (_root, _args, options) => {
+                assert.ok(options?.signal)
+                started.resolve(options.signal)
+                await held.promise
+                return { decision: 'allow', absolutePath: workspaceRoot, relativePath: '.' }
+            },
+            async () => {
+                executions += 1
+                return { status: 'success', content: '', metadata: completeMetadata }
+            }
+        )
+        const pending = dispatch(
+            workspaceRoot,
+            { id: 'authorization', name: 'controlled', arguments: {} },
+            1,
+            undefined,
+            { signal: controller.signal }
+        ).then((result) => {
+            settled = true
+            return result
+        })
+        const signal = await started.promise
+        await new Promise<void>((resolve) => setTimeout(resolve, 5))
+        assert.equal(signal.aborted, false)
+        controller.abort()
+        assert.equal(signal.aborted, true)
+        assert.equal(settled, false)
+        held.resolve()
+        assert.equal((await pending).status, 'aborted')
+        assert.equal(executions, 0)
+    })
+
+    test('cancelled active read returns one safe aborted result after executor cleanup', async () => {
+        const controller = new AbortController()
+        const started = Promise.withResolvers<AbortSignal>()
+        const held = Promise.withResolvers<void>()
+        let settled = false
+        let executions = 0
+        const dispatch = registerTool(
+            z.object({}),
+            async () => ({ decision: 'allow', absolutePath: workspaceRoot, relativePath: '.' }),
+            async (_root, _args, options) => {
+                assert.ok(options?.signal)
+                started.resolve(options.signal)
+                executions += 1
+                await held.promise
+                return {
+                    status: 'success',
+                    content: 'late read contents',
+                    metadata: completeMetadata,
+                }
+            }
+        )
+        const pending = dispatch(
+            workspaceRoot,
+            { id: 'cancelled-read', name: 'controlled', arguments: {} },
+            1000,
+            undefined,
+            { signal: controller.signal }
+        ).then((result) => {
+            settled = true
+            return result
+        })
+        const signal = await started.promise
+        controller.abort(new Error('private abort reason'))
+        assert.equal(signal.aborted, true)
+        assert.equal(settled, false)
+        held.resolve()
+        assert.deepEqual(await pending, {
+            status: 'aborted',
+            callId: 'cancelled-read',
+            content: 'Tool execution was aborted',
+            metadata: completeMetadata,
+            error: { code: 'aborted', message: 'Tool execution was aborted' },
+        })
+        assert.equal(executions, 1)
+    })
+
+    test('preserves a committed authorization denial when its notification requests cancellation', async () => {
+        const controller = new AbortController()
+        let executions = 0
+        const dispatch = registerTool(
+            z.object({}),
+            async () => ({ decision: 'deny', reason: 'sensitive_path' }),
+            async () => {
+                executions += 1
+                return { status: 'success', content: '', metadata: completeMetadata }
+            }
+        )
+        const result = await dispatch(
+            workspaceRoot,
+            { id: 'denied', name: 'controlled', arguments: {} },
+            100,
+            () => controller.abort(),
+            { signal: controller.signal }
+        )
+        assert.equal(result.status, 'denied')
+        assert.equal(result.callId, 'denied')
+        assert.equal(controller.signal.aborted, true)
+        assert.equal(executions, 0)
+    })
+
+    test('cancelled patch preparation waits for cleanup and publishes no approval trail', async () => {
+        const controller = new AbortController()
+        const started = Promise.withResolvers<AbortSignal>()
+        const cleanup = Promise.withResolvers<void>()
+        const events: object[] = []
+        let approvals = 0
+        let settled = false
+        const pending = dispatchToolCall(
+            workspaceRoot,
+            {
+                id: 'preparation',
+                name: 'propose_patch',
+                arguments: {
+                    path: 'src/agent.ts',
+                    edits: [{ oldText: 'found', newText: 'after' }],
+                },
+            },
+            1000,
+            undefined,
+            {
+                onLifecycleEvent: (event) => events.push(event),
+                approver: async () => {
+                    approvals += 1
+                    return 'approved'
+                },
+                operations: {
+                    prepareProposal: async (_root, _path, _edits, options) => {
+                        assert.ok(options?.signal)
+                        started.resolve(options.signal)
+                        await cleanup.promise
+                        throw new Error('late private failure')
+                    },
+                },
+            },
+            { signal: controller.signal }
+        ).then((result) => {
+            settled = true
+            return result
+        })
+        const signal = await started.promise
+        controller.abort()
+        assert.equal(signal.aborted, true)
+        assert.equal(settled, false)
+        cleanup.resolve()
+        const result = await pending
+        assert.equal(result.status, 'aborted')
+        assert.equal(result.content, 'Tool execution was aborted')
+        assert.equal(approvals, 0)
+        assert.deepEqual(events, [])
     })
 
     test('dispatches an approved patch with separate safe authorization and lifecycle evidence', async () => {

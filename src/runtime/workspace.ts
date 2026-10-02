@@ -1,6 +1,7 @@
 import { realpath, stat } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
+import { checkOperationSignal } from './settled-operation.ts'
 import { isSensitivePath, type WorkspacePathPermissionDecision } from './permissions.ts'
 import { isPathInsideWorkspace, toWorkspaceRelativePath } from './workspace-path.ts'
 
@@ -21,8 +22,10 @@ export const canonicalizeWorkspaceRoot = async (cwd: string): Promise<string> =>
 
 export const resolveWorkspacePath = async (
     workspaceRoot: string,
-    requestedPath: string
+    requestedPath: string,
+    signal?: AbortSignal
 ): Promise<WorkspacePathPermissionDecision> => {
+    checkOperationSignal(signal)
     // Validate the lexical path first and its real target below. Together the checks block
     // traversal, symlink escapes, and safe-looking aliases to sensitive targets.
     const absolutePath = resolve(workspaceRoot, requestedPath)
@@ -44,6 +47,7 @@ export const resolveWorkspacePath = async (
     }
 
     const canonicalPath = await realpath(absolutePath)
+    checkOperationSignal(signal)
 
     if (!isPathInsideWorkspace(workspaceRoot, canonicalPath)) {
         return {

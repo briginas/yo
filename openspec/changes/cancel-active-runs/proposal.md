@@ -73,8 +73,11 @@ leaf or requirement synchronization is approved by artifact completeness. The
 first candidate was task group 1: trusted controller and signal contracts. The
 user confirmed that bounded implementation on 2026-10-02; its checks and pending
 human result acceptance are recorded in [verification](verification.md).
-Later groups still require separate bounded confirmation; this does not approve
-the full feature or specification synchronization.
+The user then explicitly authorized the next bounded group 2 in a separate
+subagent on the same date. Its settled read/preparation behavior, checks, and
+pending human result acceptance are recorded in verification. Group 3 and later
+still require separate bounded confirmation; these approvals do not approve the
+full feature or specification synchronization.
 
 Explicit rerun, validation, automatic retry/repair, rollback, force termination,
 multiple active turns, `/cancel` line commands, TUI, durable history, and login

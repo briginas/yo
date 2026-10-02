@@ -1,3 +1,4 @@
+import type { Dirent, Stats } from 'node:fs'
 import { readFile as fsReadFile, readdir, stat } from 'node:fs/promises'
 import { basename, join, matchesGlob, relative, sep } from 'node:path'
 
@@ -15,7 +16,24 @@ import type {
     ToolResultMetadata,
     ToolResultTruncation,
 } from './tools.ts'
+import { checkOperationSignal } from './settled-operation.ts'
 import { resolveWorkspacePath } from './workspace.ts'
+
+// Trusted operation injection keeps cancellation boundaries testable without changing model schemas.
+export type FilesystemExecutionOptions = Readonly<{
+    signal?: AbortSignal
+    operations?: Readonly<{
+        stat: (path: string) => Promise<Stats>
+        readdir: (path: string, options: { withFileTypes: true }) => Promise<Dirent[]>
+        readFile: (path: string, options: { signal?: AbortSignal | undefined }) => Promise<Buffer>
+    }>
+}>
+
+const defaultOperations: NonNullable<FilesystemExecutionOptions['operations']> = {
+    stat,
+    readdir,
+    readFile: fsReadFile,
+}
 
 export type ListFilesResult =
     | {
@@ -132,9 +150,13 @@ const comparePaths = (left: string, right: string): number => {
 
 export const listFiles = async (
     workspaceRoot: string,
-    arguments_: ListFilesArguments
+    arguments_: ListFilesArguments,
+    options: FilesystemExecutionOptions = {}
 ): Promise<ListFilesResult> => {
-    const directoryDecision = await resolveWorkspacePath(workspaceRoot, arguments_.path)
+    const { signal } = options
+    const operations = options.operations ?? defaultOperations
+    checkOperationSignal(signal)
+    const directoryDecision = await resolveWorkspacePath(workspaceRoot, arguments_.path, signal)
 
     if (directoryDecision.decision === 'deny') {
         return {
@@ -143,8 +165,10 @@ export const listFiles = async (
         }
     }
 
-    const directoryStats = await stat(directoryDecision.absolutePath)
+    checkOperationSignal(signal)
+    const directoryStats = await operations.stat(directoryDecision.absolutePath)
 
+    checkOperationSignal(signal)
     if (!directoryStats.isDirectory()) {
         throw new Error(`List path must be a directory: ${directoryDecision.relativePath}`)
     }
@@ -152,9 +176,12 @@ export const listFiles = async (
     const listedPaths: string[] = []
 
     const visitDirectory = async (absoluteDirectoryPath: string): Promise<void> => {
-        const entries = await readdir(absoluteDirectoryPath, { withFileTypes: true })
+        checkOperationSignal(signal)
+        const entries = await operations.readdir(absoluteDirectoryPath, { withFileTypes: true })
 
+        checkOperationSignal(signal)
         for (const entry of entries) {
+            checkOperationSignal(signal)
             // Discovery avoids vendor-tree expansion and symlink cycles or aliases. Explicit
             // symlink paths are still canonicalized safely by resolveWorkspacePath.
             if (entry.name === 'node_modules' || entry.isSymbolicLink()) {
@@ -163,9 +190,11 @@ export const listFiles = async (
 
             const entryDecision = await resolveWorkspacePath(
                 workspaceRoot,
-                join(absoluteDirectoryPath, entry.name)
+                join(absoluteDirectoryPath, entry.name),
+                signal
             )
 
+            checkOperationSignal(signal)
             if (entryDecision.decision === 'deny') {
                 continue
             }
@@ -206,6 +235,7 @@ export const listFiles = async (
     })
 
     for (const listedPath of listedPaths) {
+        checkOperationSignal(signal)
         const truncationMetadata = output.add(listedPath)
 
         if (truncationMetadata !== null) {
@@ -226,9 +256,17 @@ export const listFiles = async (
 
 export const searchCode = async (
     workspaceRoot: string,
-    arguments_: SearchCodeArguments
+    arguments_: SearchCodeArguments,
+    options: FilesystemExecutionOptions = {}
 ): Promise<SearchCodeResult> => {
-    const searchPathDecision = await resolveWorkspacePath(workspaceRoot, arguments_.path ?? '.')
+    const { signal } = options
+    const operations = options.operations ?? defaultOperations
+    checkOperationSignal(signal)
+    const searchPathDecision = await resolveWorkspacePath(
+        workspaceRoot,
+        arguments_.path ?? '.',
+        signal
+    )
 
     if (searchPathDecision.decision === 'deny') {
         return {
@@ -237,7 +275,9 @@ export const searchCode = async (
         }
     }
 
-    const searchPathStats = await stat(searchPathDecision.absolutePath)
+    checkOperationSignal(signal)
+    const searchPathStats = await operations.stat(searchPathDecision.absolutePath)
+    checkOperationSignal(signal)
     const searchCandidates: SearchCandidate[] = []
 
     const addFile = (absolutePath: string, relativePath: string): void => {
@@ -254,9 +294,12 @@ export const searchCode = async (
     }
 
     const visitDirectory = async (absoluteDirectoryPath: string): Promise<void> => {
-        const entries = await readdir(absoluteDirectoryPath, { withFileTypes: true })
+        checkOperationSignal(signal)
+        const entries = await operations.readdir(absoluteDirectoryPath, { withFileTypes: true })
 
+        checkOperationSignal(signal)
         for (const entry of entries) {
+            checkOperationSignal(signal)
             // Discovery avoids vendor-tree expansion and symlink cycles or aliases. Explicit
             // symlink paths are still canonicalized safely by resolveWorkspacePath.
             if (entry.name === 'node_modules' || entry.isSymbolicLink()) {
@@ -265,9 +308,11 @@ export const searchCode = async (
 
             const entryDecision = await resolveWorkspacePath(
                 workspaceRoot,
-                join(absoluteDirectoryPath, entry.name)
+                join(absoluteDirectoryPath, entry.name),
+                signal
             )
 
+            checkOperationSignal(signal)
             if (entryDecision.decision === 'deny') {
                 continue
             }
@@ -302,9 +347,11 @@ export const searchCode = async (
     })
 
     for (const candidate of searchCandidates) {
+        checkOperationSignal(signal)
         // Search is a best-effort text scan, so non-text candidates are skipped. readFile
         // reports the same conditions when the caller explicitly requests that file.
-        const contents = await fsReadFile(candidate.absolutePath)
+        const contents = await operations.readFile(candidate.absolutePath, { signal })
+        checkOperationSignal(signal)
 
         if (contents.includes(0)) {
             continue
@@ -321,6 +368,7 @@ export const searchCode = async (
         const lines = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n').split('\n')
 
         for (const [lineIndex, line] of lines.entries()) {
+            checkOperationSignal(signal)
             if (!line.includes(arguments_.query)) {
                 continue
             }
@@ -348,9 +396,13 @@ export const searchCode = async (
 
 export const readFile = async (
     workspaceRoot: string,
-    arguments_: ReadFileArguments
+    arguments_: ReadFileArguments,
+    options: FilesystemExecutionOptions = {}
 ): Promise<ReadFileResult> => {
-    const fileDecision = await resolveWorkspacePath(workspaceRoot, arguments_.path)
+    const { signal } = options
+    const operations = options.operations ?? defaultOperations
+    checkOperationSignal(signal)
+    const fileDecision = await resolveWorkspacePath(workspaceRoot, arguments_.path, signal)
 
     if (fileDecision.decision === 'deny') {
         return {
@@ -359,13 +411,16 @@ export const readFile = async (
         }
     }
 
-    const fileStats = await stat(fileDecision.absolutePath)
+    checkOperationSignal(signal)
+    const fileStats = await operations.stat(fileDecision.absolutePath)
 
+    checkOperationSignal(signal)
     if (!fileStats.isFile()) {
         throw new Error(`Read path must be a file: ${fileDecision.relativePath}`)
     }
 
-    const contents = await fsReadFile(fileDecision.absolutePath)
+    const contents = await operations.readFile(fileDecision.absolutePath, { signal })
+    checkOperationSignal(signal)
 
     if (contents.includes(0)) {
         throw new Error(`Cannot read binary file: ${fileDecision.relativePath}`)
@@ -417,6 +472,7 @@ export const readFile = async (
     })
 
     for (const [lineIndex, line] of selectedLines.entries()) {
+        checkOperationSignal(signal)
         const truncationMetadata = output.add(`${startLine + lineIndex}:${line}`)
 
         if (truncationMetadata !== null) {
