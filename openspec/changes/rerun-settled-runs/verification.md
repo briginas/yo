@@ -373,3 +373,41 @@ provider tests claim no native arrival-window semantics, changed-file/patch
 consent integration, held cancellation cleanup, PTY/physical-keyboard testing,
 live provider, full-suite verification, or human result acceptance. Current
 specs and the unapproved validation draft remain unchanged.
+
+## Task 4.3: present workspace and fresh patch consent
+
+On 2026-10-03, `src/cli-rerun-workspace.test.ts` exercises `runCli`, the actual
+conversation/agent loop, and real read/patch tools in temporary workspaces with
+a faux provider. No production change was needed. This follows pi's exact-edit
+preparation against present file content, with yo's separate explicit consent.
+
+- A source read is followed by an external edit and a rerun read. The new result
+  contains current bytes; the historical result remains in context exactly once.
+- A source patch is approved with `y` and its applied bytes are checked before
+  an external addition. Rerun prepares a distinct proposal against that current
+  base. Exact complete display diffs and base/next hashes are checked, as are the
+  preview and unchanged file bytes at each approval read. Fresh `yes` applies
+  only the new edits; fresh `N` leaves all current bytes intact, including the
+  previously applied edit and external addition.
+- Each proposal has its own call association and ordered preparation/review/
+  resolution/application evidence. Prior results appear once, proposal IDs and
+  approval responses are absent from model context, and no temporary files remain.
+- Non-TTY source and rerun patches each prepare a distinct proposal and deny
+  without any approval input read. The subsequent ordinary task and exit remain
+  available to chat, and the file remains unchanged.
+
+Checks and self-review:
+
+- `node --test src/cli-rerun-workspace.test.ts`: **5 passed, 0 failed**.
+- `node --test src/cli-rerun-workspace.test.ts src/cli-rerun-execution.test.ts src/cli-rerun.test.ts src/cli-app.test.ts src/terminal-approval.test.ts src/runtime/conversation.test.ts src/runtime/patch-approval.test.ts`:
+  **108 passed, 0 failed**, including nested cases.
+- `npm run build`, `npm run format:check`, and `git diff --check`: passed.
+- Self-review checked fresh proposal identity/current hashes, full-preview order,
+  separate terminal consent, historical result counts, shared scripted input
+  ownership, and fixture cleanup. No implementation defect was found.
+
+Task 4.3 is scoped-checked and self-reviewed. The input adapter supplies explicit
+scripted arrival identities; this is not native arrival-window, PTY, physical
+keyboard, live-provider, cancellation-race, or full-suite evidence. Tasks 4.4
+onward remain pending; these checks do not imply human result acceptance or
+synchronize current specifications.
