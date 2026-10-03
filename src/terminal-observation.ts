@@ -20,6 +20,15 @@ const outcomeLabel = (record: RunRecord): string =>
     record.summary.status === 'aborted' && record.summary.stopReason === 'aborted'
         ? 'cancelled'
         : record.summary.status
+const rerunLabels = (record: RunRecord): string[] =>
+    record.rerun === null
+        ? []
+        : [`Rerun of #${record.rerun.sourceId}`, 'Context: current conversation']
+const formatHeader = (record: RunRecord): string =>
+    [
+        `Run #${record.summary.id}: ${record.summary.taskPreview} | start=${startLabel(record)}`,
+        ...rerunLabels(record),
+    ].join(' | ')
 const callNumber = (record: RunRecord, step: number | null, callId: string | null): string => {
     if (callId === null) return ''
     const index = record.calls.findIndex((call) => call.step === step && call.callId === callId)
@@ -63,6 +72,7 @@ const formatResultCard = (record: RunRecord): string => {
     })
     return [
         `Run #${record.summary.id} result: ${outcomeLabel(record)}`,
+        ...rerunLabels(record),
         `Elapsed: ${elapsedLabel(record)}`,
         'Evidence:',
         `Stop reason: ${result.stopReason}`,
@@ -81,9 +91,11 @@ export const formatObservationList = (history: ObservationHistory): string =>
         'Session runs:',
         ...(history.length === 0
             ? ['No runs yet.']
-            : history.map(
-                  (item) =>
-                      `- #${item.summary.id} ${item.summary.taskPreview} | ${outcomeLabel(item)} | start=${startLabel(item)} elapsed=${elapsedLabel(item)} | reason=${item.summary.stopReason ?? 'pending'}`
+            : history.map((item) =>
+                  [
+                      `- #${item.summary.id} ${item.summary.taskPreview} | ${outcomeLabel(item)} | start=${startLabel(item)} elapsed=${elapsedLabel(item)} | reason=${item.summary.stopReason ?? 'pending'}`,
+                      ...rerunLabels(item),
+                  ].join(' | ')
               )),
         OBSERVATION_USAGE,
     ].join('\n')
@@ -98,7 +110,7 @@ export const formatObservationInspection = (history: ObservationHistory, id: num
         return `Run #${id} is not settled.\n${OBSERVATION_USAGE}`
     }
     return [
-        `Run #${id}: ${record.summary.taskPreview} | start=${startLabel(record)}`,
+        formatHeader(record),
         'Events:',
         ...(record.feed.length === 0
             ? ['(none)']
@@ -144,9 +156,7 @@ export const createTerminalObservationView = (
     writeOutput: TerminalTextWriter
 ): ObservationView => ({
     start: (record) => {
-        output.writeLine(
-            `Run #${record.summary.id}: ${record.summary.taskPreview} | start=${startLabel(record)}`
-        )
+        output.writeLine(formatHeader(record))
         output.writeProgress(formatObservationState(record))
     },
     event: (record, row) => {

@@ -6,7 +6,7 @@ import {
     finalizeRunRecord,
     failRunRecord,
 } from './run-observation.ts'
-import { createTerminalStatusOutput } from './terminal-renderer.ts'
+import { createTerminalRenderer, createTerminalStatusOutput } from './terminal-renderer.ts'
 import {
     createTerminalObservationView,
     formatObservationResult,
@@ -18,6 +18,164 @@ import {
 
 const clock = { wallTimeMs: new Date(2026, 9, 2, 12, 0, 0).getTime(), monotonicTimeMs: 100 }
 const base = () => createRunRecord(1, 'Inspect repository', clock)
+
+test('rerun labels remain durable from live header to result without duplicating the live answer', () => {
+    for (const isInteractive of [true, false]) {
+        const lines: string[] = []
+        const cards: string[] = []
+        const answers: string[] = []
+        const controls: string[] = []
+        const output = createTerminalStatusOutput({
+            write: (line) => lines.push(line),
+            clearLine: () => controls.push('clear'),
+            moveCursorToStart: () => controls.push('cursor'),
+            isInteractive,
+        })
+        const view = createTerminalObservationView(output, (card) => cards.push(card))
+        const renderer = createTerminalRenderer({
+            writeAnswer: (answer) => answers.push(answer),
+            writeStatus: () => undefined,
+            writeError: () => assert.fail('unexpected rendering error'),
+            isInteractive,
+        })
+        let record = createRunRecord(3, 'Inspect repository', clock, {
+            sourceId: 1,
+            contextPolicy: 'current_conversation',
+        })
+        view.start(record)
+        assert.equal(
+            lines[0],
+            'Run #3: Inspect repository | start=12:00:00 | Rerun of #1 | Context: current conversation\n'
+        )
+        for (const event of [
+            { type: 'model_requested', step: 1, metadata: { model: null, visibleTools: [] } },
+            { type: 'final_answer_delta', delta: 'Fresh answer' },
+            { type: 'final_answer', answer: 'Fresh answer' },
+        ] as const) {
+            renderer.onEvent(event)
+            const previousLength = record.feed.length
+            record = projectRunEvent(record, 3, event, { ...clock, monotonicTimeMs: 125 })
+            view.event(record, record.feed.length > previousLength ? record.feed.at(-1)! : null)
+        }
+        const settled = finalizeRunRecord(
+            record,
+            3,
+            { status: 'completed', stopReason: 'final_answer', finalAnswer: 'Fresh answer' },
+            { ...clock, monotonicTimeMs: 200 }
+        )
+        renderer.finishAnswer('Fresh answer')
+        view.settled(settled, [settled])
+        assert.equal(answers.join(''), 'Fresh answer\n\n')
+        assert.match(
+            cards[0]!,
+            /Run #3 result: completed\nRerun of #1\nContext: current conversation/
+        )
+        assert.match(cards[0]!, /Elapsed: 0\.100s/)
+        assert.match(
+            cards[0]!,
+            /- #3 Inspect repository \| completed \|.*elapsed=0\.100s.*\| Rerun of #1 \| Context: current conversation/
+        )
+        assert.doesNotMatch(lines.join('') + cards.join(''), /Fresh answer|\u001b/)
+        assert.equal(controls.length > 0, isInteractive)
+        if (!isInteractive) assert.ok(lines.every((line) => line.endsWith('\n')))
+        const inspection = formatObservationInspection([settled], 3)
+        assert.match(inspection, /Rerun of #1 \| Context: current conversation\nEvents:/)
+        assert.match(inspection, /Retained answer:\nFresh answer/)
+        assert.equal(inspection.split('Fresh answer').length - 1, 1)
+        assert.match(inspection, /Elapsed: 0\.100s/)
+    }
+})
+
+test('rerun chains display direct sources while inspection preserves source evidence and frozen timing', () => {
+    const first = finalizeRunRecord(
+        base(),
+        1,
+        { status: 'aborted', stopReason: 'aborted', finalAnswer: null },
+        { ...clock, monotonicTimeMs: 200 }
+    )
+    const sourceInspection = formatObservationInspection([first], 1)
+    const second = finalizeRunRecord(
+        createRunRecord(2, 'Inspect repository', clock, {
+            sourceId: 1,
+            contextPolicy: 'current_conversation',
+        }),
+        2,
+        { status: 'failed', stopReason: 'transport_error', finalAnswer: null },
+        { ...clock, monotonicTimeMs: 300 }
+    )
+    const third = finalizeRunRecord(
+        createRunRecord(3, 'Inspect repository', clock, {
+            sourceId: 2,
+            contextPolicy: 'current_conversation',
+        }),
+        3,
+        { status: 'completed', stopReason: 'final_answer', finalAnswer: 'New answer' },
+        { ...clock, monotonicTimeMs: 400 }
+    )
+    const history = [first, second, third]
+    const before = structuredClone(history)
+    const listRows = formatObservationList(history).split('\n')
+    assert.doesNotMatch(listRows[1]!, /Rerun of|Context:/)
+    assert.match(listRows[2]!, /Rerun of #1 \| Context: current conversation/)
+    assert.match(listRows[3]!, /Rerun of #2 \| Context: current conversation/)
+    const inspection = formatObservationInspection(history, 3)
+    assert.match(inspection, /Rerun of #2/)
+    assert.doesNotMatch(inspection, /Rerun of #1|transport_error|cancelled/)
+    assert.match(inspection, /Elapsed: 0\.300s/)
+    const afterLateEvent = projectRunEvent(
+        third,
+        3,
+        { type: 'model_requested', step: 2, metadata: { model: null, visibleTools: [] } },
+        { ...clock, monotonicTimeMs: 10_000 }
+    )
+    assert.equal(formatObservationInspection([first, second, afterLateEvent], 3), inspection)
+    assert.equal(formatObservationInspection(history, 1), sourceInspection)
+    assert.deepEqual(history, before)
+})
+
+test('rerun presentation uses bounded sanitized previews and unavailable timing', () => {
+    for (const task of ['\u001b[31m' + '😀'.repeat(200) + '\nRAW TASK TAIL', 'Bearer secret']) {
+        const record = finalizeRunRecord(
+            createRunRecord(2, task, clock, {
+                sourceId: 1,
+                contextPolicy: 'current_conversation',
+            }),
+            2,
+            {
+                status: 'completed',
+                stopReason: 'final_answer',
+                finalAnswer: 'Bearer secret answer',
+            },
+            clock
+        )
+        const unavailable = { ...record, timingAvailable: false }
+        const lines: string[] = []
+        const output = createTerminalStatusOutput({
+            write: (line) => lines.push(line),
+            clearLine: () => assert.fail('non-TTY cursor clearing'),
+            moveCursorToStart: () => assert.fail('non-TTY cursor movement'),
+            isInteractive: false,
+        })
+        createTerminalObservationView(output, () => undefined).start(unavailable)
+        const list = formatObservationList([unavailable])
+        const result = formatObservationResult(unavailable, [unavailable])
+        const inspection = formatObservationInspection([unavailable], 2)
+        for (const rendered of [lines[0]!, list, result, inspection]) {
+            assert.match(rendered, /Rerun of #1/)
+            assert.match(rendered, /Context: current conversation/)
+            assert.doesNotMatch(rendered, /secret|Bearer|RAW TASK TAIL|\u001b|12:00:00|0\.000s/)
+            assert.ok(rendered.includes(record.summary.taskPreview))
+        }
+        assert.equal([...record.summary.taskPreview].length <= 160, true)
+        if (task.startsWith('Bearer')) assert.equal(record.summary.taskPreview, '<redacted>')
+        else assert.equal(record.summary.taskPreview, '😀'.repeat(159) + '…')
+        assert.match(lines[0]!, /start=unavailable/)
+        assert.match(list, /elapsed=unavailable/)
+        assert.match(result, /Elapsed: unavailable/)
+        assert.match(inspection, /Retained answer:\n<redacted>/)
+        assert.match(inspection, /Elapsed: unavailable/)
+    }
+})
 
 test('TTY and non-TTY show requested cancellation until settlement and retain applied evidence', () => {
     for (const isInteractive of [true, false]) {

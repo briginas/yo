@@ -26,7 +26,7 @@ spec synchronization and archive. Record evidence in this change's
 
 - [x] 3.1 Move ordinary run allocation into the trusted catalog in `src/cli-app.ts` and pass explicit identity to `src/observation-session.ts` before invocation; update observation and CLI tests to verify unchanged ordinary numbering, rejected/inspection input consuming no numbers, synchronous events, and active-controller installation before callbacks.
 - [x] 3.2 Add immutable numeric source and fixed context-policy provenance to `src/run-observation.ts` creation/projection/settlement and accept it through observation-session; focused tests must verify direct links, source immutability, no raw task/action metadata retained, late callbacks, and clock/projection failures without affecting execution eligibility.
-- [ ] 3.3 Render source/policy labels in rerun headers, result cards, list rows, and inspection using `src/terminal-observation.ts`; focused formatter/view tests must verify ordinary output compatibility, safe long/redacted previews, frozen timing, answer nonduplication, and durable non-TTY output.
+- [x] 3.3 Render source/policy labels in rerun headers, result cards, list rows, and inspection using `src/terminal-observation.ts`; focused formatter/view tests must verify ordinary output compatibility, safe long/redacted previews, frozen timing, answer nonduplication, and durable non-TTY output.
 - [ ] 3.4 Record the allocator migration and safe display contract with focused CLI/observation tests and build/format/diff checks in `verification.md`; review identity/event association and ensure display has no task-selection authority before marking the group complete.
 
 ## 4. Explicit rerun through the existing turn path

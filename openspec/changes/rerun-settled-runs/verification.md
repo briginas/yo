@@ -230,3 +230,31 @@ presentation within yo's smaller in-memory scope.
 Task 3.2 is scoped-checked and agent-reviewed. Source/policy formatting (3.3),
 group 3 consolidated review (3.4), and CLI rerun execution (group 4) remain
 pending; these checks do not record human acceptance.
+
+## Task 3.3: rerun presentation
+
+On 2026-10-03, the terminal observation formatter gained shared source/policy
+labels for rerun live headers, result cards, list rows, and retained inspection:
+`Rerun of #N` and `Context: current conversation`. Ordinary records render
+exactly as before. The formatter reads only retained safe display data and adds
+no command routing, execution lookup, clock sampling, or input ownership. This
+keeps pi's session/presentation separation within yo's textual output scope.
+
+- `node --test src/terminal-observation.test.ts`: **13 passed, 0 failed**.
+- `node --test src/terminal-observation.test.ts src/run-observation.test.ts src/observation-session.test.ts src/cli-observation.test.ts src/terminal-renderer.test.ts`:
+  **94 passed, 0 failed**.
+- `npm run build`, `npm run format:check`, and `git diff --check`: passed after
+  formatting the two changed source files.
+- Review checked the ordinary exact-output assertions, fixed policy wording,
+  direct source links in rerun chains, unchanged source inspection, late-event
+  timing freeze, 160-character Unicode previews, sensitive-marker redaction,
+  unavailable timing, and durable non-TTY labels with no cursor controls.
+- The live-answer test uses the existing answer renderer: the answer is delivered
+  once, absent from the automatic result/list, and shown once when retained
+  inspection is explicitly requested. Existing observation regression tests
+  continue to cover ordered call association and safe patch/error evidence.
+
+Task 3.3 is scoped-checked and agent-reviewed. Group 3 consolidation (3.4) and
+CLI rerun routing/execution (group 4) remain pending. These formatter tests do
+not claim an enabled CLI command, new PTY/physical-keyboard evidence, live
+provider verification, full-suite verification, or human result acceptance.
