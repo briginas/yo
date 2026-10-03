@@ -9,6 +9,8 @@ import { createRunEventSnapshot } from './runtime/agent-loop.ts'
 import type { RunEventSnapshot } from './runtime/run.ts'
 import { createTerminalObservationView } from './terminal-observation.ts'
 import { createTerminalStatusOutput } from './terminal-renderer.ts'
+import { createChatRunCatalog } from './chat-runs.ts'
+import { projectRunEvent } from './run-observation.ts'
 
 const started = createRunEventSnapshot({
     type: 'run_started',
@@ -31,6 +33,158 @@ const emptyView: ObservationView = {
     event: () => undefined,
     settled: () => undefined,
 }
+
+test('rerun chains preserve direct provenance and source evidence across callbacks and failures', () => {
+    const session = createObservationSession({
+        clocks: { wallTime: () => 1000, monotonicTime: () => 100 },
+        view: emptyView,
+        onRuntimeEvent: () => undefined,
+        diagnose: () => undefined,
+    })
+    const source = session.begin(1, 'Source')
+    source.onEvent(model)
+    source.onEvent({
+        type: 'patch_applied',
+        step: 1,
+        callId: 'patch',
+        metadata: {
+            proposalId: 'private-proposal',
+            relativePath: 'src/main.ts',
+            baseHash: 'base',
+            nextHash: 'next',
+            addedLineCount: 1,
+            removedLineCount: 1,
+        },
+    })
+    session.settle(1, { status: 'aborted', stopReason: 'aborted', finalAnswer: null })
+    const frozenSource = structuredClone(session.getHistory()[0]!)
+    const provenance = { sourceId: 1, contextPolicy: 'current_conversation' as const }
+    const rerun = session.begin(2, 'Source', provenance)
+    provenance.sourceId = 99
+    rerun.onEvent(model)
+    source.onEvent(started)
+    session.settle(1, complete)
+    session.settle(2, complete)
+    const frozenRerun = structuredClone(session.getHistory()[1]!)
+    const child = session.begin(3, 'Source', {
+        sourceId: 2,
+        contextPolicy: 'current_conversation',
+    })
+    source.onEvent(model)
+    rerun.onEvent(model)
+    session.fail(2)
+    child.onEvent(model)
+    session.fail(3)
+    const history = session.getHistory()
+    assert.deepEqual(history[0], frozenSource)
+    assert.deepEqual(history[1], frozenRerun)
+    assert.equal(history[0]?.rerun, null)
+    assert.deepEqual(
+        history.slice(1).map((record) => record.rerun),
+        [
+            { sourceId: 1, contextPolicy: 'current_conversation' },
+            { sourceId: 2, contextPolicy: 'current_conversation' },
+        ]
+    )
+    assert.deepEqual(
+        history.slice(1).map((record) => record.feed[0]?.runId),
+        [2, 3]
+    )
+    const beforeLate = structuredClone(history)
+    child.onEvent(started)
+    session.settle(3, complete)
+    assert.deepEqual(session.getHistory(), beforeLate)
+})
+
+test('rerun clock and projection failures leave catalog eligibility and receipts authoritative', () => {
+    for (const failure of ['clock', 'projection'] as const) {
+        const catalog = createChatRunCatalog()
+        const source = catalog.reserveTask('  Bearer private exact task  ')
+        assert.equal(source.type, 'accepted')
+        if (source.type !== 'accepted') throw new Error('Expected source')
+        const diagnostics: ObservationDiagnostic[] = []
+        const delivered: RunEventSnapshot[] = []
+        const session = createObservationSession({
+            clocks: {
+                wallTime: () => {
+                    if (failure === 'clock') throw new Error('private clock')
+                    return 1000
+                },
+                monotonicTime: () => 100,
+            },
+            view: emptyView,
+            onRuntimeEvent: (event) => delivered.push(event),
+            diagnose: (value) => diagnostics.push(value),
+            ...(failure === 'projection'
+                ? {
+                      projectEvent: () => {
+                          throw new Error('private projection')
+                      },
+                  }
+                : {}),
+        })
+        session.begin(source.run.id, source.run.task)
+        catalog.settle(1, complete)
+        session.settle(1, complete)
+        const before = structuredClone(session.getHistory()[0]!)
+        const reservation = catalog.reserveRerun(1, 7)
+        assert.equal(reservation.type, 'accepted')
+        if (reservation.type !== 'accepted') throw new Error('Expected rerun')
+        const { run } = reservation
+        const observer = session.begin(run.id, run.task, run.rerun)
+        observer.onEvent(model)
+        assert.deepEqual(delivered, [model])
+        assert.equal(run.task, source.run.task)
+        assert.equal(catalog.reserveRerun(2, 8).type, 'rejected')
+        catalog.settle(run.id, complete)
+        session.settle(run.id, complete)
+        assert.equal(catalog.reserveRerun(1, 7).type, 'duplicate')
+        assert.equal(catalog.reserveRerun(2, 8).type, 'accepted')
+        assert.deepEqual(session.getHistory()[0], before)
+        const observed = session.getHistory()[1]!
+        assert.deepEqual(observed.rerun, { sourceId: 1, contextPolicy: 'current_conversation' })
+        assert.equal(observed.summary.taskPreview, '<redacted>')
+        assert.equal(observed.summary.status, 'completed')
+        assert.equal(observed.timingAvailable, failure !== 'clock')
+        assert.ok(diagnostics.includes(failure === 'clock' ? 'clock_failed' : 'projection_failed'))
+        assert.doesNotMatch(JSON.stringify(observed), /private|windowId/)
+    }
+})
+
+test('display consumers and projection replacements cannot rewrite a run source link', () => {
+    const mutationResults: boolean[] = []
+    const attemptReplacement = (record: Parameters<ObservationView['start']>[0]): void => {
+        mutationResults.push(
+            Reflect.set(record, 'rerun', { sourceId: 99, contextPolicy: 'current_conversation' })
+        )
+    }
+    const session = createObservationSession({
+        clocks: { wallTime: () => 1000, monotonicTime: () => 100 },
+        view: {
+            start: attemptReplacement,
+            event: attemptReplacement,
+            settled: attemptReplacement,
+        },
+        projectEvent: (...args) => ({
+            ...projectRunEvent(...args),
+            rerun: { sourceId: 99, contextPolicy: 'current_conversation' },
+        }),
+        onRuntimeEvent: () => undefined,
+        diagnose: () => undefined,
+    })
+    const run = session.begin(2, 'Source', {
+        sourceId: 1,
+        contextPolicy: 'current_conversation',
+    })
+    run.onEvent(model)
+    session.settle(2, complete)
+    attemptReplacement(session.getHistory()[0]!)
+    assert.deepEqual(mutationResults, [false, false, false, false])
+    assert.deepEqual(session.getHistory()[0]?.rerun, {
+        sourceId: 1,
+        contextPolicy: 'current_conversation',
+    })
+})
 
 test('reentrant cancellation during header or event writes remains visible while cleanup is held', async () => {
     for (const isInteractive of [true, false]) {

@@ -206,3 +206,27 @@ live-provider verification, or a full repository runtime test run. Tasks 2.1–2
 are implemented, scoped-checked, and agent-reviewed; group 3 is the next authorized
 implementation group. Human completed-result acceptance is still pending; main
 specs are unchanged and this change remains active.
+
+## Task 3.2: safe observation provenance
+
+On 2026-10-03, `RunRecord.rerun` gained a detached frozen copy of only the
+positive safe-integer `sourceId` and literal `current_conversation` policy.
+`begin(id, task, rerun?)` accepts this display metadata; ordinary records use
+null. Record roots and session timing copies are shallow-frozen so display
+consumers cannot replace the link, and injected projections retain the original
+provenance. Review caught and fixed root-field replacement after the initial
+nested-object freeze. This preserves pi's separation of session control and
+presentation within yo's smaller in-memory scope.
+
+- `node --test src/run-observation.test.ts src/observation-session.test.ts src/chat-runs.test.ts`:
+  **41 passed, 0 failed**.
+- Adding `src/terminal-observation.test.ts`: **51 passed, 0 failed**.
+- `npm run build`, `npm run format:check`, and `git diff --check`: passed.
+- Tests cover caller mutation and extra raw task/action fields, direct chains,
+  all terminal settlements and CLI failure, late callbacks, retained applied
+  patch/cancelled source evidence, consumer replacement attempts, and clock or
+  projection failure without changing catalog eligibility or receipts.
+
+Task 3.2 is scoped-checked and agent-reviewed. Source/policy formatting (3.3),
+group 3 consolidated review (3.4), and CLI rerun execution (group 4) remain
+pending; these checks do not record human acceptance.

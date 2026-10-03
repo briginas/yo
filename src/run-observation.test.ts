@@ -2,11 +2,13 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
     createRunRecord,
+    failRunRecord,
     finalizeRunRecord,
     projectRunEvent,
     updateObservedRun,
     type RunRecord,
 } from './run-observation.ts'
+import type { RerunProvenance } from './chat-runs.ts'
 import type { RunEventSnapshot } from './runtime/run.ts'
 import type { ToolResultStatus } from './runtime/tools.ts'
 
@@ -53,6 +55,81 @@ const metadata = {
     addedLineCount: 1,
     removedLineCount: 1,
 }
+
+test('rerun provenance is a detached immutable allowlist through projection and settlement', () => {
+    assert.equal(initial().rerun, null)
+    const supplied = {
+        sourceId: 2,
+        contextPolicy: 'current_conversation' as const,
+        task: 'private complete task',
+        windowId: 7,
+        action: { line: '/rerun 2', windowId: 7 },
+        transcript: ['private messages'],
+        proposal: { contents: 'private patch' },
+        approval: 'approved',
+    }
+    const record = createRunRecord(3, 'Visible task', clock(100), supplied)
+    assert.deepEqual(record.rerun, { sourceId: 2, contextPolicy: 'current_conversation' })
+    assert.notEqual(record.rerun, supplied)
+    assert.ok(Object.isFrozen(record.rerun))
+    supplied.sourceId = 99
+    Object.assign(supplied, { contextPolicy: 'private policy' })
+    supplied.transcript.push('later message')
+    const projected = project(record, request('new-call'))
+    assert.equal(Reflect.set(record, 'rerun', null), false)
+    assert.equal(Reflect.set(projected, 'rerun', supplied), false)
+    assert.equal(projected.rerun, record.rerun)
+    assert.equal(projected.rerun?.sourceId, 2)
+    assert.throws(() => Object.assign(projected.rerun!, { sourceId: 99 }), TypeError)
+    for (const [status, stopReason] of [
+        ['completed', 'final_answer'],
+        ['failed', 'transport_error'],
+        ['aborted', 'aborted'],
+        ['aborted', 'step_budget_exhausted'],
+    ] as const) {
+        const settled = finalizeRunRecord(
+            projected,
+            3,
+            { status, stopReason, finalAnswer: null },
+            clock(150)
+        )
+        assert.equal(settled.rerun, record.rerun)
+        assert.equal(Reflect.set(settled, 'rerun', null), false)
+        assert.equal(project(settled, request('late'), 999), settled)
+        assert.equal(settle(settled, 999), settled)
+        assert.doesNotMatch(
+            JSON.stringify(settled),
+            /private|windowId|action|transcript|proposal|approval"/
+        )
+    }
+    const failed = failRunRecord(projected, 3, clock(150))
+    assert.equal(failed.rerun, record.rerun)
+    assert.equal(Reflect.set(failed, 'rerun', null), false)
+})
+
+test('rerun provenance rejects invalid numbers and context policies without retaining raw fields', () => {
+    for (const sourceId of [0, -1, 1.5, Infinity, NaN, Number.MAX_SAFE_INTEGER + 1, '1']) {
+        assert.throws(() =>
+            createRunRecord(2, 'Task', clock(100), {
+                sourceId,
+                contextPolicy: 'current_conversation',
+            } as RerunProvenance)
+        )
+    }
+    assert.throws(() =>
+        createRunRecord(2, 'Task', clock(100), {
+            sourceId: 1,
+            contextPolicy: 'private policy',
+        } as unknown as RerunProvenance)
+    )
+    assert.equal(
+        createRunRecord(2, 'Task', clock(100), {
+            sourceId: Number.MAX_SAFE_INTEGER,
+            contextPolicy: 'current_conversation',
+        }).rerun?.sourceId,
+        Number.MAX_SAFE_INTEGER
+    )
+})
 
 test('cancellation stays running and sticky through operation evidence with one request row', () => {
     const original = initial()

@@ -11,6 +11,7 @@ import {
     type SettledSession,
 } from './run-observation.ts'
 import type { RunEventObserver } from './runtime/run.ts'
+import type { RerunProvenance } from './chat-runs.ts'
 
 export type ObservationClocks = Readonly<{
     wallTime: () => number
@@ -33,7 +34,8 @@ export type ObservationSessionOptions = Readonly<{
 export type ObservationSession = Readonly<{
     begin: (
         id: RunIdentity,
-        task: string
+        task: string,
+        rerun?: RerunProvenance | null
     ) => Readonly<{ id: RunIdentity; onEvent: RunEventObserver }>
     observerFor: (id: RunIdentity) => RunEventObserver
     settle: (id: RunIdentity, session: SettledSession, beforeResult?: () => void) => void
@@ -112,10 +114,12 @@ export const createObservationSession = ({
                 isolated(() => {
                     const time = sample()
                     const next = projectEvent(record, id, event, time.value)
-                    projection.record = {
+                    // Provenance is fixed at creation, even when an injected projection replaces it.
+                    projection.record = Object.freeze({
                         ...next,
+                        rerun: record.rerun,
                         timingAvailable: record.timingAvailable && time.available,
-                    }
+                    })
                     save(projection.record)
                 }, 'projection_failed')
                 // The answer observer still receives the snapshot if projection or rendering fails.
@@ -145,7 +149,10 @@ export const createObservationSession = ({
                 session === null
                     ? failRunRecord(record, id, time.value)
                     : finalizeRunRecord(record, id, session, time.value)
-            const timed = { ...next, timingAvailable: record.timingAvailable && time.available }
+            const timed = Object.freeze({
+                ...next,
+                timingAvailable: record.timingAvailable && time.available,
+            })
             save(timed)
             if (timed.summary.status !== 'running') {
                 if (beforeResult !== undefined) isolated(beforeResult, 'observer_failed')
@@ -153,12 +160,12 @@ export const createObservationSession = ({
             }
         })
     return {
-        begin: (id, task) => {
+        begin: (id, task, rerun = null) => {
             const time = sample()
-            const record = {
-                ...createRunRecord(id, task, time.value),
+            const record = Object.freeze({
+                ...createRunRecord(id, task, time.value, rerun),
                 timingAvailable: time.available,
-            }
+            })
             history = [...history, record]
             const onEvent = observerFor(id)
             enqueue(() => isolated(() => view.start(record), 'rendering_failed'))

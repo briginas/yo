@@ -1,5 +1,6 @@
 import { normalize, relative, resolve } from 'node:path'
 import { z } from 'zod'
+import type { RerunProvenance } from './chat-runs.ts'
 import type { RunEventSnapshot, SessionState, StopReason } from './runtime/run.ts'
 import type { PatchApprovalDecision, PatchConflict } from './runtime/patch-contracts.ts'
 import {
@@ -66,6 +67,7 @@ type CallSummary = Readonly<{
 }>
 export type RunRecord = Readonly<{
     summary: RunSummary
+    rerun: RerunProvenance | null
     // False means fallback numeric clock values must not be presented as measured time.
     timingAvailable: boolean
     workspaceRoot: string | null
@@ -80,6 +82,13 @@ export type RunRecord = Readonly<{
 }>
 export type ObservationHistory = readonly RunRecord[]
 export type SettledSession = Pick<SessionState, 'status' | 'stopReason' | 'finalAnswer'>
+
+const rerunProvenanceSchema = z
+    .object({
+        sourceId: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+        contextPolicy: z.literal('current_conversation'),
+    })
+    .loose()
 
 const truncationSchema = z
     .object({
@@ -128,12 +137,27 @@ const elapsed = (record: RunRecord, sample: ClockSample): number =>
         ? Math.max(record.summary.elapsedMs, 0, sample.monotonicTimeMs - record.startedMonotonicMs)
         : record.summary.elapsedMs
 
-export const createRunRecord = (id: RunIdentity, task: string, sample: ClockSample): RunRecord => {
+export const createRunRecord = (
+    id: RunIdentity,
+    task: string,
+    sample: ClockSample,
+    rerun: RerunProvenance | null = null
+): RunRecord => {
     if (!Number.isSafeInteger(id) || id < 1) throw new Error('Run number must be positive')
     if (!Number.isFinite(sample.wallTimeMs) || !Number.isFinite(sample.monotonicTimeMs)) {
         throw new Error('Initial clock sample must be finite')
     }
-    return {
+    const parsed = rerun === null ? null : rerunProvenanceSchema.safeParse(rerun)
+    if (parsed !== null && !parsed.success) throw new Error('Invalid rerun provenance')
+    const provenance =
+        parsed?.success === true
+            ? Object.freeze({
+                  sourceId: parsed.data.sourceId,
+                  contextPolicy: parsed.data.contextPolicy,
+              })
+            : null
+    return Object.freeze<RunRecord>({
+        rerun: provenance,
         summary: {
             id,
             taskPreview: safeText(task),
@@ -153,7 +177,7 @@ export const createRunRecord = (id: RunIdentity, task: string, sample: ClockSamp
         errors: [],
         approvals: [],
         result: null,
-    }
+    })
 }
 
 export const projectRunEvent = (
@@ -303,7 +327,7 @@ export const projectRunEvent = (
             outcome = event.reason
             break
     }
-    return {
+    return Object.freeze<RunRecord>({
         ...record,
         workspaceRoot,
         summary: {
@@ -330,7 +354,7 @@ export const projectRunEvent = (
                 outcome,
             },
         ],
-    }
+    })
 }
 
 export const finalizeRunRecord = (
@@ -353,7 +377,7 @@ export const finalizeRunRecord = (
         session.stopReason === 'transport_error'
             ? [...record.errors, { step: null, callId: null, reason: 'transport_error' as const }]
             : record.errors
-    return {
+    return Object.freeze<RunRecord>({
         ...record,
         summary: {
             ...record.summary,
@@ -377,7 +401,7 @@ export const finalizeRunRecord = (
             errors,
             approvals: record.approvals,
         },
-    }
+    })
 }
 
 // Explicit run identity prevents an old observer from updating a newer active run.
@@ -403,7 +427,7 @@ export const failRunRecord = (
         ...record.errors,
         { step: null, callId: null, reason: 'cli_turn_error' },
     ]
-    return {
+    return Object.freeze<RunRecord>({
         ...record,
         summary: {
             ...record.summary,
@@ -423,5 +447,5 @@ export const failRunRecord = (
             errors,
             approvals: record.approvals,
         },
-    }
+    })
 }
