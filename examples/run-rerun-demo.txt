@@ -1,0 +1,470 @@
+Deterministic faux interactive rerun demo; native readline, local fixture, no OAuth/network.
+yo> "  Read and patch answer.ts  "
+Run #1: Read and patch answer.ts | start=15:00:00
+state: run=1 starting elapsed=0.000s
+event: run=1 #1 run_started
+state: run=1 starting elapsed=0.000s
+event: run=1 #2 model_requested step=1
+state: run=1 model elapsed=0.000s
+event: run=1 #3 model_responded step=1
+state: run=1 tools elapsed=0.025s
+event: run=1 #4 tool_requested step=1 call=1 tool=read_file
+state: run=1 tools elapsed=0.025s
+event: run=1 #5 tool_authorized step=1 call=1 tool=read_file outcome=allow
+state: run=1 tools elapsed=0.025s
+event: run=1 #6 tool_completed step=1 call=1 tool=read_file outcome=success
+state: run=1 tools elapsed=0.025s
+event: run=1 #7 model_requested step=2
+state: run=1 model elapsed=0.025s
+event: run=1 #8 model_responded step=2
+state: run=1 tools elapsed=0.050s
+event: run=1 #9 tool_requested step=2 call=2 tool=propose_patch
+state: run=1 tools elapsed=0.050s
+event: run=1 #10 tool_authorized step=2 call=2 tool=propose_patch outcome=allow
+state: run=1 tools elapsed=0.050s
+event: run=1 #11 patch_prepared step=2 call=2 tool=propose_patch outcome=prepared
+state: run=1 tools elapsed=0.050s
+event: run=1 #12 patch_approval_requested step=2 call=2 tool=propose_patch outcome=waiting
+state: run=1 approval elapsed=0.050s
+Patch proposal: answer.ts
+--- answer.ts
++++ answer.ts
+-export const answer = 42
++export const answer = 43
+
+Apply this patch? [y/N] [SOURCE_REVIEW: Ctrl+C]
+[Ctrl+C cancels source review; old proposal has no consent]
+event: run=1 #13 run_cancellation_requested
+state: run=1 cancellation requested elapsed=0.050s
+event: run=1 #14 patch_approval_resolved step=2 call=2 tool=propose_patch outcome=aborted
+state: run=1 cancellation requested elapsed=0.050s
+event: run=1 #15 tool_completed step=2 call=2 tool=propose_patch outcome=aborted
+state: run=1 cancellation requested elapsed=0.050s
+event: run=1 #16 run_finished outcome=aborted
+state: run=1 cancellation requested elapsed=0.050s
+Run #1 result: cancelled
+Elapsed: 0.050s
+Evidence:
+Stop reason: aborted
+Tools: read_file, propose_patch
+Files:
+- answer.ts
+Errors:
+- aborted step=2 call=2
+Patches:
+- answer.ts: prepared -> waiting -> aborted
+Session runs:
+- #1 Read and patch answer.ts | cancelled | start=15:00:00 elapsed=0.050s | reason=aborted
+Inspect: /run N | List: /runs | Rerun: /rerun N
+yo> "/run 1"
+Run #1: Read and patch answer.ts | start=15:00:00
+Events:
+event: run=1 #1 run_started
+event: run=1 #2 model_requested step=1
+event: run=1 #3 model_responded step=1
+event: run=1 #4 tool_requested step=1 call=1 tool=read_file
+event: run=1 #5 tool_authorized step=1 call=1 tool=read_file outcome=allow
+event: run=1 #6 tool_completed step=1 call=1 tool=read_file outcome=success
+event: run=1 #7 model_requested step=2
+event: run=1 #8 model_responded step=2
+event: run=1 #9 tool_requested step=2 call=2 tool=propose_patch
+event: run=1 #10 tool_authorized step=2 call=2 tool=propose_patch outcome=allow
+event: run=1 #11 patch_prepared step=2 call=2 tool=propose_patch outcome=prepared
+event: run=1 #12 patch_approval_requested step=2 call=2 tool=propose_patch outcome=waiting
+event: run=1 #13 run_cancellation_requested
+event: run=1 #14 patch_approval_resolved step=2 call=2 tool=propose_patch outcome=aborted
+event: run=1 #15 tool_completed step=2 call=2 tool=propose_patch outcome=aborted
+event: run=1 #16 run_finished outcome=aborted
+Retained answer:
+(no final answer)
+Run #1 result: cancelled
+Elapsed: 0.050s
+Evidence:
+Stop reason: aborted
+Tools: read_file, propose_patch
+Files:
+- answer.ts
+Errors:
+- aborted step=2 call=2
+Patches:
+- answer.ts: prepared -> waiting -> aborted
+yo> "Correction: keep the marker; use current answer.ts."
+Run #2: Correction: keep the marker; use current answer.ts. | start=15:00:00
+state: run=2 starting elapsed=0.000s
+[CORRECTION: trusted temporary-fixture edit sets 44 and adds marker]
+event: run=2 #1 run_started
+state: run=2 starting elapsed=0.000s
+event: run=2 #2 model_requested step=1
+state: run=2 model elapsed=0.000s
+event: run=2 #3 model_responded step=1
+state: run=2 finishing elapsed=0.025s
+event: run=2 #4 run_finished outcome=final_answer
+state: run=2 finishing elapsed=0.025s
+Correction retained.
+
+Run #2 result: completed
+Elapsed: 0.025s
+Evidence:
+Stop reason: final_answer
+Tools: (none)
+Files:
+- (none)
+Errors:
+- (none)
+Patches:
+- (none)
+Session runs:
+- #1 Read and patch answer.ts | cancelled | start=15:00:00 elapsed=0.050s | reason=aborted
+- #2 Correction: keep the marker; use current answer.ts. | completed | start=15:00:00 elapsed=0.025s | reason=final_answer
+Inspect: /run N | List: /runs | Rerun: /rerun N
+yo> "/rerun 1"
+" /rerun\t1 "
+Run #3: Read and patch answer.ts | start=15:00:00 | Rerun of #1 | Context: current conversation
+state: run=3 starting elapsed=0.000s
+event: run=3 #1 run_started
+state: run=3 starting elapsed=0.000s
+event: run=3 #2 model_requested step=1
+state: run=3 model elapsed=0.000s
+event: run=3 #3 model_responded step=1
+state: run=3 tools elapsed=0.025s
+event: run=3 #4 tool_requested step=1 call=1 tool=read_file
+state: run=3 tools elapsed=0.025s
+event: run=3 #5 tool_authorized step=1 call=1 tool=read_file outcome=allow
+state: run=3 tools elapsed=0.025s
+event: run=3 #6 tool_completed step=1 call=1 tool=read_file outcome=success
+state: run=3 tools elapsed=0.025s
+event: run=3 #7 model_requested step=2
+state: run=3 model elapsed=0.025s
+[RERUN_READ_WAIT: current-file read completed; model response held]
+" /rerun  1"
+[Two normalized duplicates retain arrival window 4 across settlement]
+event: run=3 #8 model_responded step=2
+state: run=3 finishing elapsed=0.050s
+event: run=3 #9 run_finished outcome=final_answer
+state: run=3 finishing elapsed=0.050s
+Current answer is 44; correction retained.
+
+Run #3 result: completed
+Rerun of #1
+Context: current conversation
+Elapsed: 0.050s
+Evidence:
+Stop reason: final_answer
+Tools: read_file
+Files:
+- answer.ts
+Errors:
+- (none)
+Patches:
+- (none)
+Session runs:
+- #1 Read and patch answer.ts | cancelled | start=15:00:00 elapsed=0.050s | reason=aborted
+- #2 Correction: keep the marker; use current answer.ts. | completed | start=15:00:00 elapsed=0.025s | reason=final_answer
+- #3 Read and patch answer.ts | completed | start=15:00:00 elapsed=0.050s | reason=final_answer | Rerun of #1 | Context: current conversation
+Inspect: /run N | List: /runs | Rerun: /rerun N
+yo> Rerun action already accepted as Run #3.
+yo> Rerun action already accepted as Run #3.
+yo> "/run 1"
+Run #1: Read and patch answer.ts | start=15:00:00
+Events:
+event: run=1 #1 run_started
+event: run=1 #2 model_requested step=1
+event: run=1 #3 model_responded step=1
+event: run=1 #4 tool_requested step=1 call=1 tool=read_file
+event: run=1 #5 tool_authorized step=1 call=1 tool=read_file outcome=allow
+event: run=1 #6 tool_completed step=1 call=1 tool=read_file outcome=success
+event: run=1 #7 model_requested step=2
+event: run=1 #8 model_responded step=2
+event: run=1 #9 tool_requested step=2 call=2 tool=propose_patch
+event: run=1 #10 tool_authorized step=2 call=2 tool=propose_patch outcome=allow
+event: run=1 #11 patch_prepared step=2 call=2 tool=propose_patch outcome=prepared
+event: run=1 #12 patch_approval_requested step=2 call=2 tool=propose_patch outcome=waiting
+event: run=1 #13 run_cancellation_requested
+event: run=1 #14 patch_approval_resolved step=2 call=2 tool=propose_patch outcome=aborted
+event: run=1 #15 tool_completed step=2 call=2 tool=propose_patch outcome=aborted
+event: run=1 #16 run_finished outcome=aborted
+Retained answer:
+(no final answer)
+Run #1 result: cancelled
+Elapsed: 0.050s
+Evidence:
+Stop reason: aborted
+Tools: read_file, propose_patch
+Files:
+- answer.ts
+Errors:
+- aborted step=2 call=2
+Patches:
+- answer.ts: prepared -> waiting -> aborted
+yo> "/run 3"
+Run #3: Read and patch answer.ts | start=15:00:00 | Rerun of #1 | Context: current conversation
+Events:
+event: run=3 #1 run_started
+event: run=3 #2 model_requested step=1
+event: run=3 #3 model_responded step=1
+event: run=3 #4 tool_requested step=1 call=1 tool=read_file
+event: run=3 #5 tool_authorized step=1 call=1 tool=read_file outcome=allow
+event: run=3 #6 tool_completed step=1 call=1 tool=read_file outcome=success
+event: run=3 #7 model_requested step=2
+event: run=3 #8 model_responded step=2
+event: run=3 #9 run_finished outcome=final_answer
+Retained answer:
+Current answer is 44; correction retained.
+Run #3 result: completed
+Rerun of #1
+Context: current conversation
+Elapsed: 0.050s
+Evidence:
+Stop reason: final_answer
+Tools: read_file
+Files:
+- answer.ts
+Errors:
+- (none)
+Patches:
+- (none)
+yo> "/rerun 1"
+Run #4: Read and patch answer.ts | start=15:00:00 | Rerun of #1 | Context: current conversation
+state: run=4 starting elapsed=0.000s
+event: run=4 #1 run_started
+state: run=4 starting elapsed=0.000s
+event: run=4 #2 model_requested step=1
+state: run=4 model elapsed=0.000s
+event: run=4 #3 model_responded step=1
+state: run=4 tools elapsed=0.025s
+event: run=4 #4 tool_requested step=1 call=1 tool=read_file
+state: run=4 tools elapsed=0.025s
+event: run=4 #5 tool_authorized step=1 call=1 tool=read_file outcome=allow
+state: run=4 tools elapsed=0.025s
+event: run=4 #6 tool_completed step=1 call=1 tool=read_file outcome=success
+state: run=4 tools elapsed=0.025s
+event: run=4 #7 model_requested step=2
+state: run=4 model elapsed=0.025s
+event: run=4 #8 model_responded step=2
+state: run=4 tools elapsed=0.050s
+event: run=4 #9 tool_requested step=2 call=2 tool=propose_patch
+state: run=4 tools elapsed=0.050s
+event: run=4 #10 tool_authorized step=2 call=2 tool=propose_patch outcome=allow
+state: run=4 tools elapsed=0.050s
+event: run=4 #11 patch_prepared step=2 call=2 tool=propose_patch outcome=prepared
+state: run=4 tools elapsed=0.050s
+event: run=4 #12 patch_approval_requested step=2 call=2 tool=propose_patch outcome=waiting
+state: run=4 approval elapsed=0.050s
+Patch proposal: answer.ts
+--- answer.ts
++++ answer.ts
+-export const answer = 44
++export const answer = 45
+
+Apply this patch? [y/N] [FRESH_REVIEW_DENY: enter /rerun 1]
+"/rerun 1"
+event: run=4 #13 patch_approval_resolved step=2 call=2 tool=propose_patch outcome=denied
+state: run=4 tools elapsed=0.050s
+event: run=4 #14 tool_completed step=2 call=2 tool=propose_patch outcome=denied
+state: run=4 tools elapsed=0.050s
+event: run=4 #15 model_requested step=3
+state: run=4 model elapsed=0.050s
+event: run=4 #16 model_responded step=3
+state: run=4 finishing elapsed=0.075s
+event: run=4 #17 run_finished outcome=final_answer
+state: run=4 finishing elapsed=0.075s
+Fresh proposal denied; answer stays 44.
+
+Run #4 result: completed
+Rerun of #1
+Context: current conversation
+Elapsed: 0.075s
+Evidence:
+Stop reason: final_answer
+Tools: read_file, propose_patch
+Files:
+- answer.ts
+Errors:
+- denied step=2 call=2
+Patches:
+- answer.ts: prepared -> waiting -> denied
+Session runs:
+- #1 Read and patch answer.ts | cancelled | start=15:00:00 elapsed=0.050s | reason=aborted
+- #2 Correction: keep the marker; use current answer.ts. | completed | start=15:00:00 elapsed=0.025s | reason=final_answer
+- #3 Read and patch answer.ts | completed | start=15:00:00 elapsed=0.050s | reason=final_answer | Rerun of #1 | Context: current conversation
+- #4 Read and patch answer.ts | completed | start=15:00:00 elapsed=0.075s | reason=final_answer | Rerun of #1 | Context: current conversation
+Inspect: /run N | List: /runs | Rerun: /rerun N
+yo> "/run 1"
+Run #1: Read and patch answer.ts | start=15:00:00
+Events:
+event: run=1 #1 run_started
+event: run=1 #2 model_requested step=1
+event: run=1 #3 model_responded step=1
+event: run=1 #4 tool_requested step=1 call=1 tool=read_file
+event: run=1 #5 tool_authorized step=1 call=1 tool=read_file outcome=allow
+event: run=1 #6 tool_completed step=1 call=1 tool=read_file outcome=success
+event: run=1 #7 model_requested step=2
+event: run=1 #8 model_responded step=2
+event: run=1 #9 tool_requested step=2 call=2 tool=propose_patch
+event: run=1 #10 tool_authorized step=2 call=2 tool=propose_patch outcome=allow
+event: run=1 #11 patch_prepared step=2 call=2 tool=propose_patch outcome=prepared
+event: run=1 #12 patch_approval_requested step=2 call=2 tool=propose_patch outcome=waiting
+event: run=1 #13 run_cancellation_requested
+event: run=1 #14 patch_approval_resolved step=2 call=2 tool=propose_patch outcome=aborted
+event: run=1 #15 tool_completed step=2 call=2 tool=propose_patch outcome=aborted
+event: run=1 #16 run_finished outcome=aborted
+Retained answer:
+(no final answer)
+Run #1 result: cancelled
+Elapsed: 0.050s
+Evidence:
+Stop reason: aborted
+Tools: read_file, propose_patch
+Files:
+- answer.ts
+Errors:
+- aborted step=2 call=2
+Patches:
+- answer.ts: prepared -> waiting -> aborted
+yo> "/rerun 1"
+Run #5: Read and patch answer.ts | start=15:00:00 | Rerun of #1 | Context: current conversation
+state: run=5 starting elapsed=0.000s
+event: run=5 #1 run_started
+state: run=5 starting elapsed=0.000s
+event: run=5 #2 model_requested step=1
+state: run=5 model elapsed=0.000s
+event: run=5 #3 model_responded step=1
+state: run=5 tools elapsed=0.025s
+event: run=5 #4 tool_requested step=1 call=1 tool=read_file
+state: run=5 tools elapsed=0.025s
+event: run=5 #5 tool_authorized step=1 call=1 tool=read_file outcome=allow
+state: run=5 tools elapsed=0.025s
+event: run=5 #6 tool_completed step=1 call=1 tool=read_file outcome=success
+state: run=5 tools elapsed=0.025s
+event: run=5 #7 model_requested step=2
+state: run=5 model elapsed=0.025s
+event: run=5 #8 model_responded step=2
+state: run=5 tools elapsed=0.050s
+event: run=5 #9 tool_requested step=2 call=2 tool=propose_patch
+state: run=5 tools elapsed=0.050s
+event: run=5 #10 tool_authorized step=2 call=2 tool=propose_patch outcome=allow
+state: run=5 tools elapsed=0.050s
+event: run=5 #11 patch_prepared step=2 call=2 tool=propose_patch outcome=prepared
+state: run=5 tools elapsed=0.050s
+event: run=5 #12 patch_approval_requested step=2 call=2 tool=propose_patch outcome=waiting
+state: run=5 approval elapsed=0.050s
+Patch proposal: answer.ts
+--- answer.ts
++++ answer.ts
+-export const answer = 44
++export const answer = 45
+
+Apply this patch? [y/N] [FRESH_REVIEW_APPROVE: enter yes]
+"yes"
+event: run=5 #13 patch_approval_resolved step=2 call=2 tool=propose_patch outcome=approved
+state: run=5 tools elapsed=0.050s
+event: run=5 #14 patch_applied step=2 call=2 tool=propose_patch outcome=applied
+state: run=5 tools elapsed=0.050s
+event: run=5 #15 tool_completed step=2 call=2 tool=propose_patch outcome=success
+state: run=5 tools elapsed=0.050s
+event: run=5 #16 model_requested step=3
+state: run=5 model elapsed=0.050s
+event: run=5 #17 model_responded step=3
+state: run=5 finishing elapsed=0.075s
+event: run=5 #18 run_finished outcome=final_answer
+state: run=5 finishing elapsed=0.075s
+Fresh consent applied 45; marker retained.
+
+Run #5 result: completed
+Rerun of #1
+Context: current conversation
+Elapsed: 0.075s
+Evidence:
+Stop reason: final_answer
+Tools: read_file, propose_patch
+Files:
+- answer.ts
+Errors:
+- (none)
+Patches:
+- answer.ts: prepared -> waiting -> approved -> applied
+Session runs:
+- #1 Read and patch answer.ts | cancelled | start=15:00:00 elapsed=0.050s | reason=aborted
+- #2 Correction: keep the marker; use current answer.ts. | completed | start=15:00:00 elapsed=0.025s | reason=final_answer
+- #3 Read and patch answer.ts | completed | start=15:00:00 elapsed=0.050s | reason=final_answer | Rerun of #1 | Context: current conversation
+- #4 Read and patch answer.ts | completed | start=15:00:00 elapsed=0.075s | reason=final_answer | Rerun of #1 | Context: current conversation
+- #5 Read and patch answer.ts | completed | start=15:00:00 elapsed=0.075s | reason=final_answer | Rerun of #1 | Context: current conversation
+Inspect: /run N | List: /runs | Rerun: /rerun N
+yo> "/runs"
+Session runs:
+- #1 Read and patch answer.ts | cancelled | start=15:00:00 elapsed=0.050s | reason=aborted
+- #2 Correction: keep the marker; use current answer.ts. | completed | start=15:00:00 elapsed=0.025s | reason=final_answer
+- #3 Read and patch answer.ts | completed | start=15:00:00 elapsed=0.050s | reason=final_answer | Rerun of #1 | Context: current conversation
+- #4 Read and patch answer.ts | completed | start=15:00:00 elapsed=0.075s | reason=final_answer | Rerun of #1 | Context: current conversation
+- #5 Read and patch answer.ts | completed | start=15:00:00 elapsed=0.075s | reason=final_answer | Rerun of #1 | Context: current conversation
+Inspect: /run N | List: /runs | Rerun: /rerun N
+yo> "/run 1"
+Run #1: Read and patch answer.ts | start=15:00:00
+Events:
+event: run=1 #1 run_started
+event: run=1 #2 model_requested step=1
+event: run=1 #3 model_responded step=1
+event: run=1 #4 tool_requested step=1 call=1 tool=read_file
+event: run=1 #5 tool_authorized step=1 call=1 tool=read_file outcome=allow
+event: run=1 #6 tool_completed step=1 call=1 tool=read_file outcome=success
+event: run=1 #7 model_requested step=2
+event: run=1 #8 model_responded step=2
+event: run=1 #9 tool_requested step=2 call=2 tool=propose_patch
+event: run=1 #10 tool_authorized step=2 call=2 tool=propose_patch outcome=allow
+event: run=1 #11 patch_prepared step=2 call=2 tool=propose_patch outcome=prepared
+event: run=1 #12 patch_approval_requested step=2 call=2 tool=propose_patch outcome=waiting
+event: run=1 #13 run_cancellation_requested
+event: run=1 #14 patch_approval_resolved step=2 call=2 tool=propose_patch outcome=aborted
+event: run=1 #15 tool_completed step=2 call=2 tool=propose_patch outcome=aborted
+event: run=1 #16 run_finished outcome=aborted
+Retained answer:
+(no final answer)
+Run #1 result: cancelled
+Elapsed: 0.050s
+Evidence:
+Stop reason: aborted
+Tools: read_file, propose_patch
+Files:
+- answer.ts
+Errors:
+- aborted step=2 call=2
+Patches:
+- answer.ts: prepared -> waiting -> aborted
+yo> "/run 5"
+Run #5: Read and patch answer.ts | start=15:00:00 | Rerun of #1 | Context: current conversation
+Events:
+event: run=5 #1 run_started
+event: run=5 #2 model_requested step=1
+event: run=5 #3 model_responded step=1
+event: run=5 #4 tool_requested step=1 call=1 tool=read_file
+event: run=5 #5 tool_authorized step=1 call=1 tool=read_file outcome=allow
+event: run=5 #6 tool_completed step=1 call=1 tool=read_file outcome=success
+event: run=5 #7 model_requested step=2
+event: run=5 #8 model_responded step=2
+event: run=5 #9 tool_requested step=2 call=2 tool=propose_patch
+event: run=5 #10 tool_authorized step=2 call=2 tool=propose_patch outcome=allow
+event: run=5 #11 patch_prepared step=2 call=2 tool=propose_patch outcome=prepared
+event: run=5 #12 patch_approval_requested step=2 call=2 tool=propose_patch outcome=waiting
+event: run=5 #13 patch_approval_resolved step=2 call=2 tool=propose_patch outcome=approved
+event: run=5 #14 patch_applied step=2 call=2 tool=propose_patch outcome=applied
+event: run=5 #15 tool_completed step=2 call=2 tool=propose_patch outcome=success
+event: run=5 #16 model_requested step=3
+event: run=5 #17 model_responded step=3
+event: run=5 #18 run_finished outcome=final_answer
+Retained answer:
+Fresh consent applied 45; marker retained.
+Run #5 result: completed
+Rerun of #1
+Context: current conversation
+Elapsed: 0.075s
+Evidence:
+Stop reason: final_answer
+Tools: read_file, propose_patch
+Files:
+- answer.ts
+Errors:
+- (none)
+Patches:
+- answer.ts: prepared -> waiting -> approved -> applied
+yo> "/exit"
+[VERIFIED: exact source task/current transcript; changed-file reads; five fresh attempts; two suppressed duplicates; denial owns command input; new full-diff yes; immutable source inspections]

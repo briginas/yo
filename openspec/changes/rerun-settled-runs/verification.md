@@ -403,3 +403,95 @@ None of these checks is a real PTY, physical-keyboard, live-provider, integrated
 rerun demonstration, or final full-suite check. Groups 5–6 remain pending.
 Current specs and the validation draft remain unchanged, and these checks do not
 record human completed-result acceptance or authorize spec synchronization/archive.
+
+## Task 5.1: repeatable integrated rerun demonstration
+
+On 2026-10-03, `examples/run-rerun-demo.ts` adds a temporary `answer.ts` fixture,
+the actual CLI/conversation/agent loop, real read/patch tools, a faux transport,
+and native `createNodeLineInput` over controlled interactive streams. The
+[captured transcript](../../../examples/run-rerun-demo.txt) is emitted by a
+successful run ending in the executable `[VERIFIED: ...]` assertion marker.
+The guide documents both modes. No runtime code, dependency, provider
+configuration, OAuth credential access, or network request was added.
+Scripted input echoes are quoted string literals so original whitespace is
+visible without introducing trailing whitespace into the captured file.
+
+### Scenario and executable evidence
+
+1. Run 1 accepts the task with its original surrounding spaces, reads 42, and
+   prepares the complete 42 → 43 diff. Ctrl+C at its approval prompt settles
+   cancellation with one aborted review/result. `/run 1` inspects it locally.
+2. Run 2 adds a corrective conversation turn. Trusted demonstration fixture
+   code changes the temporary file to 44 and adds a Unicode marker; this edit
+   is not a model-visible write capability. The old file is checked before edit.
+3. `/rerun 1` creates linked run 3 and reads the current 44 plus marker. One
+   equivalent tab-separated line arrives beside the command, and another
+   space-separated variant arrives while the model response is held. After
+   settlement both report existing run 3. Captured submission identities are
+   `[4, 4, 4, 9, 11]`, proving buffered window 4 versus deliberate fresh prompts.
+4. Fresh prompt 9 creates run 4. Its newly prepared complete 44 → 45 diff
+   receives `/rerun 1` at approval: the response denies this patch and never
+   becomes a chat command. Current bytes are checked before each review.
+5. Fresh prompt 11 creates run 5 and displays another new complete 44 → 45
+   diff. Only new `yes` applies it, retaining the corrective marker. `/runs`,
+   `/run 1`, and `/run 5` inspect retained evidence before exact `/exit`.
+
+Assertions check all five exact tasks and terminal outcomes; per-attempt request
+counts `[2, 1, 2, 3, 3]`; the entire current conversation exactly once followed
+by one exact task; and suffix-only transcript append. Command/action metadata is
+absent from all model messages. Five distinct signals and the ten-request/
+5,000 ms budgets are checked. Real structured read results retain historical 42
+and present 44/marker respectively. All three complete preview strings are
+compared exactly; review decisions are aborted/denied/approved and exactly one
+application occurs. Final file bytes equal 45 plus marker. Four `/run 1`
+inspections are byte-for-byte identical, including frozen timing and cancelled
+patch evidence. Result cards for runs 3–5 and inspection of run 3 retain the
+direct source and current-conversation labels. No error diagnostic is emitted,
+and owned keypress/error listeners return to their pre-reader counts.
+
+`--tty` uses the same fixture, faux stages, and final assertions, with printed
+`SOURCE_REVIEW`, `RERUN_READ_WAIT`, `FRESH_REVIEW_DENY`, and
+`FRESH_REVIEW_APPROVE` markers. A passive demonstration-only stdin `data` observer
+releases run 3's gate on Return, leaves the input in the native reader buffer,
+and removes its own data/end/abort listeners in `finally`. There is no second
+read owner, input consumption, timer-based deduplication, or harness change.
+This mode is prepared for task 5.2 and was **not** run through a PTY in 5.1.
+
+### Checks and review
+
+```bash
+node examples/run-rerun-demo.ts > examples/run-rerun-demo.txt
+node examples/run-rerun-demo.ts > /private/tmp/yo-rerun-demo-repeat.txt
+cmp examples/run-rerun-demo.txt /private/tmp/yo-rerun-demo-repeat.txt
+node --test src/cli-rerun-native-input.test.ts src/cli-rerun-workspace.test.ts src/cli-rerun-cancellation.test.ts src/line-input.test.ts src/terminal-approval.test.ts
+./node_modules/.bin/tsc --ignoreConfig --noEmit --strict --noUncheckedIndexedAccess --exactOptionalPropertyTypes --allowImportingTsExtensions --verbatimModuleSyntax --skipLibCheck --module ESNext --moduleResolution Bundler --target ES2024 --types node examples/run-rerun-demo.ts
+npm run build
+npm run format:check
+npm run spec:check
+git diff --check
+```
+
+- The demo ran successfully twice; captured outputs compared byte-for-byte.
+- **61 focused tests passed, 0 failed**, including nested native/consent cases.
+- Build, explicit strict example type checking, formatting, and diff checks
+  passed. Examples are outside the repository tsconfig, so their separate type
+  check uses TypeScript 7's required `--ignoreConfig` flag.
+- Strict OpenSpec validation passed **7 items, 0 failed**. Informational long
+  requirement notices remain; structural validation does not prove conformance.
+- Self-review covered actual submission ingress, source/current transcript
+  equality, held active-work input, duplicate dequeue after settlement, fresh
+  prompts, approval ownership, complete previews, current bytes, source evidence,
+  listener cleanup, and removal of the temporary fixture. One initial cleanup
+  assertion incorrectly expected Node's internal `emitKeypressEvents` data helper
+  to disappear with readline; it was corrected to test owned keypress/error
+  listeners. Explicit diff checking of the new untracked transcript also caught
+  intentional trailing spaces in input echoes; quoting those echoes preserves
+  native input bytes while keeping the captured file clean. Parent review of
+  demo assertions, the passive gate, and the transcript found no further issue.
+  All 19 local link paths in the affected guide/evidence files exist. No runtime
+  defect or expanded capability was found.
+
+Task 5.1 is scoped-checked and agent-reviewed; task 5.2 is next. This evidence is
+controlled-stream integrated demonstration, not real PTY, physical-keyboard,
+live-provider, or final full-suite verification. No completed-result acceptance,
+spec synchronization, archive, or validation-draft approval is inferred.

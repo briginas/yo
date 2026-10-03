@@ -145,8 +145,8 @@ adapter lacking arrival identities rejects rerun locally; ordinary tasks and
 inspection remain available. These controls follow pi's session-owned submission
 and terminal-action separation within yo's sequential, in-memory scope. See the
 [rerun design](openspec/changes/rerun-settled-runs/design.md) and
-[verification](openspec/changes/rerun-settled-runs/verification.md); integrated
-demonstration, PTY checks, and final result acceptance remain pending.
+[verification](openspec/changes/rerun-settled-runs/verification.md); PTY checks,
+final verification, and result acceptance remain pending.
 
 ## Current draft and migration boundary
 
@@ -199,6 +199,21 @@ and patch-review recovery steps. Both modes use a temporary fixture and faux
 provider without OAuth or network; PTY coverage and remaining physical-keyboard/
 live-provider limits are recorded in the
 [archived cancellation verification](openspec/changes/archive/2026-10-02-cancel-active-runs/verification.md).
+
+Run `node examples/run-rerun-demo.ts` for an asserted native-readline scenario:
+cancel source review, inspect it, correct context and fixture bytes, rerun with
+buffered normalized duplicates, and deliberately repeat at fresh prompts.
+Command-like approval input denies a new complete diff; only a fresh `yes`
+applies it. The [captured transcript](examples/run-rerun-demo.txt) includes
+unchanged source inspection and a final assertion marker. The correction writes
+only the demonstration's temporary fixture through trusted setup code, not a
+model tool. No OAuth, network, or provider configuration is needed.
+For a real local terminal, run `node examples/run-rerun-demo.ts --tty` and follow
+its exact instructions. A passive demo gate observes Return during run 3 and
+leaves that line buffered in the sole native reader; it creates no extra read
+owner and removes its listener before settlement. Both modes execute the same
+final assertions and remove the fixture on exit. Task 5.1 verifies only controlled
+streams; task 5.2 owns actual PTY evidence and coverage limits.
 
 The architecture follows pi's separation of
 [session ownership](../pi/packages/coding-agent/src/core/agent-session.ts),
