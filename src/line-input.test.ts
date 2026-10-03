@@ -47,12 +47,14 @@ const createFakeLineInput = (lines: readonly FakeLine[]) => {
 test('filters blank input and exact exit locally while preserving accepted lines', async () => {
     const fixture = createFakeLineInput(['', '   ', '\t', 'Inspect this.', ' /exit ', '/exit'])
     const messages: string[] = []
+    const windows: (number | undefined)[] = []
     let clearProgressCount = 0
 
     const reason = await runChatInput({
         input: fixture.input,
-        onMessage: async (message) => {
+        onMessage: async (message, windowId) => {
             messages.push(message)
+            windows.push(windowId)
         },
         clearProgress: () => {
             clearProgressCount += 1
@@ -61,6 +63,7 @@ test('filters blank input and exact exit locally while preserving accepted lines
 
     assert.equal(reason, 'exit')
     assert.deepEqual(messages, ['Inspect this.', ' /exit '])
+    assert.deepEqual(windows, [undefined, undefined])
     assert.deepEqual(
         fixture.prompts,
         Array.from({ length: 6 }, () => CHAT_PROMPT)
@@ -187,6 +190,156 @@ const nodeInputFixture = (isInteractive = false) => {
     const input = createNodeLineInput({ input: stream, output, isInteractive })
     return { stream, input }
 }
+
+test('chat input prefers supplied arrival identities and preserves local filtering', async () => {
+    const submissions = [
+        { line: '\t  ', windowId: 10 },
+        { line: '  task\t ', windowId: 10 },
+        { line: ' /exit ', windowId: 3 },
+        { line: '/exit', windowId: 12 },
+    ]
+    const received: { line: string; windowId: number | undefined }[] = []
+    let closeCount = 0
+    const reason = await runChatInput({
+        input: {
+            readChatSubmission: async () => submissions.shift() ?? null,
+            readLine: async () => {
+                assert.fail('chat must use the envelope reader')
+            },
+            close: () => {
+                closeCount += 1
+            },
+        },
+        onMessage: async (line, windowId) => {
+            received.push({ line, windowId })
+        },
+        clearProgress: () => undefined,
+    })
+    assert.equal(reason, 'exit')
+    assert.deepEqual(received, [
+        { line: '  task\t ', windowId: 10 },
+        { line: ' /exit ', windowId: 3 },
+    ])
+    assert.equal(closeCount, 1)
+})
+
+test('chat input awaits settlement and carries buffered versus fresh native windows', async () => {
+    for (const isInteractive of [false, true]) {
+        const stream = new PassThrough()
+        let promptCount = 0
+        const output = new Writable({
+            write(chunk, _encoding, callback) {
+                if (chunk.toString() === CHAT_PROMPT) {
+                    promptCount += 1
+                    if (promptCount === 1) stream.write('  first  \n')
+                    if (promptCount === 3) stream.write('fresh\n')
+                    if (promptCount === 4) stream.write('/exit\n')
+                }
+                callback()
+            },
+        })
+        const input = createNodeLineInput({ input: stream, output, isInteractive })
+        const received: { line: string; windowId: number | undefined }[] = []
+        let release!: () => void
+        const settlement = new Promise<void>((resolve) => {
+            release = resolve
+        })
+        let started!: () => void
+        const firstStarted = new Promise<void>((resolve) => {
+            started = resolve
+        })
+        const running = runChatInput({
+            input,
+            onMessage: async (line, windowId) => {
+                received.push({ line, windowId })
+                if (received.length === 1) {
+                    started()
+                    await settlement
+                }
+            },
+            clearProgress: () => undefined,
+        })
+        await firstStarted
+        stream.write('buffered while working\n')
+        await new Promise<void>((resolve) => setImmediate(resolve))
+        assert.equal(promptCount, 1)
+        assert.deepEqual(received, [{ line: '  first  ', windowId: 1 }])
+        release()
+        assert.equal(await running, 'exit')
+        assert.deepEqual(received, [
+            { line: '  first  ', windowId: 1 },
+            { line: 'buffered while working', windowId: 1 },
+            { line: 'fresh', windowId: 3 },
+        ])
+    }
+})
+
+test('chat input drains native EOF envelopes including final partial text', async () => {
+    for (const isInteractive of [false, true]) {
+        const { stream, input } = nodeInputFixture(isInteractive)
+        stream.end('  one  \n\t\n /exit \nlast partial')
+        await new Promise<void>((resolve) => setImmediate(resolve))
+        const received: { line: string; windowId: number | undefined }[] = []
+        assert.equal(
+            await runChatInput({
+                input,
+                onMessage: async (line, windowId) => {
+                    received.push({ line, windowId })
+                },
+                clearProgress: () => undefined,
+            }),
+            'eof'
+        )
+        assert.deepEqual(received, [
+            { line: '  one  ', windowId: 0 },
+            { line: ' /exit ', windowId: 0 },
+            { line: 'last partial', windowId: 0 },
+        ])
+    }
+})
+
+test('chat input yields the shared reader to approval without opening another window', async () => {
+    for (const isInteractive of [false, true]) {
+        const stream = new PassThrough()
+        let chatPrompts = 0
+        const output = new Writable({
+            write(chunk, _encoding, callback) {
+                if (chunk.toString() === CHAT_PROMPT) {
+                    chatPrompts += 1
+                    if (chatPrompts === 1) stream.write('task\n')
+                    if (chatPrompts === 3) stream.write('/exit\n')
+                }
+                callback()
+            },
+        })
+        const input = createNodeLineInput({ input: stream, output, isInteractive })
+        const received: { line: string; windowId: number | undefined }[] = []
+        assert.equal(
+            await runChatInput({
+                input,
+                onMessage: async (line, windowId) => {
+                    received.push({ line, windowId })
+                    if (received.length === 1) {
+                        const approval = input.readLine('approval> ')
+                        await assert.rejects(
+                            input.readChatSubmission!(CHAT_PROMPT),
+                            /Input already has an owner/
+                        )
+                        assert.equal(chatPrompts, 1)
+                        stream.write('yes\nqueued task\n')
+                        assert.equal(await approval, 'yes')
+                    }
+                },
+                clearProgress: () => undefined,
+            }),
+            'exit'
+        )
+        assert.deepEqual(received, [
+            { line: 'task', windowId: 1 },
+            { line: 'queued task', windowId: 1 },
+        ])
+    }
+})
 
 test('chat submissions preserve startup arrival identity across later prompts', async () => {
     for (const isInteractive of [false, true]) {

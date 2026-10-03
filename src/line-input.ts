@@ -35,7 +35,7 @@ export type CreateNodeLineInputOptions = {
 
 export type RunChatInputOptions = {
     input: LineInput
-    onMessage: (message: string) => Promise<void>
+    onMessage: (message: string, windowId?: number) => Promise<void>
     clearProgress: () => void
 }
 
@@ -218,7 +218,11 @@ export const runChatInput = async ({
 }: RunChatInputOptions): Promise<ChatInputStopReason> => {
     try {
         while (true) {
-            const line = await input.readLine(CHAT_PROMPT)
+            const submission =
+                input.readChatSubmission === undefined
+                    ? { line: await input.readLine(CHAT_PROMPT), windowId: undefined }
+                    : await input.readChatSubmission(CHAT_PROMPT)
+            const line = submission?.line ?? null
 
             if (line === null) {
                 return 'eof'
@@ -232,7 +236,7 @@ export const runChatInput = async ({
                 continue
             }
 
-            await onMessage(line)
+            await onMessage(line, submission?.windowId)
         }
     } finally {
         try {

@@ -16,7 +16,7 @@ still require bounded confirmation. Record evidence in this change's
 ## 2. Input arrival identity with one shared reader
 
 - [x] 2.1 Add an additive chat submission read carrying `{ line, windowId }` to `src/line-input.ts`, keeping approval `readLine` string results and one pending owner; use native-stream tests to verify identity assigned at arrival, startup buffering, and identity retained across later dequeue/prompt creation.
-- [ ] 2.2 Carry the submission identity through `runChatInput` while preserving a legacy-reader fallback for ordinary input; focused input tests must verify fresh post-settlement windows, whitespace, EOF draining, exact `/exit`, no overlapping chat/approval reads, and no identity assigned at dequeue for legacy adapters.
+- [x] 2.2 Carry the submission identity through `runChatInput` while preserving a legacy-reader fallback for ordinary input; focused input tests must verify fresh post-settlement windows, whitespace, EOF draining, exact `/exit`, no overlapping chat/approval reads, and no identity assigned at dequeue for legacy adapters.
 - [ ] 2.3 Preserve envelope cleanup on cancellation, input error, and close, including partial native readline state and late approval resolution; verify existing line-input/terminal-approval/CLI-cancellation suites plus new tests for buffered envelopes and shared ownership in interactive and noninteractive modes.
 - [ ] 2.4 Document the input contract, legacy rerun rejection policy, buffered versus fresh semantics, and group 2 focused/build/format/diff checks in `verification.md`; review the native-reader evidence before marking the group complete.
 
