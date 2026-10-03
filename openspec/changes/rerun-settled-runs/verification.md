@@ -524,3 +524,70 @@ This is native readline/stream evidence, not a real PTY, physical
 keyboard, live-provider, failure-injection, demonstration, or full-suite check.
 Tasks 4.6 onward remain pending. Current specifications and the unapproved
 validation draft are unchanged; these results do not record human acceptance.
+
+## Task 4.6: rerun observation failure isolation
+
+On 2026-10-03, `src/cli-rerun-observation.test.ts` exercises accepted rerun through
+`runCli`, the real controller/conversation/agent loop, and `list_files` with a
+faux transport and temporary workspace. Controlled submission envelopes select
+arrival windows without claiming native input evidence. The only production
+change is optional typed `CliDependencies.observationProjectEvent` wiring to the
+existing observation-session projector seam. Its default is unchanged; it adds
+no CLI flag, runtime configuration, dependency, tool, or execution authority.
+A throwing projector receives valid runtime snapshots instead of relying on
+malformed events to reach the exception boundary. This follows pi's separation
+of session-owned execution from terminal consumers within yo's sequential scope.
+
+- Six cases inject start/feed/result rendering failure, synchronous streaming
+  answer-observer failure, settlement answer-fallback failure, projection failure,
+  clock failure, and throwing diagnostics combined with clock/projector failure.
+  Rendering, clock, and diagnostic cases assert that failure was actually reached
+  during acceptance, synchronous runtime events, and settlement. Each case checks
+  the corresponding fixed safe diagnostic, and clock failures label timing
+  unavailable rather than inventing measured fallback timing.
+- A long exact whitespace/Unicode source and an intervening correction precede
+  accepted run 3. Its initial conversation equals run 2's settled conversation;
+  its first request contains those two earlier tasks once followed by the exact
+  full source task. All requests, returned turn results (including transcript,
+  events, permission decisions and tool results), and final session equal the
+  matching failure-free control. Streaming uses a streaming control to compare
+  the same legitimate delta events. All five turns retain fresh distinct signals
+  and the existing ten-request/5,000 ms budget.
+- Duplicates in window 7 and window 9 report precisely runs 3 and 4 without new
+  requests or suffixes. A deliberate window 9 action creates run 4, then selecting
+  settled run 3 creates run 5 with direct source 3. Exactly five turns and ten
+  requests execute; no run 6 exists. This checks catalog reservation, persistent
+  receipts and runtime-confirmed eligibility despite display failures, including
+  failures before invocation and after returned settlement.
+- Source inspection is identical before and after the failed display attempt,
+  including its frozen nonzero timing, events, answer and result. A late source
+  callback during active rerun cannot change that evidence. Later callbacks to
+  both settled source 1 and rerun 3 try cancellation, answer delivery and a changed
+  final outcome; they cause no clock sample, consumer output or diagnostic, and
+  both repeated inspections remain identical. Rerun 3 retains its own completed
+  answer and direct provenance even if event projection or output failed.
+
+Checks and self-review:
+
+- `node --test src/cli-rerun-observation.test.ts`: **7 passed, 0 failed**, including
+  six nested failure cases.
+- `node --test src/cli-rerun-observation.test.ts src/cli-rerun.test.ts src/cli-rerun-execution.test.ts src/cli-rerun-workspace.test.ts src/cli-rerun-cancellation.test.ts src/cli-rerun-native-input.test.ts src/observation-session.test.ts src/cli-observation.test.ts src/chat-runs.test.ts`:
+  **116 passed, 0 failed**, including nested cases.
+- `npm run build`, `npm run format:check`, `npm run spec:check`, and
+  `git diff --check`: passed. Strict specification validation reports seven
+  valid items, with existing informational long-requirement notices.
+- Self-review checked the optional seam's unchanged default and absence from CLI
+  configuration, callback ordering, reached failure phases, matched streaming
+  controls, receipt/number/request/suffix accounting, full source/current context,
+  independent signals/budgets, immutable inspections and late-consumer guards.
+  The initial test compared streamed events with a nonstreaming control; matching
+  that control corrected the assertion. No implementation defect was found.
+
+Parent review checked optional dependency wiring, fault-suite structure, matched
+control results and source-inspection assertions and found no issues. Task 4.6 is
+scoped-checked and reviewed; commit remains with the parent. Refreshed apply
+instructions confirm **18/25** tasks complete, with task 4.7 next.
+This is deterministic faux-provider failure-injection evidence,
+not PTY, physical-keyboard, live-provider, or full-suite verification. Task 4.7
+onward remains pending. Current specs and the unapproved validation draft remain
+unchanged; this does not record human result acceptance.

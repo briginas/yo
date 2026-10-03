@@ -13,7 +13,11 @@ import { parseCliCommand, USAGE } from './cli-command.ts'
 import { parseObservationCommand } from './observation-command.ts'
 import { parseRerunCommand } from './rerun-command.ts'
 import { createChatRunCatalog, type ChatRunReservation } from './chat-runs.ts'
-import { createObservationSession, type ObservationClocks } from './observation-session.ts'
+import {
+    createObservationSession,
+    type ObservationClocks,
+    type ObservationSessionOptions,
+} from './observation-session.ts'
 import {
     createTerminalObservationView,
     formatObservationDiagnostic,
@@ -43,6 +47,7 @@ const RUN_BUDGET = {
 export type CliDependencies = {
     transport: ModelTransport
     observationClocks?: ObservationClocks
+    observationProjectEvent?: ObservationSessionOptions['projectEvent']
     runTurn?: typeof runConversationTurn
     writeOutput: (message: string) => void
     writeError: (message: string) => void
@@ -270,6 +275,7 @@ type ChatDependencies = TerminalDependencies & {
     writeOutput: CliDependencies['writeOutput']
     createLineInput: () => LineInput
     observationClocks: ObservationClocks
+    observationProjectEvent?: ObservationSessionOptions['projectEvent']
     runTurn: typeof runConversationTurn
     subscribeProcessInterrupt: (listener: () => void) => () => void
 }
@@ -294,6 +300,7 @@ const runChat = async ({
     moveStatusCursorToStart,
     isInteractive,
     observationClocks,
+    observationProjectEvent,
     runTurn,
     subscribeProcessInterrupt,
 }: RunChatOptions): Promise<CliResult> => {
@@ -307,6 +314,7 @@ const runChat = async ({
     })
     const observations = createObservationSession({
         clocks: observationClocks,
+        ...(observationProjectEvent === undefined ? {} : { projectEvent: observationProjectEvent }),
         view: createTerminalObservationView(statusOutput, writeOutput),
         onRuntimeEvent: renderer.onEvent,
         diagnose: (diagnostic) => writeError(formatObservationDiagnostic(diagnostic)),
@@ -497,6 +505,7 @@ export const runCli = async (
     {
         transport,
         observationClocks,
+        observationProjectEvent,
         runTurn,
         writeOutput,
         writeError,
@@ -583,6 +592,7 @@ export const runCli = async (
             wallTime: Date.now,
             monotonicTime: () => performance.now(),
         },
+        observationProjectEvent,
         runTurn: runTurn ?? runConversationTurn,
         subscribeProcessInterrupt:
             subscribeProcessInterrupt ??
