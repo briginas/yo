@@ -343,7 +343,7 @@ test('renders a deterministic header, one ordered feed, and textual activity wit
             '- (none)',
             'Session runs:',
             '- #1 Inspect repository | completed | start=12:00:00 elapsed=0.100s | reason=final_answer',
-            'Inspect: /run N | List: /runs',
+            'Inspect: /run N | List: /runs | Rerun: /rerun N',
         ].join('\n')
     )
     assert.doesNotMatch(cards.join(''), /Do not print|\u001b/)

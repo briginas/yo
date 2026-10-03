@@ -54,8 +54,8 @@ separation within yo's sequential scope.
 The user explicitly accepted the verified result and authorized closure with
 “it's ok. go” on 2026-10-02. Only verified cancellation deltas were synchronized;
 the archive preserves earlier staged evidence and its coverage limits.
-The explicit rerun planning artifacts below are prepared; groups 1–3 are
-scoped-checked. The user subsequently authorized the remaining rerun implementation
+The explicit rerun planning artifacts below are prepared; groups 1–4 are
+implemented, scoped-checked, and agent-reviewed. The user authorized the remaining rerun implementation
 tasks with one subagent and commit per task; completed-result acceptance remains
 separate.
 
@@ -66,7 +66,7 @@ separate.
    [deltas](openspec/changes/rerun-settled-runs/specs/), and
    [tasks](openspec/changes/rerun-settled-runs/tasks.md) are prepared for review.
    The user requested planning on 2026-10-03 and selected **current conversation**
-   context. Proposed `/rerun N` creates a new numbered run linked to its settled
+   context. Implemented `/rerun N` creates a new numbered run linked to its settled
    source, repeats the exact task using current workspace state, retains the
    earlier attempt, and requires fresh patch consent. Arrival-window receipts
    prevent buffered duplicates while permitting a deliberate later attempt.
@@ -82,12 +82,17 @@ separate.
    safe source/policy provenance to observation and all four display surfaces.
    It passes 120 focused CLI/cancellation/observation/catalog tests plus build,
    formatting, strict OpenSpec validation, diff checks, and agent review.
-   Tasks 1.1–3.4 are checked; CLI rerun is not yet enabled. The next candidate is
-   group 4: explicit rerun through the existing turn path. Groups 4–6 remain
-   unchecked; completed-result acceptance is still required before synchronization
-   or archive. Later integration must still verify source immutability, changed
-   files, terminal source outcomes,
-   repeated native input, fresh patch consent, and no automatic retry.
+   Group 4 enables command routing through the existing turn path and verifies
+   exact tasks/current context, all settled source outcomes, fresh budgets and
+   signals, changed-file reads, new complete-diff consent, cancellation settlement,
+   source immutability, native arrival-window deduplication, and display-failure
+   isolation. Local help and [usage](CONTRIBUTING.md#chat-commands-and-rerun) describe
+   these controls. Tasks 1.1–4.7 are checked after scoped checks and agent review;
+   the consolidated [group 4 evidence](openspec/changes/rerun-settled-runs/verification.md#group-4-cli-execution-usage-and-review)
+   records results and limits. The next candidate is task 5.1: the repeatable faux
+   rerun demonstration. Group 5 still requires that demonstration, real local PTY
+   checks, and final full-suite/requirement review. Groups 5–6 remain unchecked;
+   completed-result acceptance is required before synchronization or archive.
 2. **Allowlisted validation:** the imported
    [proposal](openspec/changes/allowlisted-validation/proposal.md),
    [design](openspec/changes/allowlisted-validation/design.md),

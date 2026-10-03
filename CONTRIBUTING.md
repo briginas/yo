@@ -86,6 +86,68 @@ flowchart LR
     Sync --> Maps
 ```
 
+## Chat commands and rerun
+
+Start `yo --cwd <workspace>` and enter tasks at `yo>`. The result card and `/runs`
+list show the local command hints:
+
+| Command    | Between-turn action                                                      |
+| ---------- | ------------------------------------------------------------------------ |
+| `/runs`    | List this chat's runs without a model request.                           |
+| `/run N`   | Inspect retained evidence for settled run N without executing it.        |
+| `/rerun N` | Submit the exact original task of settled run N as a new linked run.     |
+| `/exit`    | Exit this chat; this line must be exact, without surrounding whitespace. |
+
+`N` is one positive safe-integer decimal number without a leading zero.
+`/runs`, `/run N`, and `/rerun N` accept surrounding whitespace and space/tab
+separators; their tokens are lowercase. Missing/invalid numbers, extra arguments,
+and unavailable or unsettled selections produce local diagnostics without a new
+run, transcript entry, or model request. Lookalikes such as `/RERUN 1` and
+`/rerunner` remain ordinary tasks. History and run numbers exist only in this
+chat process. Completed, transport-failed, cancelled, and budget-exhausted runs
+can be rerun once they settle.
+
+For example, after task 1 and a corrective task 2, `/rerun 1` creates run 3 using
+the **current conversation**: both earlier turns and their structured results
+appear exactly once, followed by task 1's full original text, including its
+whitespace, and only the new attempt's suffix. The command and input identity do
+not enter model messages. Run 3 shows `Rerun of #1` and
+`Context: current conversation`; rerunning run 3 links the next attempt directly
+to 3. Source evidence, outcomes, and frozen timing stay unchanged.
+
+Earlier file observations are historical context. The model is not forced to
+reread every file, but every new read uses present workspace bytes. Rerun restores
+no file snapshot and replays no old calls or proposals. Previously applied patches
+stay applied. A new patch is prepared against current bytes, displays its complete
+diff, and needs fresh affirmative consent; prior approval cannot authorize it.
+Denial leaves the current bytes unchanged. At a patch approval prompt,
+`/rerun N` is consumed as a nonaffirmative response that denies the displayed patch;
+it is never queued as a later chat command.
+
+Each attempt receives a fresh ten-request budget, 5,000 ms per-tool execution
+timeout, and cancellation controller. Review time is excluded from that timeout.
+Ctrl+C requests cancellation during work, and the next chat prompt waits for
+settlement and cleanup. Failure or cancellation schedules no automatic retry.
+
+The native reader assigns each arriving line to the latest chat prompt's input
+window, including lines buffered during work; startup buffered lines share the
+initial window. Equivalent `/rerun N` lines for the same source in one window
+share one action receipt. A buffered duplicate dequeued after settlement reports
+the existing attempt without another model request or transcript suffix. To make
+a deliberate additional attempt, enter the command after a fresh post-settlement
+prompt opens. Different selected sources are separate actions, and ordinary tasks
+are never deduplicated. Buffered ordinary tasks, inspection, and EOF retain ordered
+handling; this rule does not depend on typing speed or timers.
+
+Non-TTY input with arrival identities can rerun tasks, but cannot grant patch
+consent: new proposals are denied without reading approval input. A legacy input
+adapter lacking arrival identities rejects rerun locally; ordinary tasks and
+inspection remain available. These controls follow pi's session-owned submission
+and terminal-action separation within yo's sequential, in-memory scope. See the
+[rerun design](openspec/changes/rerun-settled-runs/design.md) and
+[verification](openspec/changes/rerun-settled-runs/verification.md); integrated
+demonstration, PTY checks, and final result acceptance remain pending.
+
 ## Current draft and migration boundary
 
 [Allowlisted validation](openspec/changes/allowlisted-validation/proposal.md)

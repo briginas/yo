@@ -111,8 +111,11 @@ test('ordinary repeated tasks keep increasing numbers across empty and rejected 
             ['1', '2']
         )
         assert.match(state.output[0]!, /No runs yet/)
+        assert.match(state.output[0]!, /Inspect: \/run N \| List: \/runs \| Rerun: \/rerun N/)
         assert.match(state.output[1]!, /Run #1 is unavailable/)
+        assert.match(state.output[1]!, /Rerun: \/rerun N/)
         assert.match(state.output.at(-1)!, /Run #2 result: completed/)
+        assert.match(state.output.at(-1)!, /Rerun: \/rerun N/)
         assert.doesNotMatch(state.output.join(''), /Run #3|#3 Same task/)
         assert.deepEqual(state.errors, [])
     } finally {

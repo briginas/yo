@@ -37,7 +37,7 @@ spec synchronization and archive. Record evidence in this change's
 - [x] 4.4 Add cancellation/approval integration tests for source review cancellation then fresh rerun consent, cancellation of a rerun with held cleanup, and completion/cancellation arbitration; verify no early prompt, no reused signal, no automatic retry, and immutable source inspection including applied-patch/cancelled evidence.
 - [x] 4.5 Exercise native arrival envelopes with duplicated normalized rerun lines before/during work and dequeued after settlement, then deliberate fresh-window input; verify one attempt/request stream per action, mixed ordinary/inspection/exit ordering, EOF drain, and command-like approval input denying without queued replay.
 - [x] 4.6 Inject synchronous observation, renderer, projection, clock, and diagnostic failures during acceptance/settlement; verify one catalog reservation/receipt and normal runtime authority, then compare source inspections before/after and check late callbacks cannot alter either settled run.
-- [ ] 4.7 Add command help and rerun usage to `CONTRIBUTING.md`, including current context, present files, fresh approval, and buffered-action semantics; record focused tests/build/format/spec/diff checks and review findings in `verification.md`, verifying docs against exercised CLI behavior before marking the group complete.
+- [x] 4.7 Add command help and rerun usage to `CONTRIBUTING.md`, including current context, present files, fresh approval, and buffered-action semantics; record focused tests/build/format/spec/diff checks and review findings in `verification.md`, verifying docs against exercised CLI behavior before marking the group complete.
 
 ## 5. Integrated demonstration and final verification
 

@@ -3,7 +3,7 @@ import type { FeedRow, ObservationHistory, RunRecord } from './run-observation.t
 import type { TerminalStatusOutput, TerminalTextWriter } from './terminal-renderer.ts'
 import type { ObservationCommand } from './observation-command.ts'
 
-export const OBSERVATION_USAGE = 'Inspect: /run N | List: /runs'
+export const OBSERVATION_USAGE = 'Inspect: /run N | List: /runs | Rerun: /rerun N'
 
 const duration = (milliseconds: number): string => `${(milliseconds / 1000).toFixed(3)}s`
 const localTime = (milliseconds: number): string => {
