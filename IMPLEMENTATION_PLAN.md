@@ -93,16 +93,23 @@ and [task 6.3](openspec/changes/archive/2026-10-03-rerun-settled-runs/verificati
 record synchronization and archival checks; [usage](CONTRIBUTING.md#chat-commands-and-rerun)
 describes the implemented controls.
 
-## Next planning candidate: compatibility review of the validation draft
+## Completed increment: technical-output presentation
 
-The separately confirmed [dim technical output](openspec/changes/dim-technical-output/proposal.md)
-presentation leaf is implemented and verified. Its [design](openspec/changes/dim-technical-output/design.md),
-[delta](openspec/changes/dim-technical-output/specs/run-observation/spec.md),
-[task](openspec/changes/dim-technical-output/tasks.md), and
-[evidence](openspec/changes/dim-technical-output/verification.md) record the small
-CLI-only scope, 581 passing tests, and successful build and repository checks.
-Completed-result human review, synchronization, and archival remain pending.
-It adds no execution capability or authorization for the validation draft below.
+The accepted [dim technical output](openspec/changes/archive/2026-10-03-dim-technical-output/proposal.md)
+presentation leaf is synchronized into [run observation](openspec/specs/run-observation/spec.md)
+and archived. Its [design](openspec/changes/archive/2026-10-03-dim-technical-output/design.md),
+[delta](openspec/changes/archive/2026-10-03-dim-technical-output/specs/run-observation/spec.md),
+[task](openspec/changes/archive/2026-10-03-dim-technical-output/tasks.md), and
+[evidence](openspec/changes/archive/2026-10-03-dim-technical-output/verification.md)
+retain the CLI-only scope, 581 passing implementation tests, and successful build
+and repository checks. Implementation is committed as `ff17b5c`.
+On 2026-10-03 the user confirmed "работает. принимаю. доделай шаги этого изменения",
+accepting the result and authorizing verified closure. Technical output uses dim
+intensity; live and retained answers, prompts, and exact patch review remain normal.
+This follows pi's separation of presentation and execution without adding a theme
+system or granting execution capability or authorization for the validation draft.
+
+## Next planning candidate: compatibility review of the validation draft
 
 The imported allowlisted-validation
 [proposal](openspec/changes/allowlisted-validation/proposal.md),

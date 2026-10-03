@@ -36,5 +36,7 @@ Only trusted CLI presentation and focused tests change. No runtime permission,
 provider, transcript, dependency, or model-visible tool changes are required.
 The user's 2026-10-03 instruction "давай, лучше затемним технические сообщения.
 а цвет ответа модели оставим как есть" authorizes this bounded implementation.
-It supersedes the earlier proposed cyan answer. Result acceptance and specification
-synchronization remain subject to user review.
+It supersedes the earlier proposed cyan answer. On 2026-10-03 the user accepted
+the working result and authorized closure. The implemented requirement is now
+synchronized into the main specification; [verification](verification.md) retains
+acceptance and closure evidence.

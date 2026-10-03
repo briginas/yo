@@ -55,4 +55,5 @@ One confirmed implementation leaf covers the formatter, wiring, inspection
 formatting, and focused checks. Run spec validation, tests, build, formatting, and
 diff checks; record review evidence. Rebuild the CLI to use the new presentation.
 Reverting the presentation edits restores existing output without data migration.
-Keep the change pending human result review before synchronization or archival.
+The user accepted the working result on 2026-10-03 and authorized synchronization
+and archival. [Verification](verification.md) records the completed closure.
