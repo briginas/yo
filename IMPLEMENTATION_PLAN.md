@@ -54,8 +54,10 @@ separation within yo's sequential scope.
 The user explicitly accepted the verified result and authorized closure with
 “it's ok. go” on 2026-10-02. Only verified cancellation deltas were synchronized;
 the archive preserves earlier staged evidence and its coverage limits.
-The explicit rerun planning artifacts below are prepared; group 1 was explicitly
-authorized and is now scoped-checked. No later implementation leaf is approved.
+The explicit rerun planning artifacts below are prepared; groups 1–2 are
+scoped-checked. The user subsequently authorized the remaining rerun implementation
+tasks with one subagent and commit per task; completed-result acceptance remains
+separate.
 
 ## Subsequent work
 
@@ -68,14 +70,19 @@ authorized and is now scoped-checked. No later implementation leaf is approved.
    source, repeats the exact task using current workspace state, retains the
    earlier attempt, and requires fresh patch consent. Arrival-window receipts
    prevent buffered duplicates while permitting a deliberate later attempt.
-   The subsequent “ok. continue” authorized group 1 only. Its pure command parser,
+   The subsequent “ok. continue” initially authorized group 1. Its pure command parser,
    trusted catalog, and action receipts are implemented, agent-reviewed, and
    scoped-checked with 14 focused tests, build, formatting, strict OpenSpec
    validation, and diff checks; see [evidence](openspec/changes/rerun-settled-runs/verification.md).
-   Tasks 1.1–1.4 are checked; CLI rerun is not yet enabled. The next candidate is
-   group 2: trusted input-arrival identity with one shared reader. It requires
-   bounded confirmation, and groups 2–6 remain unchecked. Later integration must
-   still verify source immutability, changed files, terminal source outcomes,
+   The later “выполняй задачи, считая, что я аппрувнул каждую” authorizes the remaining
+   rerun implementation tasks, one subagent and commit per task. Group 2 adds
+   trusted input-arrival identity with one shared reader and passes 52 focused
+   input/approval/cancellation tests plus build, formatting, and diff checks.
+   Tasks 1.1–2.4 are checked; CLI rerun is not yet enabled. The next candidate is
+   group 3: execution identity and safe observation provenance. Groups 3–6 remain
+   unchecked; completed-result acceptance is still required before synchronization
+   or archive. Later integration must still verify source immutability, changed
+   files, terminal source outcomes,
    repeated native input, fresh patch consent, and no automatic retry.
 2. **Allowlisted validation:** the imported
    [proposal](openspec/changes/allowlisted-validation/proposal.md),

@@ -125,11 +125,15 @@ The [explicit rerun proposal](openspec/changes/rerun-settled-runs/proposal.md),
 [deltas](openspec/changes/rerun-settled-runs/specs/), and
 [tasks](openspec/changes/rerun-settled-runs/tasks.md) define the next planning
 boundary. Planning was requested on 2026-10-03 and the user selected current
-conversation context. The subsequent “ok. continue” authorized group 1 only;
-its pure parser/catalog and action receipts are implemented and scoped-checked
-with [evidence](openspec/changes/rerun-settled-runs/verification.md). CLI rerun
-is not yet enabled. Group 2 input-arrival identity is the next candidate and
-requires bounded confirmation. Validation remains a later unapproved draft.
+conversation context. The subsequent “ok. continue” initially authorized group 1;
+the later “выполняй задачи, считая, что я аппрувнул каждую” authorizes the remaining
+rerun implementation tasks, one subagent and commit per task. Groups 1–2 provide
+the pure parser/catalog, action receipts, and input-arrival identity, with scoped
+checks and [evidence](openspec/changes/rerun-settled-runs/verification.md). CLI rerun
+is not yet enabled; group 3 execution identity and observation provenance is next.
+Implementation approval does not record acceptance of the completed result;
+spec synchronization and archive still follow that acceptance. Validation remains
+a later unapproved draft.
 The [validation draft](openspec/changes/allowlisted-validation/proposal.md),
 [design](openspec/changes/allowlisted-validation/design.md), and
 [tasks](openspec/changes/allowlisted-validation/tasks.md) do not authorize process

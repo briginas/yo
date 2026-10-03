@@ -49,10 +49,12 @@ without changing the earlier result or carrying patch consent forward.
 
 The user's “делай” on 2026-10-03 authorized preparing this proposal and its design,
 requirement deltas, and tasks. The subsequent “ok. continue” authorized group 1
-only. Its pure parser, trusted catalog, action receipts, tests, and scoped checks
-are implemented and agent-reviewed in [verification.md](verification.md).
-Group 2 is the next candidate and requires bounded confirmation. No human result
-acceptance or later-group authorization is recorded.
+initially. The later “выполняй задачи, считая, что я аппрувнул каждую” authorizes
+the remaining rerun implementation tasks, one subagent and commit per task.
+Groups 1–2 are implemented and scoped-checked in [verification.md](verification.md);
+CLI rerun is not yet enabled. Group 3 is the next implementation candidate. This
+approval does not record human acceptance of the completed rerun result; that
+acceptance remains required before spec synchronization and archive.
 
 Defer original-context snapshots, context selectors, branching, continuation of
 an old loop, automatic retry, parallel runs, persistence, cross-session lookup,

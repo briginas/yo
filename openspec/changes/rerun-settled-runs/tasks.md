@@ -1,9 +1,11 @@
 # Tasks
 
 Planning artifacts were requested on 2026-10-03; current-conversation policy was
-explicitly selected. The subsequent “ok. continue” confirms implementation of
-group 1 only. Verify and review each group before starting the next; later groups
-still require bounded confirmation. Record evidence in this change's
+explicitly selected. The subsequent “ok. continue” initially confirmed group 1.
+The later “выполняй задачи, считая, что я аппрувнул каждую” authorizes remaining
+rerun implementation tasks, one subagent and commit per task. Verify and review
+each task before proceeding. Completed-result acceptance remains required before
+spec synchronization and archive. Record evidence in this change's
 `verification.md` as work proceeds; passing checks do not imply human acceptance.
 
 ## 1. Pure rerun parser and trusted attempt catalog
@@ -18,7 +20,7 @@ still require bounded confirmation. Record evidence in this change's
 - [x] 2.1 Add an additive chat submission read carrying `{ line, windowId }` to `src/line-input.ts`, keeping approval `readLine` string results and one pending owner; use native-stream tests to verify identity assigned at arrival, startup buffering, and identity retained across later dequeue/prompt creation.
 - [x] 2.2 Carry the submission identity through `runChatInput` while preserving a legacy-reader fallback for ordinary input; focused input tests must verify fresh post-settlement windows, whitespace, EOF draining, exact `/exit`, no overlapping chat/approval reads, and no identity assigned at dequeue for legacy adapters.
 - [x] 2.3 Preserve envelope cleanup on cancellation, input error, and close, including partial native readline state and late approval resolution; verify existing line-input/terminal-approval/CLI-cancellation suites plus new tests for buffered envelopes and shared ownership in interactive and noninteractive modes.
-- [ ] 2.4 Document the input contract, legacy rerun rejection policy, buffered versus fresh semantics, and group 2 focused/build/format/diff checks in `verification.md`; review the native-reader evidence before marking the group complete.
+- [x] 2.4 Document the input contract, legacy rerun rejection policy, buffered versus fresh semantics, and group 2 focused/build/format/diff checks in `verification.md`; review the native-reader evidence before marking the group complete.
 
 ## 3. Execution-owned identity and safe observation provenance
 
