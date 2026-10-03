@@ -11,7 +11,8 @@ import { createFileCredentialStore } from './auth/file-credential-store.ts'
 import { OPENAI_CODEX_PROVIDER_ID, type CredentialStore } from './auth/credential.ts'
 import { parseCliCommand, USAGE } from './cli-command.ts'
 import { parseObservationCommand } from './observation-command.ts'
-import { createChatRunCatalog } from './chat-runs.ts'
+import { parseRerunCommand } from './rerun-command.ts'
+import { createChatRunCatalog, type ChatRunReservation } from './chat-runs.ts'
 import { createObservationSession, type ObservationClocks } from './observation-session.ts'
 import {
     createTerminalObservationView,
@@ -311,6 +312,17 @@ const runChat = async ({
         diagnose: (diagnostic) => writeError(formatObservationDiagnostic(diagnostic)),
     })
     const runs = createChatRunCatalog()
+    const writeRerunDiagnostic = (message: string): void => {
+        try {
+            writeOutput(message)
+        } catch {
+            try {
+                writeError(formatObservationDiagnostic('rendering_failed'))
+            } catch {
+                // Diagnostic failures cannot turn a consumed control command into a task.
+            }
+        }
+    }
     const clearProgress = (): void => {
         try {
             statusOutput.clearProgress()
@@ -360,8 +372,8 @@ const runChat = async ({
         await runChatInput({
             input,
             clearProgress,
-            onMessage: async (task) => {
-                const command = parseObservationCommand(task)
+            onMessage: async (line, windowId) => {
+                const command = parseObservationCommand(line)
                 if (command.type !== 'message') {
                     try {
                         writeOutput(formatObservationCommand(command, observations.getHistory()))
@@ -374,14 +386,45 @@ const runChat = async ({
                     }
                     return
                 }
-                const reservation = runs.reserveTask(task)
+                const rerunCommand = parseRerunCommand(line)
+                if (rerunCommand.type === 'invalid') {
+                    writeRerunDiagnostic('Usage: /rerun N (positive run number).')
+                    return
+                }
+                let reservation: ChatRunReservation
+                if (rerunCommand.type === 'rerun') {
+                    if (windowId === undefined) {
+                        writeRerunDiagnostic('Rerun requires input arrival identity support.')
+                        return
+                    }
+                    reservation = runs.reserveRerun(rerunCommand.sourceId, windowId)
+                    if (reservation.type === 'duplicate') {
+                        writeRerunDiagnostic(
+                            `Rerun action already accepted as Run #${reservation.run.id}.`
+                        )
+                        return
+                    }
+                    if (reservation.type === 'rejected') {
+                        const messages: Readonly<Record<typeof reservation.reason, string>> = {
+                            invalid_source: 'Usage: /rerun N (positive run number).',
+                            source_unavailable: `Run #${rerunCommand.sourceId} is unavailable for rerun.`,
+                            source_unsettled: `Run #${rerunCommand.sourceId} is not settled.`,
+                            invalid_window: 'Rerun requires a valid input arrival identity.',
+                            run_number_exhausted: 'Cannot allocate another run number.',
+                        }
+                        writeRerunDiagnostic(messages[reservation.reason])
+                        return
+                    }
+                } else {
+                    reservation = runs.reserveTask(line)
+                }
                 if (reservation.type !== 'accepted') throw new ChatTurnError()
                 const run = reservation.run
                 // Invocation is deferred so control exists before even synchronous run events.
                 const controller = createRunController((signal) =>
                     runTurn({
                         conversation,
-                        task,
+                        task: run.task,
                         budget: RUN_BUDGET,
                         transport,
                         onEvent: observed.onEvent,
@@ -395,7 +438,7 @@ const runChat = async ({
                     })
                 )
                 active = controller
-                const observed = observations.begin(run.id, run.task)
+                const observed = observations.begin(run.id, run.task, run.rerun)
                 try {
                     let result: Awaited<ReturnType<typeof runConversationTurn>>
                     try {
