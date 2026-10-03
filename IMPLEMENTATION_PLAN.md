@@ -55,9 +55,9 @@ The user explicitly accepted the verified result and authorized closure with
 “it's ok. go” on 2026-10-02. Only verified cancellation deltas were synchronized;
 the archive preserves earlier staged evidence and its coverage limits.
 The explicit rerun planning artifacts below are prepared; groups 1–5 are
-implemented, checked, and agent-reviewed. The user authorized the remaining rerun implementation
-tasks with one subagent and commit per task; completed-result acceptance remains
-separate.
+implemented, checked, and agent-reviewed. The user granted standing approval for
+every task of the bounded rerun change, including verified closure, with one
+subagent and commit per task; task 6.1 records the exact instruction and scope.
 
 ## Subsequent work
 
@@ -74,8 +74,9 @@ separate.
    trusted catalog, and action receipts are implemented, agent-reviewed, and
    scoped-checked with 14 focused tests, build, formatting, strict OpenSpec
    validation, and diff checks; see [evidence](openspec/changes/rerun-settled-runs/verification.md).
-   The later “выполняй задачи, считая, что я аппрувнул каждую” authorizes the remaining
-   rerun implementation tasks, one subagent and commit per task. Group 2 adds
+   The later “выполняй задачи, считая, что я аппрувнул каждую” approves every remaining
+   task of this bounded rerun change, including verified closure, with one subagent
+   and commit per task. Group 2 adds
    trusted input-arrival identity with one shared reader and passes 52 focused
    input/approval/cancellation tests plus build, formatting, and diff checks.
    Group 3 moves ordinary run numbering to the trusted catalog and adds immutable
@@ -93,8 +94,10 @@ separate.
    real local PTY scenario, 568-test full suite, and all delta requirements/scenarios;
    [final evidence](openspec/changes/rerun-settled-runs/verification.md#task-53-final-regression-and-requirement-review)
    includes the repaired cancellation-demo wrapper and regenerated old transcripts.
-   Tasks 1.1–5.3 are checked. The next boundary is task 6.1, human acceptance;
-   completed-result acceptance is required before synchronization or archive.
+   Tasks 1.1–5.3 are checked. [Task 6.1](openspec/changes/rerun-settled-runs/verification.md#task-61-standing-human-approval-and-accepted-scope)
+   records standing human approval and the accepted bounded verified scope, without
+   inventing a later reply or personal human review of completed checks. The next
+   task is 6.2, synchronization of verified deltas, followed by archive in 6.3.
 2. **Allowlisted validation:** the imported
    [proposal](openspec/changes/allowlisted-validation/proposal.md),
    [design](openspec/changes/allowlisted-validation/design.md),

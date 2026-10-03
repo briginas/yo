@@ -2,10 +2,12 @@
 
 Planning artifacts were requested on 2026-10-03; current-conversation policy was
 explicitly selected. The subsequent “ok. continue” initially confirmed group 1.
-The later “выполняй задачи, считая, что я аппрувнул каждую” authorizes remaining
-rerun implementation tasks, one subagent and commit per task. Verify and review
-each task before proceeding. Completed-result acceptance remains required before
-spec synchronization and archive. Record evidence in this change's
+The later “выполняй задачи, считая, что я аппрувнул каждую” grants standing human
+approval for each remaining task of this bounded rerun change, including verified
+closure, with one subagent and commit per task. Verify and review each task before
+proceeding. [Task 6.1 evidence](verification.md#task-61-standing-human-approval-and-accepted-scope)
+records the exact message and accepted scope, superseding the original expectation
+of a separate completed-result reply. Record evidence in this change's
 `verification.md` as work proceeds; passing checks do not imply human acceptance.
 
 ## 1. Pure rerun parser and trusted attempt catalog
@@ -47,6 +49,6 @@ spec synchronization and archive. Record evidence in this change's
 
 ## 6. Closure after explicit result acceptance
 
-- [ ] 6.1 Record the human acceptance message and accepted scope only after it is received; verify it covers the completed rerun result and leaves allowlisted validation unapproved.
+- [x] 6.1 Record the human acceptance message and accepted scope only after it is received; verify it covers the completed rerun result and leaves allowlisted validation unapproved.
 - [ ] 6.2 Synchronize only implemented and verified CLI-chat/run-observation deltas after acceptance, preserving existing scenarios and permission boundaries; inspect the resulting current specs and run strict structural validation before archiving.
 - [ ] 6.3 Archive the accepted change and update `PRD.md`, `IMPLEMENTATION_PLAN.md`, and `CONTRIBUTING.md` links/state; verify local links, formatting, diff checks, and that validation is identified as a draft to rebase/review rather than an authorized implementation leaf.

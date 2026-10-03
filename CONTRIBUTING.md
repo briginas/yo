@@ -146,8 +146,10 @@ inspection remain available. These controls follow pi's session-owned submission
 and terminal-action separation within yo's sequential, in-memory scope. See the
 [rerun design](openspec/changes/rerun-settled-runs/design.md) and
 [verification](openspec/changes/rerun-settled-runs/verification.md). Integrated
-demonstration, real local PTY checks, and final verification are complete;
-completed-result acceptance remains pending before spec synchronization/archive.
+demonstration, real local PTY checks, and final verification are complete.
+[Task 6.1](openspec/changes/rerun-settled-runs/verification.md#task-61-standing-human-approval-and-accepted-scope)
+records the received standing human approval and accepted bounded scope; spec
+synchronization and archive remain the next closure tasks.
 
 ## Current draft and migration boundary
 
@@ -155,8 +157,8 @@ completed-result acceptance remains pending before spec synchronization/archive.
 is an imported, unapproved Milestone 5 draft. It has proposal, design, deltas,
 and unchecked tasks. Cancellation is complete and recorded in the current specs
 and [archive](openspec/changes/archive/2026-10-02-cancel-active-runs/verification.md).
-Explicit rerun is implemented and verified, awaiting completed-result acceptance
-and specification closure. Then validation's assumptions and deltas must be reviewed
+Explicit rerun is implemented and verified, with its bounded scope accepted under
+recorded standing human approval and specification closure pending. Then validation's assumptions and deltas must be reviewed
 against their settled contracts. Migrating these documents does not authorize
 `run_validation`, its proposed permission policy, or any runtime process work.
 

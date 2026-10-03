@@ -49,15 +49,17 @@ without changing the earlier result or carrying patch consent forward.
 
 The user's “делай” on 2026-10-03 authorized preparing this proposal and its design,
 requirement deltas, and tasks. The subsequent “ok. continue” authorized group 1
-initially. The later “выполняй задачи, считая, что я аппрувнул каждую” authorizes
-the remaining rerun implementation tasks, one subagent and commit per task.
+initially. The later standing instruction “выполняй задачи, считая, что я аппрувнул
+каждую” approves every remaining task of this bounded rerun change, including
+verified closure, with one subagent and commit per task.
 Groups 1–4 are implemented, scoped-checked, and agent-reviewed in
 [verification.md](verification.md). CLI rerun is enabled through the existing
 turn path and documented in [the development guide](../../../CONTRIBUTING.md#chat-commands-and-rerun).
 Group 5 adds the checked integrated demonstration, real local PTY evidence, and
-final full-suite/requirement review. The completed result awaits human acceptance.
-Implementation approval does not record that acceptance, which remains required
-before spec synchronization and archive.
+final full-suite/requirement review. [Task 6.1 evidence](verification.md#task-61-standing-human-approval-and-accepted-scope)
+records the exact human instruction and accepted verified scope. It supersedes
+the earlier separate-reply expectation without claiming personal human review of
+completed checks. Synchronization and archive remain tasks 6.2 and 6.3.
 
 Defer original-context snapshots, context selectors, branching, continuation of
 an old loop, automatic retry, parallel runs, persistence, cross-session lookup,

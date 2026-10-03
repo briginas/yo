@@ -126,8 +126,9 @@ The [explicit rerun proposal](openspec/changes/rerun-settled-runs/proposal.md),
 [tasks](openspec/changes/rerun-settled-runs/tasks.md) define the next planning
 boundary. Planning was requested on 2026-10-03 and the user selected current
 conversation context. The subsequent “ok. continue” initially authorized group 1;
-the later “выполняй задачи, считая, что я аппрувнул каждую” authorizes the remaining
-rerun implementation tasks, one subagent and commit per task. Groups 1–3 provide
+the later “выполняй задачи, считая, что я аппрувнул каждую” approves every remaining
+task of the bounded rerun change, including verified closure, with one subagent
+and commit per task. Groups 1–3 provide
 the pure parser/catalog, action receipts, input-arrival identity, execution-owned
 run numbering, and safe observation provenance. Group 4 enables CLI `/rerun N`
 through the existing turn path, with exact-task/current-context execution,
@@ -137,9 +138,11 @@ see [evidence](openspec/changes/rerun-settled-runs/verification.md) and
 [usage](CONTRIBUTING.md#chat-commands-and-rerun). Group 5's integrated demonstration,
 real local PTY scenario, 568-test full suite, and requirement review are verified;
 see [final evidence](openspec/changes/rerun-settled-runs/verification.md#task-53-final-regression-and-requirement-review).
-Implementation approval does not record acceptance of the completed result;
-spec synchronization and archive still follow that acceptance. Validation remains
-a later unapproved draft.
+[Task 6.1](openspec/changes/rerun-settled-runs/verification.md#task-61-standing-human-approval-and-accepted-scope)
+records the exact standing human approval and accepted verified scope, superseding
+the earlier separate-reply expectation without claiming personal human review of
+the completed checks. Spec synchronization and archive are the remaining closure
+tasks. Validation remains a later unapproved draft.
 The [validation draft](openspec/changes/allowlisted-validation/proposal.md),
 [design](openspec/changes/allowlisted-validation/design.md), and
 [tasks](openspec/changes/allowlisted-validation/tasks.md) do not authorize process
@@ -151,8 +154,8 @@ retains the completed [inspection change evidence](openspec/changes/archive/2026
 
 After separate planning and approval, later milestones may:
 
-1. Obtain acceptance of the verified explicit rerun result before specification
-   synchronization and archive.
+1. Synchronize the verified explicit rerun deltas and archive under the recorded
+   standing human approval.
 2. Add Milestone 5 allowlisted validation and show test/build evidence in event
    feeds and result cards.
 3. Consider append-only JSONL session history, richer terminal presentation,

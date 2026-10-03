@@ -7,19 +7,20 @@ conversation context. After the first implementation candidate was presented,
 the user's “ok. continue” authorized **group 1 only**: pure parser, trusted task
 catalog, action receipts, focused tests, and this evidence.
 
-The later “выполняй задачи, считая, что я аппрувнул каждую. каждую задачу выполняй
-в отдельном субагенте. после каждой задачи создавай коммит” authorizes the remaining
-rerun implementation tasks, with one subagent and commit per task. It does not
-record human acceptance of a completed rerun result or authorize the later
-allowlisted-validation draft. Spec synchronization and archive still follow
-completed-result acceptance.
+The later instruction grants explicit standing approval for every remaining
+task of this bounded rerun change, including closure tasks 6.1–6.3, with one
+subagent and commit per task. [Task 6.1](#task-61-standing-human-approval-and-accepted-scope)
+records its exact wording and application to the verified result. It supersedes
+the earlier plan to wait for a separate post-implementation acceptance reply.
+The later allowlisted-validation draft remains unapproved.
 
 CLI rerun is enabled and groups 1–5 are implemented, checked, and agent-reviewed.
 Earlier sections retain historical checkpoint scope; tasks 5.1–5.3 record the
 integrated demonstration, real local PTY evidence, full checks, and final
-requirement review. Completed-result acceptance is the next boundary. No
-physical-keyboard, live-provider, human acceptance, or spec synchronization is
-claimed.
+requirement review. Task 6.1 records acceptance of the bounded verified scope
+under explicit standing human approval, rather than from automated checks or
+agent review. No personal human review of the completed checks, physical-keyboard
+or live-provider coverage, or completed spec synchronization is claimed.
 
 ## Group 1 staged checks and review
 
@@ -731,8 +732,63 @@ the model to reread every historical file. Original-context snapshots, branching
 persistence, rollback, automatic retries, parallel runs, new tools/providers and
 allowlisted validation remain deferred.
 
-Tasks 1.1–5.3 are checked and agent-reviewed. Task 6.1 awaits an explicit human
-acceptance message covering this completed result; passing checks and prior
-implementation authorization do not supply it. Current specs are unchanged,
-the change remains active, and synchronization/archive and validation-draft
-approval have not been inferred.
+At task 5.3 completion, tasks 1.1–5.3 were checked and agent-reviewed, and the
+documentation still treated a separate completed-result reply as the next
+boundary. Task 6.1 below reconciles that expectation with the received standing
+human approval. These checks themselves do not supply human acceptance. Current
+specs were unchanged and the change remained active at this checkpoint.
+
+## Task 6.1: standing human approval and accepted scope
+
+The human's actual instruction received on 2026-10-03 was:
+
+> выполняй задачи, считая, что я аппрувнул каждую. каждую задачу выполняй в отдельном субагенте. после каждой задачи создавай коммит.
+
+This is explicit advance approval of every task in the active, bounded
+`rerun-settled-runs` change, including recording its accepted scope, synchronizing
+verified deltas, and archiving (6.1–6.3). The task 6.1 wording originally assumed
+a distinct completed-result acceptance reply. The direct human instruction
+supersedes that extra wait. The source of closure authorization is this received
+human message; passing checks, agent review, and OpenSpec status do not supply it.
+No later acceptance message is invented, and no claim is made that the human
+personally reviewed the completed test results.
+
+The scope accepted under that standing approval is the verified result described
+in [task 5.3](#task-53-final-regression-and-requirement-review): explicit `/rerun N`
+for settled current-session runs, the complete original task and current
+conversation, new reads and proposals against present bytes, fresh budgets and
+cancellation controller, fresh complete-diff patch consent, direct safe source
+linkage, arrival-window duplicate suppression with deliberate fresh-prompt
+repeats, immutable source evidence, and local inspection/rejected actions. This
+follows pi's trusted session submission and presentation separation within yo's
+sequential in-memory scope.
+
+The evidence remains the recorded **568-test** full suite, **12 requirements /
+41 scenarios**, deterministic/native-stream demonstrations, and task 5.2's
+**real local PTY with a faux provider**. Physical keyboard, terminal-emulator UX,
+live OAuth/model/network behavior, arbitrary timing races, and forced rereads of
+all historical files are not covered. Original-context snapshots, branching,
+persistence, rollback, automatic retries, parallel execution, and broader tools
+remain deferred. In particular, the later allowlisted-validation draft is outside
+this authorization and remains unapproved.
+
+Task 6.1 changes only approval evidence and current documentation status. Main
+spec synchronization and archive remain separate tasks 6.2 and 6.3. Documentation
+checks and review are recorded below; no fresh runtime or PTY execution is claimed.
+
+On 2026-10-03, documentation-only checks passed:
+
+- `npm run spec:check`: **7 items passed, 0 failed**; existing informational
+  long-requirement notices remain structural advice.
+- `npm run format:check` and `git diff --check`: passed.
+- **86 local link paths and 15 heading fragments** in maps, the guide, active
+  rerun artifacts, and affected current specs resolved. Delta headings still
+  contain **12 requirements and 41 scenarios**, matching the retained matrix.
+- Agent review checked the exact message, standing approval versus a distinct
+  later reply, bounded accepted scope, historical checkpoint preservation,
+  coverage limits, and validation's unapproved status. No runtime source, main
+  specification, dependency, permission, or validation-draft artifact changed.
+- Parent review found no issues in the direct-instruction handling, transparent
+  advance approval, absence of fabricated later acceptance/personal review, or
+  bounded scope and validation exclusion. Only task 6.1 is marked complete;
+  synchronization and archive remain pending.

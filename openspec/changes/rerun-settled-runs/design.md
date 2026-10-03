@@ -276,5 +276,8 @@ and compare detached source inspections before and after rerun.
 Add a repeatable faux transcript and a PTY scenario for arrival-window boundaries
 and approval ownership. Record PTY versus physical-keyboard versus live-provider
 coverage honestly. Finish with `npm test`, `npm run build`, `npm run format:check`,
-`npm run spec:check`, and `git diff --check`, then request human result acceptance
-before synchronization/archive. No runtime checks are claimed by this proposal.
+`npm run spec:check`, and `git diff --check`, then record human approval of the
+bounded verified result before synchronization/archive. The received standing
+approval covers every task; [task 6.1](verification.md#task-61-standing-human-approval-and-accepted-scope)
+records it without claiming a separate later reply or personal human review of
+the completed checks. No runtime checks are claimed by this design.
