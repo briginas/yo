@@ -7,6 +7,7 @@ import { runCli, type CliDependencies } from './cli-app.ts'
 import { runConversationTurn } from './runtime/conversation.ts'
 import type { ModelRequest, ModelTransport } from './runtime/run.ts'
 import { PATCH_APPROVAL_PROMPT } from './terminal-approval.ts'
+import { createTerminalTechnicalFormatter } from './terminal-style.ts'
 
 const startTime = new Date(2026, 9, 2, 12, 0, 0).getTime()
 const deferred = <T>() => {
@@ -48,6 +49,101 @@ const answer: ModelTransport = async () => ({
     type: 'final_answer',
     model: null,
     content: 'Complete answer.',
+})
+
+test('chat dims technical channels while live and inspected answers retain normal intensity', async (context) => {
+    const content = 'Answer.\nEvidence:\nRetained answer:\nStill model text.'
+    for (const streaming of [false, true]) {
+        for (const mode of ['dim', 'no-color', 'dumb', 'non-interactive'] as const) {
+            await context.test(`${mode}, streaming=${streaming}`, async () => {
+                const prompts: string[] = []
+                const lines = ['Task', '/run 1', '/runs', '/run 0', '/rerun 0', '/exit']
+                const state = await fixture(
+                    lines,
+                    async (_request, options) => {
+                        if (streaming) {
+                            options?.onFinalAnswerDelta?.(content.slice(0, 8))
+                            options?.onFinalAnswerDelta?.(content.slice(8))
+                        }
+                        return { type: 'final_answer', model: null, content }
+                    },
+                    {
+                        isInteractive: mode !== 'non-interactive',
+                        formatTechnical: createTerminalTechnicalFormatter({
+                            isInteractive: true,
+                            noColor: mode === 'no-color' ? '1' : undefined,
+                            term: mode === 'dumb' ? 'dumb' : undefined,
+                        }),
+                        createLineInput: () => ({
+                            readLine: async (prompt) => {
+                                prompts.push(prompt)
+                                return lines.shift() ?? null
+                            },
+                            close: () => undefined,
+                        }),
+                    }
+                )
+                try {
+                    const result = await runCli(['--cwd', state.workspace], state.dependencies)
+                    assert.equal(result.exitCode, 0)
+                    assert.equal(result.session?.finalAnswer, content)
+                    assert.equal(state.answers.join(''), `${content}\n\n`)
+                    const inspection = state.output[1]!
+                    if (mode === 'dim') {
+                        for (const message of [
+                            ...state.statuses,
+                            state.output[0]!,
+                            ...state.output.slice(2),
+                        ]) {
+                            assert.ok(message.startsWith('\u001b[2m'))
+                            assert.ok(message.endsWith('\u001b[22m'))
+                        }
+                        assert.ok(
+                            inspection.includes(
+                                `Retained answer:\u001b[22m\n${content}\n\u001b[2mRun #1 result:`
+                            )
+                        )
+                    } else {
+                        assert.doesNotMatch([...state.statuses, ...state.output].join(''), /\u001b/)
+                        assert.ok(
+                            inspection.includes(`Retained answer:\n${content}\nRun #1 result:`)
+                        )
+                    }
+                    assert.doesNotMatch(prompts.join(''), /\u001b/)
+                    assert.deepEqual(state.errors, [])
+                } finally {
+                    await rm(state.workspace, { recursive: true, force: true })
+                }
+            })
+        }
+    }
+})
+
+test('technical diagnostics are dimmed without exposing errors or styling the answer', async () => {
+    const state = await fixture(['Task', '/exit'], answer, {
+        isInteractive: true,
+        formatTechnical: createTerminalTechnicalFormatter({ isInteractive: true }),
+        observationClocks: {
+            wallTime: () => {
+                throw new Error('private clock error')
+            },
+            monotonicTime: () => 100,
+        },
+    })
+    try {
+        const result = await runCli(['--cwd', state.workspace], state.dependencies)
+        assert.equal(result.exitCode, 0)
+        assert.ok(state.errors.length > 0)
+        assert.ok(
+            state.errors.every(
+                (message) => message.startsWith('\u001b[2m') && message.endsWith('\u001b[22m')
+            )
+        )
+        assert.doesNotMatch(state.errors.join(''), /private clock error/)
+        assert.equal(state.answers.join(''), 'Complete answer.\n\n')
+    } finally {
+        await rm(state.workspace, { recursive: true, force: true })
+    }
 })
 
 test('CLI prepares record and callback before invoking a synchronously emitting turn', async () => {
@@ -304,7 +400,10 @@ test('waiting for exact patch consent remains exclusive and displays approved/ap
                         }
                     return { type: 'final_answer', model: null, content: 'Patch outcome recorded.' }
                 },
-                { isInteractive: true }
+                {
+                    isInteractive: true,
+                    formatTechnical: createTerminalTechnicalFormatter({ isInteractive: true }),
+                }
             )
             state.dependencies.createLineInput = () => ({
                 readLine: async (prompt) => {
@@ -323,6 +422,8 @@ test('waiting for exact patch consent remains exclusive and displays approved/ap
                 await waiting.promise
                 assert.match(state.statuses.join(''), /patch_approval_requested.*outcome=waiting/)
                 assert.match(state.statuses.join(''), /state: run=1 approval/)
+                assert.ok(state.statuses.every((message) => message.endsWith('\u001b[22m')))
+                assert.doesNotMatch(state.answers.join('') + prompts.join(''), /\u001b/)
                 assert.match(state.answers.join(''), /--- answer.ts\n\+\+\+ answer.ts/)
                 assert.match(
                     state.answers.join(''),

@@ -2,6 +2,7 @@ import type { ObservationDiagnostic, ObservationView } from './observation-sessi
 import type { FeedRow, ObservationHistory, RunRecord } from './run-observation.ts'
 import type { TerminalStatusOutput, TerminalTextWriter } from './terminal-renderer.ts'
 import type { ObservationCommand } from './observation-command.ts'
+import { plainTerminalText, type TerminalTextFormatter } from './terminal-style.ts'
 
 export const OBSERVATION_USAGE = 'Inspect: /run N | List: /runs | Rerun: /rerun N'
 
@@ -103,36 +104,50 @@ export const formatObservationList = (history: ObservationHistory): string =>
 export const formatObservationResult = (record: RunRecord, history: ObservationHistory): string =>
     record.result === null ? '' : `${formatResultCard(record)}\n${formatObservationList(history)}`
 
-export const formatObservationInspection = (history: ObservationHistory, id: number): string => {
+export const formatObservationInspection = (
+    history: ObservationHistory,
+    id: number,
+    formatTechnical: TerminalTextFormatter = plainTerminalText
+): string => {
     const record = history.find((item) => item.summary.id === id)
-    if (record === undefined) return `Run #${id} is unavailable.\n${OBSERVATION_USAGE}`
+    if (record === undefined)
+        return formatTechnical(`Run #${id} is unavailable.\n${OBSERVATION_USAGE}`)
     if (record.summary.status === 'running' || record.result === null) {
-        return `Run #${id} is not settled.\n${OBSERVATION_USAGE}`
+        return formatTechnical(`Run #${id} is not settled.\n${OBSERVATION_USAGE}`)
     }
     return [
-        formatHeader(record),
-        'Events:',
-        ...(record.feed.length === 0
-            ? ['(none)']
-            : record.feed.map((row) => formatObservationFeedRow(record, row))),
-        'Retained answer:',
-        record.result.answer ?? '(no final answer)',
-        ...(record.result.answerTruncated ? ['[Answer preview truncated]'] : []),
-        formatResultCard(record),
+        formatTechnical(
+            [
+                formatHeader(record),
+                'Events:',
+                ...(record.feed.length === 0
+                    ? ['(none)']
+                    : record.feed.map((row) => formatObservationFeedRow(record, row))),
+                'Retained answer:',
+            ].join('\n')
+        ),
+        record.result.answer ?? formatTechnical('(no final answer)'),
+        formatTechnical(
+            [
+                ...(record.result.answerTruncated ? ['[Answer preview truncated]'] : []),
+                formatResultCard(record),
+            ].join('\n')
+        ),
     ].join('\n')
 }
 
 export const formatObservationCommand = (
     command: Exclude<ObservationCommand, { type: 'message' }>,
-    history: ObservationHistory
+    history: ObservationHistory,
+    formatTechnical: TerminalTextFormatter = plainTerminalText
 ): string => {
     switch (command.type) {
         case 'list':
-            return formatObservationList(history)
+            return formatTechnical(formatObservationList(history))
         case 'inspect':
-            return formatObservationInspection(history, command.id)
+            return formatObservationInspection(history, command.id, formatTechnical)
         case 'invalid':
-            return `Usage: /runs or /run N (positive run number).`
+            return formatTechnical('Usage: /runs or /run N (positive run number).')
     }
 }
 

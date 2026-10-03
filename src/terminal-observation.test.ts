@@ -15,9 +15,42 @@ import {
     formatObservationDiagnostic,
     formatObservationState,
 } from './terminal-observation.ts'
+import { createTerminalTechnicalFormatter } from './terminal-style.ts'
 
 const clock = { wallTimeMs: new Date(2026, 9, 2, 12, 0, 0).getTime(), monotonicTimeMs: 100 }
 const base = () => createRunRecord(1, 'Inspect repository', clock)
+
+test('styled inspection keeps truncated answer bytes normal and dims absent-answer placeholders', () => {
+    const format = createTerminalTechnicalFormatter({ isInteractive: true })
+    for (const answer of [null, 'x'.repeat(17000)]) {
+        const record = finalizeRunRecord(
+            base(),
+            1,
+            {
+                status: 'completed',
+                stopReason: 'final_answer',
+                finalAnswer: answer,
+            },
+            clock
+        )
+        const view = formatObservationInspection([record], 1, format)
+        assert.ok(view.startsWith('\u001b[2mRun #1:'))
+        assert.ok(view.endsWith('\u001b[22m'))
+        if (answer === null) {
+            assert.ok(view.includes('\u001b[2m(no final answer)\u001b[22m'))
+        } else {
+            assert.ok(
+                view.includes(
+                    `\u001b[22m\n${record.result!.answer}\n\u001b[2m[Answer preview truncated]`
+                )
+            )
+        }
+        assert.equal(
+            view.replaceAll('\u001b[2m', '').replaceAll('\u001b[22m', ''),
+            formatObservationInspection([record], 1)
+        )
+    }
+})
 
 test('rerun labels remain durable from live header to result without duplicating the live answer', () => {
     for (const isInteractive of [true, false]) {

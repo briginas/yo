@@ -95,6 +95,15 @@ describes the implemented controls.
 
 ## Next planning candidate: compatibility review of the validation draft
 
+The separately confirmed [dim technical output](openspec/changes/dim-technical-output/proposal.md)
+presentation leaf is implemented and verified. Its [design](openspec/changes/dim-technical-output/design.md),
+[delta](openspec/changes/dim-technical-output/specs/run-observation/spec.md),
+[task](openspec/changes/dim-technical-output/tasks.md), and
+[evidence](openspec/changes/dim-technical-output/verification.md) record the small
+CLI-only scope, 581 passing tests, and successful build and repository checks.
+Completed-result human review, synchronization, and archival remain pending.
+It adds no execution capability or authorization for the validation draft below.
+
 The imported allowlisted-validation
 [proposal](openspec/changes/allowlisted-validation/proposal.md),
 [design](openspec/changes/allowlisted-validation/design.md),

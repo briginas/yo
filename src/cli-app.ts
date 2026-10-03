@@ -38,6 +38,7 @@ import {
 } from './terminal-renderer.ts'
 import { createTerminalPatchApprover } from './terminal-approval.ts'
 import { createRunController, type RunController } from './runtime/run-controller.ts'
+import { plainTerminalText, type TerminalTextFormatter } from './terminal-style.ts'
 
 const RUN_BUDGET = {
     maxSteps: 10,
@@ -58,6 +59,7 @@ export type CliDependencies = {
     clearStatusLine?: () => void
     moveStatusCursorToStart?: () => void
     isInteractive?: boolean
+    formatTechnical?: TerminalTextFormatter
     createAuthorization?: () => OpenAICodexAuthorization
     startCallbackListener?: (
         options: OpenAICodexCallbackListenerOptions
@@ -278,6 +280,7 @@ type ChatDependencies = TerminalDependencies & {
     observationProjectEvent?: ObservationSessionOptions['projectEvent']
     runTurn: typeof runConversationTurn
     subscribeProcessInterrupt: (listener: () => void) => () => void
+    formatTechnical: TerminalTextFormatter
 }
 
 type RunChatOptions = ChatDependencies & {
@@ -291,11 +294,11 @@ const runChat = async ({
     workspaceRoot,
     model,
     transport,
-    writeOutput,
-    writeError,
+    writeOutput: writePlainOutput,
+    writeError: writePlainError,
     createLineInput,
     writeAnswer,
-    writeStatus,
+    writeStatus: writePlainStatus,
     clearStatusLine,
     moveStatusCursorToStart,
     isInteractive,
@@ -303,7 +306,11 @@ const runChat = async ({
     observationProjectEvent,
     runTurn,
     subscribeProcessInterrupt,
+    formatTechnical,
 }: RunChatOptions): Promise<CliResult> => {
+    const writeOutput = (message: string): void => writePlainOutput(formatTechnical(message))
+    const writeError = (message: string): void => writePlainError(formatTechnical(message))
+    const writeStatus = (message: string): void => writePlainStatus(formatTechnical(message))
     const { renderer, statusOutput } = createTerminalComposition({
         writeError,
         writeAnswer,
@@ -384,7 +391,13 @@ const runChat = async ({
                 const command = parseObservationCommand(line)
                 if (command.type !== 'message') {
                     try {
-                        writeOutput(formatObservationCommand(command, observations.getHistory()))
+                        writePlainOutput(
+                            formatObservationCommand(
+                                command,
+                                observations.getHistory(),
+                                formatTechnical
+                            )
+                        )
                     } catch {
                         try {
                             writeError(formatObservationDiagnostic('rendering_failed'))
@@ -520,6 +533,7 @@ export const runCli = async (
         clearStatusLine,
         moveStatusCursorToStart,
         isInteractive,
+        formatTechnical,
     }: CliDependencies
 ): Promise<CliResult> => {
     const parsed = parseCliCommand(argv)
@@ -588,6 +602,7 @@ export const runCli = async (
         clearStatusLine,
         moveStatusCursorToStart,
         isInteractive,
+        formatTechnical: isInteractive ? (formatTechnical ?? plainTerminalText) : plainTerminalText,
         observationClocks: observationClocks ?? {
             wallTime: Date.now,
             monotonicTime: () => performance.now(),

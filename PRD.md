@@ -106,6 +106,14 @@ Current state and the next planning boundary are indexed from
 
 ## Current planning boundary
 
+The user-confirmed [technical-output presentation change](openspec/changes/dim-technical-output/proposal.md)
+is implemented and verified: interactive chat dims technical information while
+model answers keep normal terminal color and intensity. Plain output remains
+available through non-interactive sessions, non-empty `NO_COLOR`, and `TERM=dumb`.
+[Evidence](openspec/changes/dim-technical-output/verification.md) records 581 passing
+tests and successful build and repository checks. Human result review, spec
+synchronization, and archival remain pending; the validation draft stays unapproved.
+
 The implemented harness, ephemeral chat, exact approval-gated patches, and
 run observation are complete. The sole agent entrypoint is `yo`; OAuth commands
 remain separate trusted CLI operations. Current requirements live exclusively

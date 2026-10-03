@@ -9,6 +9,7 @@ import { createNodeLineInput, CHAT_PROMPT } from './line-input.ts'
 import { runConversationTurn } from './runtime/conversation.ts'
 import type { ModelRequest, ModelTransport } from './runtime/run.ts'
 import { PATCH_APPROVAL_PROMPT } from './terminal-approval.ts'
+import { createTerminalTechnicalFormatter } from './terminal-style.ts'
 
 const deferred = <T>() => {
     let resolve!: (value: T) => void
@@ -226,6 +227,9 @@ test('native readline Ctrl+C cancels approval and discards late consent until th
     const stream = new PassThrough(),
         terminal = new PassThrough()
     const native = createNodeLineInput({ input: stream, output: terminal, isInteractive: true })
+    const terminalChunks: string[] = []
+    terminal.setEncoding('utf8')
+    terminal.on('data', (chunk: string) => terminalChunks.push(chunk))
     const approval = deferred<void>(),
         settled = deferred<void>(),
         release = deferred<void>(),
@@ -238,6 +242,7 @@ test('native readline Ctrl+C cancels approval and discards late consent until th
     let processInterrupt: (() => void) | undefined
     const requests: ModelRequest[] = []
     state.dependencies.isInteractive = true
+    state.dependencies.formatTechnical = createTerminalTechnicalFormatter({ isInteractive: true })
     state.dependencies.subscribeProcessInterrupt = (listener) => {
         processSubscriptions += 1
         processInterrupt = listener
@@ -327,6 +332,12 @@ test('native readline Ctrl+C cancels approval and discards late consent until th
         assert.equal(await readFile(source, 'utf8'), 'export const value = 1\n')
         assert.match(state.output[0]!, /cancelled/)
         assert.match(state.output[1]!, /Run #2 result: completed/)
+        assert.ok(
+            [...state.statuses, ...state.output].every((message) => message.endsWith('\u001b[22m'))
+        )
+        assert.doesNotMatch(state.answers.join(''), /\u001b/)
+        assert.ok(state.answers.join('').endsWith('Fresh answer\n\n'))
+        assert.doesNotMatch(terminalChunks.join(''), /\u001b\[2m|\u001b\[22m/)
         assert.equal(processSubscriptions, 1)
         assert.equal(processInterrupt, undefined)
         assert.equal(inputDisposed, 1)

@@ -3,6 +3,7 @@
 import { createFileCredentialStore } from './auth/file-credential-store.ts'
 import { runCli } from './cli-app.ts'
 import { createNodeLineInput } from './line-input.ts'
+import { createTerminalTechnicalFormatter } from './terminal-style.ts'
 import { createOpenAICodexResponsesTransport } from './provider/openai-codex-responses.ts'
 
 const credentialStore = createFileCredentialStore()
@@ -23,6 +24,11 @@ const result = await runCli(process.argv.slice(2), {
     clearStatusLine: () => process.stderr.clearLine(0),
     moveStatusCursorToStart: () => process.stderr.cursorTo(0),
     isInteractive,
+    formatTechnical: createTerminalTechnicalFormatter({
+        isInteractive,
+        noColor: process.env.NO_COLOR,
+        term: process.env.TERM,
+    }),
 })
 
 process.exitCode = result.exitCode

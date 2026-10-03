@@ -88,6 +88,12 @@ flowchart LR
 
 ## Chat commands and rerun
 
+Interactive chat dims technical events, activity, result summaries, and local
+diagnostics so the model's answer remains prominent in the terminal's normal
+color. `/run N` also keeps the retained answer at normal intensity. Input prompts
+and exact patch previews retain normal intensity. Non-interactive output,
+`TERM=dumb`, or a non-empty `NO_COLOR` use plain text; for example, `NO_COLOR=1 yo`.
+
 Start `yo --cwd <workspace>` and enter tasks at `yo>`. The result card and `/runs`
 list show the local command hints:
 
