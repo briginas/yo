@@ -51,4 +51,4 @@ of a separate completed-result reply. Record evidence in this change's
 
 - [x] 6.1 Record the human acceptance message and accepted scope only after it is received; verify it covers the completed rerun result and leaves allowlisted validation unapproved.
 - [x] 6.2 Synchronize only implemented and verified CLI-chat/run-observation deltas after acceptance, preserving existing scenarios and permission boundaries; inspect the resulting current specs and run strict structural validation before archiving.
-- [ ] 6.3 Archive the accepted change and update `PRD.md`, `IMPLEMENTATION_PLAN.md`, and `CONTRIBUTING.md` links/state; verify local links, formatting, diff checks, and that validation is identified as a draft to rebase/review rather than an authorized implementation leaf.
+- [x] 6.3 Archive the accepted change and update `PRD.md`, `IMPLEMENTATION_PLAN.md`, and `CONTRIBUTING.md` links/state; verify local links, formatting, diff checks, and that validation is identified as a draft to rebase/review rather than an authorized implementation leaf.

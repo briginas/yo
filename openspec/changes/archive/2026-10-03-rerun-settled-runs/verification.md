@@ -19,8 +19,8 @@ Earlier sections retain historical checkpoint scope; tasks 5.1–5.3 record the
 integrated demonstration, real local PTY evidence, full checks, and final
 requirement review. Task 6.1 records acceptance of the bounded verified scope
 under explicit standing human approval, rather than from automated checks or
-agent review. Task 6.2 below records specification synchronization; archive
-remains separate. No personal human review of the completed checks,
+agent review. Tasks 6.2 and 6.3 below record specification synchronization and
+archive closure. No personal human review of the completed checks,
 physical-keyboard or live-provider coverage is claimed.
 
 ## Group 1 staged checks and review
@@ -334,7 +334,7 @@ Task 4.6 adds the optional typed `CliDependencies.observationProjectEvent` seam
 using the existing projector boundary. Its default and CLI configuration are
 unchanged; it introduces no tool, permission, dependency, or execution authority.
 Task 4.7 adds `/rerun N` to the existing `OBSERVATION_USAGE` hint, updates the
-existing result/CLI assertions, documents [usage](../../../CONTRIBUTING.md#chat-commands-and-rerun),
+existing result/CLI assertions, documents [usage](../../../../CONTRIBUTING.md#chat-commands-and-rerun),
 and updates project maps/proposal to make task 5.1 the next candidate.
 Inspection parsing and its invalid-command diagnostic remain unchanged.
 
@@ -411,7 +411,7 @@ record human completed-result acceptance or authorize spec synchronization/archi
 On 2026-10-03, `examples/run-rerun-demo.ts` adds a temporary `answer.ts` fixture,
 the actual CLI/conversation/agent loop, real read/patch tools, a faux transport,
 and native `createNodeLineInput` over controlled interactive streams. The
-[captured transcript](../../../examples/run-rerun-demo.txt) is emitted by a
+[captured transcript](../../../../examples/run-rerun-demo.txt) is emitted by a
 successful run ending in the executable `[VERIFIED: ...]` assertion marker.
 The guide documents both modes. No runtime code, dependency, provider
 configuration, OAuth credential access, or network request was added.
@@ -500,7 +500,7 @@ spec synchronization, archive, or validation-draft approval is inferred.
 
 ## Task 5.2: integrated scenario through a real local PTY
 
-On 2026-10-03, [the Python driver](../../../examples/verify-rerun-pty.py)
+On 2026-10-03, [the Python driver](../../../../examples/verify-rerun-pty.py)
 executed `node examples/run-rerun-demo.ts --tty` through `pty.fork()` on the
 local macOS host. It uses only Python's standard library and the existing demo;
 no runtime code or dependency changed. The master descriptor is a real terminal,
@@ -803,8 +803,8 @@ main-spec writes. Its observable-behavior rule was applied only to the two
 verified capabilities, under the standing human approval recorded in task 6.1.
 
 The merge updates two requirements and adds five in
-[CLI chat](../../specs/cli-chat/spec.md); it updates two and adds three in
-[run observation](../../specs/run-observation/spec.md). This records the already
+[CLI chat](../../../specs/cli-chat/spec.md); it updates two and adds three in
+[run observation](../../../specs/run-observation/spec.md). This records the already
 verified exact-task/current-context execution, arrival-window receipts, fresh
 budgets/controller/complete-diff consent, immutable source evidence, and safe
 display provenance. It follows pi's session-owned submission and presentation
@@ -847,4 +847,80 @@ Documentation-only checks:
 Only the two current specifications, this evidence, and task 6.2's checkbox are
 changed. No runtime, dependency, permission, draft, or project-map change is made,
 and no fresh runtime/PTY/live-provider check is claimed. Task 6.3 remains pending;
-the accepted change is still active.
+at that task 6.2 checkpoint the accepted change was still active.
+
+## Task 6.3: archive and project-map closure
+
+On 2026-10-03 the apply/archive workflow resolved the repository root, the
+`spec-driven` schema, and both delta paths from the pinned CLI. Apply/list
+reported **24/25** tasks complete, with only task 6.3 pending; all planning
+artifacts were complete. Archive context and both guidance entries were applied:
+retain received human approval, synchronize only reviewed verified behavior,
+update project-map links, and preserve deferred work's unapproved status.
+The standing approval recorded in task 6.1 covers this archive and its remaining
+map/link checks, so it requires no invented additional acceptance message.
+
+Before moving the change, all **12 delta requirement blocks** were compared with
+the two current specs and matched exactly. The active change also passed strict
+validation against those synchronized specs. No second synchronization was
+started. The archive destination did not exist. The pinned command was:
+
+```bash
+npm run openspec -- archive rerun-settled-runs --skip-specs --yes
+```
+
+It archived the accepted change as
+`openspec/changes/archive/2026-10-03-rerun-settled-runs/`. The CLI's **one incomplete
+task** warning refers to this closure task itself, whose map/link checks occur
+after the move; the explicit standing approval covers completing it. The
+nonblocking proposal notice about more than ten deltas remains informational.
+`--skip-specs` avoided rewriting already synchronized specifications, and
+`--yes` applied the existing approval to the archive confirmation.
+
+`PRD.md`, `IMPLEMENTATION_PLAN.md`, and `CONTRIBUTING.md` now identify rerun as
+implemented, verified, synchronized, and archived, and link to its preserved
+design, tasks, and evidence. The next planning candidate is the unapproved
+validation draft's rebase/review; its first implementation leaf still requires
+separate confirmation. Relative archive links to current specs, the guide, and
+examples were repaired for the extra directory level. Historical staged
+verification and its then-pending scope remain historical. The pi references
+continue to describe trusted session submission, presentation separation, and
+abort-and-wait ownership; no additional pi behavior or harness capability is
+introduced by archival.
+
+Documentation-only checks and agent review:
+
+- `npm run openspec -- validate --specs --strict --no-interactive`: **5 passed,
+  0 failed**. No current requirement or scenario was changed in this task.
+- `npm run openspec -- list --json`: rerun is absent from active changes; the
+  only active change is the unapproved validation draft at **0/22** tasks.
+- Archive structure/content checks retain all seven files, including
+  `.openspec.yaml`, and confirm the active rerun directory is absent. SHA-256
+  comparisons preserve both delta files, archive configuration, all five
+  current specifications, and every validation-draft file byte for byte.
+  All 12 archived delta blocks still match their current requirements.
+- **92 local link paths and 21 heading fragments** resolve.
+  `npm run format:check` and `git diff --check` pass, including separate
+  `git diff --no-index --check /dev/null <file>` whitespace checks on all seven
+  new archive files.
+- `npm run spec:check`: **5 passed, 1 failed** after rerun leaves the active list.
+  Its sole failure remains the unapproved validation draft's CLI-chat MODIFIED
+  block for `Fresh budgets and recoverable turn failure`, which omits current
+  scenarios `Rerun after budget exhaustion` and `Failure without explicit request`.
+  This is the next draft's rebase/review prerequisite, not a failed
+  current requirement or archived rerun delta. The draft is untouched and no
+  implemented scenario was removed to make the global check pass.
+- Agent self-review checks received standing approval versus a later fabricated
+  reply, completed scope and retained coverage limits, archive path/date and
+  artifact preservation, current-versus-historical state, repaired links,
+  no second sync, and validation's explicit unapproved status. Parent reviewed
+  the maps/guide and found their scope and draft-prerequisite claims accurate.
+
+Task 6.3 is checked only after its archive/map/link/format/diff checks and agent
+review. The archived tracked task file then contains **25/25** completed tasks.
+Active apply instructions cannot report that archived progress; active-list
+absence plus the archived checkbox count provide closure evidence. No runtime,
+example implementation, dependency, permission, current specification, or future
+draft changed, and no fresh runtime, PTY, physical-keyboard, or live-provider
+verification is claimed by this documentation-only task. Existing 568-test and
+real local PTY/faux-provider evidence remains in tasks 5.2–5.3 with its limits.

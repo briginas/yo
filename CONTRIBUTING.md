@@ -144,12 +144,14 @@ consent: new proposals are denied without reading approval input. A legacy input
 adapter lacking arrival identities rejects rerun locally; ordinary tasks and
 inspection remain available. These controls follow pi's session-owned submission
 and terminal-action separation within yo's sequential, in-memory scope. See the
-[rerun design](openspec/changes/rerun-settled-runs/design.md) and
-[verification](openspec/changes/rerun-settled-runs/verification.md). Integrated
+[rerun design](openspec/changes/archive/2026-10-03-rerun-settled-runs/design.md) and
+[verification](openspec/changes/archive/2026-10-03-rerun-settled-runs/verification.md). Integrated
 demonstration, real local PTY checks, and final verification are complete.
-[Task 6.1](openspec/changes/rerun-settled-runs/verification.md#task-61-standing-human-approval-and-accepted-scope)
-records the received standing human approval and accepted bounded scope; spec
-synchronization and archive remain the next closure tasks.
+[Task 6.1](openspec/changes/archive/2026-10-03-rerun-settled-runs/verification.md#task-61-standing-human-approval-and-accepted-scope)
+records the received standing human approval and accepted bounded scope. The
+verified deltas are synchronized into current specs and rerun is archived;
+[task 6.3](openspec/changes/archive/2026-10-03-rerun-settled-runs/verification.md#task-63-archive-and-project-map-closure)
+records closure checks and retained coverage limits.
 
 ## Current draft and migration boundary
 
@@ -157,16 +159,22 @@ synchronization and archive remain the next closure tasks.
 is an imported, unapproved Milestone 5 draft. It has proposal, design, deltas,
 and unchecked tasks. Cancellation is complete and recorded in the current specs
 and [archive](openspec/changes/archive/2026-10-02-cancel-active-runs/verification.md).
-Explicit rerun is implemented and verified, with its bounded scope accepted under
-recorded standing human approval and specification closure pending. Then validation's assumptions and deltas must be reviewed
-against their settled contracts. Migrating these documents does not authorize
+Explicit rerun is implemented, verified, synchronized, and
+[archived](openspec/changes/archive/2026-10-03-rerun-settled-runs/verification.md).
+The next planning candidate is to rebase and review validation against the
+settled cancellation/rerun contracts before proposing a bounded implementation
+leaf. The global `npm run spec:check` currently passes all five current specs
+and fails only this draft: its CLI-chat modification omits `Rerun after budget
+exhaustion` and `Failure without explicit request`. Preserve these current
+scenarios during future draft review. The draft remains untouched and unapproved.
+Migrating these documents does not authorize
 `run_validation`, its proposed permission policy, or any runtime process work.
 
 Already implemented behavior was imported directly into main specs as a baseline,
 not as fictional feature changes. The former milestone requirements and plans
 were removed after checking their current decisions against the specifications.
-The project-state map retains the completed cancellation evidence and the
-separate future rerun boundary.
+The project-state map retains completed cancellation/rerun evidence and the
+unapproved validation rebase/review boundary.
 The [inspection archive](openspec/changes/archive/2026-10-02-inspect-settled-runs/verification.md)
 retains the actual 10.3–10.4 implementation evidence. Historical files remain
 recoverable through Git; no duplicate documentation archive is maintained.

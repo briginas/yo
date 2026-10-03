@@ -54,12 +54,14 @@ initially. The later standing instruction “выполняй задачи, сч
 verified closure, with one subagent and commit per task.
 Groups 1–4 are implemented, scoped-checked, and agent-reviewed in
 [verification.md](verification.md). CLI rerun is enabled through the existing
-turn path and documented in [the development guide](../../../CONTRIBUTING.md#chat-commands-and-rerun).
+turn path and documented in [the development guide](../../../../CONTRIBUTING.md#chat-commands-and-rerun).
 Group 5 adds the checked integrated demonstration, real local PTY evidence, and
 final full-suite/requirement review. [Task 6.1 evidence](verification.md#task-61-standing-human-approval-and-accepted-scope)
 records the exact human instruction and accepted verified scope. It supersedes
 the earlier separate-reply expectation without claiming personal human review of
-completed checks. Synchronization and archive remain tasks 6.2 and 6.3.
+completed checks. [Task 6.2](verification.md#task-62-verified-specification-synchronization)
+records verified specification synchronization;
+[task 6.3](verification.md#task-63-archive-and-project-map-closure) records archive closure.
 
 Defer original-context snapshots, context selectors, branching, continuation of
 an old loop, automatic retry, parallel runs, persistence, cross-session lookup,

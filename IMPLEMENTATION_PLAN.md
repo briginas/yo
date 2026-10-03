@@ -9,14 +9,16 @@ changes. Read the [workflow guide](CONTRIBUTING.md) before starting a change.
 - [Agent harness](openspec/specs/agent-harness/spec.md): bounded sequential loop,
   closed tool registry, workspace policy, settled cancellation, and read-tool limits.
 - [CLI chat](openspec/specs/cli-chat/spec.md): the `yo` entrypoint, ephemeral
-  transcript, sequential input, active/idle interrupt routing, and per-turn recovery.
+  transcript, sequential input, active/idle interrupt routing, per-turn recovery,
+  and explicit settled-run rerun.
 - [Codex authentication and transport](openspec/specs/codex-auth-transport/spec.md):
   trusted OAuth, credential refresh/storage, cancellable requests, and safe answers.
 - [Approval-gated patching](openspec/specs/approval-gated-patching/spec.md):
   exact single-file proposals, complete preview, fresh consent, revalidation,
   atomic application, and cancellation that preserves committed replacements.
 - [Run observation](openspec/specs/run-observation/spec.md): session-local run
-  history, requested/settled cancellation display, and local `/runs` and `/run N` inspection.
+  history, requested/settled cancellation display, local `/runs` and `/run N` inspection,
+  and safe direct rerun provenance.
 
 Milestones 1–4 are complete. Cancellation implementation and integration checks
 now pass 466 tests, build, formatting, strict OpenSpec validation, and diff checks.
@@ -54,60 +56,63 @@ separation within yo's sequential scope.
 The user explicitly accepted the verified result and authorized closure with
 “it's ok. go” on 2026-10-02. Only verified cancellation deltas were synchronized;
 the archive preserves earlier staged evidence and its coverage limits.
-The explicit rerun planning artifacts below are prepared; groups 1–5 are
-implemented, checked, and agent-reviewed. The user granted standing approval for
-every task of the bounded rerun change, including verified closure, with one
-subagent and commit per task; task 6.1 records the exact instruction and scope.
 
-## Subsequent work
+## Completed increment: explicit rerun
 
-1. **Explicit rerun:** the [proposal](openspec/changes/rerun-settled-runs/proposal.md),
-   [design](openspec/changes/rerun-settled-runs/design.md),
-   [deltas](openspec/changes/rerun-settled-runs/specs/), and
-   [tasks](openspec/changes/rerun-settled-runs/tasks.md) are prepared for review.
-   The user requested planning on 2026-10-03 and selected **current conversation**
-   context. Implemented `/rerun N` creates a new numbered run linked to its settled
-   source, repeats the exact task using current workspace state, retains the
-   earlier attempt, and requires fresh patch consent. Arrival-window receipts
-   prevent buffered duplicates while permitting a deliberate later attempt.
-   The subsequent “ok. continue” initially authorized group 1. Its pure command parser,
-   trusted catalog, and action receipts are implemented, agent-reviewed, and
-   scoped-checked with 14 focused tests, build, formatting, strict OpenSpec
-   validation, and diff checks; see [evidence](openspec/changes/rerun-settled-runs/verification.md).
-   The later “выполняй задачи, считая, что я аппрувнул каждую” approves every remaining
-   task of this bounded rerun change, including verified closure, with one subagent
-   and commit per task. Group 2 adds
-   trusted input-arrival identity with one shared reader and passes 52 focused
-   input/approval/cancellation tests plus build, formatting, and diff checks.
-   Group 3 moves ordinary run numbering to the trusted catalog and adds immutable
-   safe source/policy provenance to observation and all four display surfaces.
-   It passes 120 focused CLI/cancellation/observation/catalog tests plus build,
-   formatting, strict OpenSpec validation, diff checks, and agent review.
-   Group 4 enables command routing through the existing turn path and verifies
-   exact tasks/current context, all settled source outcomes, fresh budgets and
-   signals, changed-file reads, new complete-diff consent, cancellation settlement,
-   source immutability, native arrival-window deduplication, and display-failure
-   isolation. Local help and [usage](CONTRIBUTING.md#chat-commands-and-rerun) describe
-   these controls. Tasks 1.1–4.7 are checked after scoped checks and agent review;
-   the consolidated [group 4 evidence](openspec/changes/rerun-settled-runs/verification.md#group-4-cli-execution-usage-and-review)
-   records results and limits. Group 5 verifies the repeatable faux rerun demonstration,
-   real local PTY scenario, 568-test full suite, and all delta requirements/scenarios;
-   [final evidence](openspec/changes/rerun-settled-runs/verification.md#task-53-final-regression-and-requirement-review)
-   includes the repaired cancellation-demo wrapper and regenerated old transcripts.
-   Tasks 1.1–5.3 are checked. [Task 6.1](openspec/changes/rerun-settled-runs/verification.md#task-61-standing-human-approval-and-accepted-scope)
-   records standing human approval and the accepted bounded verified scope, without
-   inventing a later reply or personal human review of completed checks. The next
-   task is 6.2, synchronization of verified deltas, followed by archive in 6.3.
-2. **Allowlisted validation:** the imported
-   [proposal](openspec/changes/allowlisted-validation/proposal.md),
-   [design](openspec/changes/allowlisted-validation/design.md),
-   [deltas](openspec/changes/allowlisted-validation/specs/allowlisted-validation/spec.md),
-   and [tasks](openspec/changes/allowlisted-validation/tasks.md) remain unapproved.
-   Rebase and review against verified cancellation/rerun contracts before starting
-   its first implementation candidate, pure contracts/catalog/output bounds
-   (former 11.1). Artifact completeness does not make this the next authorized task.
-   Validation proposes exactly `test` and `build`, with outcomes in observation;
-   npm scripts are trusted process code, not a filesystem/network sandbox.
+The [proposal](openspec/changes/archive/2026-10-03-rerun-settled-runs/proposal.md),
+[design](openspec/changes/archive/2026-10-03-rerun-settled-runs/design.md),
+[deltas](openspec/changes/archive/2026-10-03-rerun-settled-runs/specs/),
+[tasks](openspec/changes/archive/2026-10-03-rerun-settled-runs/tasks.md), and
+[verification](openspec/changes/archive/2026-10-03-rerun-settled-runs/verification.md)
+retain the completed rerun increment. All **25/25** tracked tasks are checked;
+the verified CLI-chat and run-observation deltas are synchronized into current
+specs and the change is archived.
+
+`/rerun N` creates a new numbered attempt linked directly to its settled source,
+repeats the complete exact task with current conversation/workspace state, and
+retains the source evidence. Each attempt gets fresh budgets and cancellation,
+and each new patch requires new preparation and complete-diff consent.
+Trusted input-arrival windows suppress buffered duplicates while fresh prompts
+permit deliberate later attempts. Inspection and rejected actions stay local.
+This follows pi's session-owned submission and presentation separation in yo's
+smaller sequential, in-memory scope; branches, persistence, rollback, automatic
+retries, parallel runs, and broader capabilities remain deferred.
+
+The user requested planning on 2026-10-03 and selected current conversation.
+The subsequent “ok. continue” initially approved group 1; the later “выполняй
+задачи, считая, что я аппрувнул каждую” granted standing approval for every task
+of this bounded rerun change, including verified closure, with one subagent and
+commit per task. [Task 6.1](openspec/changes/archive/2026-10-03-rerun-settled-runs/verification.md#task-61-standing-human-approval-and-accepted-scope)
+records the exact instruction, without inventing a later acceptance reply or
+personal human review of completed checks. [Final verification](openspec/changes/archive/2026-10-03-rerun-settled-runs/verification.md#task-53-final-regression-and-requirement-review)
+records 568 passing tests, build, demonstrations, requirement review, and real
+local PTY evidence with a faux provider. Physical-keyboard, terminal-emulator UX,
+and live-provider coverage remain outside that evidence.
+[Task 6.2](openspec/changes/archive/2026-10-03-rerun-settled-runs/verification.md#task-62-verified-specification-synchronization)
+and [task 6.3](openspec/changes/archive/2026-10-03-rerun-settled-runs/verification.md#task-63-archive-and-project-map-closure)
+record synchronization and archival checks; [usage](CONTRIBUTING.md#chat-commands-and-rerun)
+describes the implemented controls.
+
+## Next planning candidate: rebase and review the validation draft
+
+The imported allowlisted-validation
+[proposal](openspec/changes/allowlisted-validation/proposal.md),
+[design](openspec/changes/allowlisted-validation/design.md),
+[deltas](openspec/changes/allowlisted-validation/specs/allowlisted-validation/spec.md),
+and [tasks](openspec/changes/allowlisted-validation/tasks.md) remain unapproved.
+Rebase and review their assumptions and deltas against the now-current
+cancellation/rerun contracts before proposing or confirming an implementation
+leaf. Pure contracts/catalog/output bounds (former 11.1) remain a later
+implementation candidate, not an authorized next task.
+
+The global `npm run spec:check` currently passes the five current specs and fails
+only this draft: its `Fresh budgets and recoverable turn failure` modification
+omits the current `Rerun after budget exhaustion` and `Failure without explicit
+request` scenarios. The draft was left untouched at rerun closure; those
+implemented scenarios must remain intact during its future rebase/review.
+Artifact completeness and standing rerun approval do not authorize validation.
+The draft proposes exactly `test` and `build`, with outcomes in observation;
+npm scripts are trusted process code, not a filesystem/network sandbox.
 
 ## Permanent constraints
 
