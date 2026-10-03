@@ -54,17 +54,29 @@ separation within yo's sequential scope.
 The user explicitly accepted the verified result and authorized closure with
 “it's ok. go” on 2026-10-02. Only verified cancellation deltas were synchronized;
 the archive preserves earlier staged evidence and its coverage limits.
-The next candidate is explicit rerun planning below; no implementation leaf is
-currently approved.
+The explicit rerun planning artifacts below are prepared; group 1 was explicitly
+authorized and is now scoped-checked. No later implementation leaf is approved.
 
 ## Subsequent work
 
-1. **Explicit rerun:** separately specify original-snapshot versus current-context
-   policy. Create a new numbered run linked to its source, use current workspace
-   state, retain the previous attempt, and require fresh patch consent. Repeated
-   submission of one pending rerun action must not allocate duplicate runs; a
-   deliberate later attempt remains possible. Verify source immutability, changed
-   files, terminal source runs, repeated input, and absence of automatic retries.
+1. **Explicit rerun:** the [proposal](openspec/changes/rerun-settled-runs/proposal.md),
+   [design](openspec/changes/rerun-settled-runs/design.md),
+   [deltas](openspec/changes/rerun-settled-runs/specs/), and
+   [tasks](openspec/changes/rerun-settled-runs/tasks.md) are prepared for review.
+   The user requested planning on 2026-10-03 and selected **current conversation**
+   context. Proposed `/rerun N` creates a new numbered run linked to its settled
+   source, repeats the exact task using current workspace state, retains the
+   earlier attempt, and requires fresh patch consent. Arrival-window receipts
+   prevent buffered duplicates while permitting a deliberate later attempt.
+   The subsequent “ok. continue” authorized group 1 only. Its pure command parser,
+   trusted catalog, and action receipts are implemented, agent-reviewed, and
+   scoped-checked with 14 focused tests, build, formatting, strict OpenSpec
+   validation, and diff checks; see [evidence](openspec/changes/rerun-settled-runs/verification.md).
+   Tasks 1.1–1.4 are checked; CLI rerun is not yet enabled. The next candidate is
+   group 2: trusted input-arrival identity with one shared reader. It requires
+   bounded confirmation, and groups 2–6 remain unchecked. Later integration must
+   still verify source immutability, changed files, terminal source outcomes,
+   repeated native input, fresh patch consent, and no automatic retry.
 2. **Allowlisted validation:** the imported
    [proposal](openspec/changes/allowlisted-validation/proposal.md),
    [design](openspec/changes/allowlisted-validation/design.md),

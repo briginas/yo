@@ -120,8 +120,16 @@ Applied patches and committed completion remain intact. The user authorized
 implementation with a commit after each step and accepted the result on 2026-10-02.
 See [verification](openspec/changes/archive/2026-10-02-cancel-active-runs/verification.md)
 for the 466-test full check, real PTY/process-signal evidence, and coverage limits.
-Explicit rerun is the next planning boundary; it requires a separate proposal
-and approval. Validation remains a later unapproved draft.
+The [explicit rerun proposal](openspec/changes/rerun-settled-runs/proposal.md),
+[design](openspec/changes/rerun-settled-runs/design.md),
+[deltas](openspec/changes/rerun-settled-runs/specs/), and
+[tasks](openspec/changes/rerun-settled-runs/tasks.md) define the next planning
+boundary. Planning was requested on 2026-10-03 and the user selected current
+conversation context. The subsequent “ok. continue” authorized group 1 only;
+its pure parser/catalog and action receipts are implemented and scoped-checked
+with [evidence](openspec/changes/rerun-settled-runs/verification.md). CLI rerun
+is not yet enabled. Group 2 input-arrival identity is the next candidate and
+requires bounded confirmation. Validation remains a later unapproved draft.
 The [validation draft](openspec/changes/allowlisted-validation/proposal.md),
 [design](openspec/changes/allowlisted-validation/design.md), and
 [tasks](openspec/changes/allowlisted-validation/tasks.md) do not authorize process
