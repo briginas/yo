@@ -465,3 +465,62 @@ these tests do not claim native buffering, PTY, physical keyboard, live-provider
 or full-suite evidence. Task 4.5 onward remains pending. Current specifications
 and the unapproved validation draft are unchanged; human result acceptance is
 still separate.
+
+## Task 4.5: native arrival windows, EOF, and approval ownership
+
+On 2026-10-03, `src/cli-rerun-native-input.test.ts` exercises real Node streams
+and `createNodeLineInput` through `runCli`, `runChatInput`, the actual conversation/
+agent loop, and workspace tools with a faux provider. All three scenarios run
+with interactive and noninteractive readers. The fixture records native
+submission envelopes without creating or changing arrival identities. Prompt
+callbacks and explicit promise gates control input and model settlement; no
+timer sleeps or new dependencies are used. No production change was needed.
+This follows pi's separation of trusted terminal/session actions from submitted
+model tasks, within yo's smaller sequential input contract.
+
+- Equivalent rerun lines arrive together before accepted work and again while
+  its first model request is held. During that gate there is no additional
+  prompt, chat read, invocation, or request. Both duplicate lines are dequeued
+  only after attempt 2 settles, retain window 2, and report the same attempt
+  number without a new request stream. Ordinary repeated tasks both execute;
+  `/runs` and `/run 1` follow them in order. The same source command entered
+  synchronously at fresh prompt 9 carries window 9 and creates attempt 5. Later
+  inspection and exact exit execute in order; trailing buffered task text does
+  not execute. Headers, task suffixes, request counts, and settled-read counts
+  verify the sequence without using wall time.
+- A startup batch ends before CLI startup and includes ordinary repeats,
+  inspection, duplicate reruns, and a final partial rerun without a newline.
+  Every envelope retains startup window 0 across later prompts. EOF drains all
+  buffered lines, the final partial duplicate reports attempt 2, and exactly
+  four turns execute with one two-request stream each.
+- A rerun proposes a real patch after its completed source. At the interactive
+  approval prompt, `/rerun 1` denies that patch and is absent from subsequent
+  chat submissions and model messages. Its following ordinary task, inspection,
+  and exit remain ordered with the existing chat window. In non-TTY mode no
+  approval reader opens; the patch denies and the same buffered rerun line is
+  handled locally as an existing action. Current bytes remain unchanged, the
+  full preview is checked, and exactly one denied patch result and approval
+  resolution are retained.
+
+Checks and self-review:
+
+- `node --test src/cli-rerun-native-input.test.ts`: **9 passed, 0 failed**,
+  including nested cases.
+- `node --test src/cli-rerun-native-input.test.ts src/cli-rerun.test.ts src/cli-rerun-execution.test.ts src/cli-rerun-workspace.test.ts src/cli-rerun-cancellation.test.ts src/line-input.test.ts src/terminal-approval.test.ts src/cli-cancellation.test.ts`:
+  **110 passed, 0 failed**, including nested cases.
+- `npm run build`, `npm run format:check`, and `git diff --check`: passed.
+- Self-review checked arrival rather than dequeue identity, post-settlement
+  duplicate consumption, deliberate fresh input, ordinary task preservation,
+  local-command ordering, EOF final-partial delivery, shared review ownership,
+  unchanged patch bytes, request/transcript accounting, and stream/listener
+  cleanup. Initial output assertions were corrected to account for result cards
+  sharing `writeOutput` with local commands; no implementation defect was found.
+
+Parent review checked the native envelope sequence, FIFO/startup windows, fresh
+window 9, and held gates and found no issues. Task 4.5 is scoped-checked and
+reviewed; commit remains with the parent. Refreshed apply instructions confirm
+**17/25** tasks complete with task 4.6 next.
+This is native readline/stream evidence, not a real PTY, physical
+keyboard, live-provider, failure-injection, demonstration, or full-suite check.
+Tasks 4.6 onward remain pending. Current specifications and the unapproved
+validation draft are unchanged; these results do not record human acceptance.
