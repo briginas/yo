@@ -12,8 +12,14 @@ export class LineReadAbortedError extends Error {
 
 export type LineReadOptions = Readonly<{ signal?: AbortSignal }>
 
+export type ChatSubmission = Readonly<{ line: string; windowId: number }>
+
 export type LineInput = {
     readLine: (prompt: string, options?: LineReadOptions) => Promise<string | null>
+    readChatSubmission?: (
+        prompt: string,
+        options?: LineReadOptions
+    ) => Promise<ChatSubmission | null>
     subscribeInterrupt?: (listener: () => void) => () => void
     discardUntilNextRead?: () => void
     close: () => void
@@ -44,19 +50,20 @@ export const createNodeLineInput = ({
         terminal: isInteractive,
     })
     type PendingRead = {
-        resolve: (value: string | null) => void
+        resolve: (value: ChatSubmission | null) => void
         reject: (error: unknown) => void
         dispose: () => void
     }
-    const buffered: string[] = []
+    const buffered: ChatSubmission[] = []
     const interrupts = new Set<() => void>()
     let pending: PendingRead | undefined
     let closed = false
     let ended = false
     let discarding = false
     let failure: Error | undefined
+    let windowId = 0
 
-    const finish = (owner: PendingRead, value: string | null): void => {
+    const finish = (owner: PendingRead, value: ChatSubmission | null): void => {
         if (pending !== owner) return
         pending = undefined
         owner.dispose()
@@ -70,8 +77,10 @@ export const createNodeLineInput = ({
     }
     const onLine = (value: string): void => {
         if (closed || discarding) return
-        if (pending !== undefined) finish(pending, value)
-        else buffered.push(value)
+        // Arrival identity survives later prompts and dequeue; approval reads do not advance it.
+        const submission = Object.freeze({ line: value, windowId })
+        buffered.push(submission)
+        if (pending !== undefined) finish(pending, buffered.shift()!)
     }
     const clearPartial = (): void => {
         if (ended) return
@@ -130,46 +139,59 @@ export const createNodeLineInput = ({
     lines.on('error', onError)
     lines.on('SIGINT', onInterrupt)
 
-    return {
-        readLine: (prompt, { signal } = {}): Promise<string | null> => {
-            if (pending !== undefined)
-                return Promise.reject(new Error('Input already has an owner'))
-            if (signal?.aborted) return Promise.reject(new LineReadAbortedError())
-            if (closed) return Promise.resolve(null)
-            if (failure !== undefined) return Promise.reject(failure)
-            if (discarding) {
-                try {
-                    clearPartial()
-                } catch {
-                    onError(new Error('Input reset failed'))
-                    return Promise.reject(failure)
-                }
-                discarding = false
+    const read = (
+        prompt: string,
+        { signal }: LineReadOptions = {},
+        opensChatWindow = false
+    ): Promise<ChatSubmission | null> => {
+        if (pending !== undefined) return Promise.reject(new Error('Input already has an owner'))
+        if (signal?.aborted) return Promise.reject(new LineReadAbortedError())
+        if (closed) return Promise.resolve(null)
+        if (failure !== undefined) return Promise.reject(failure)
+        if (discarding) {
+            try {
+                clearPartial()
+            } catch {
+                onError(new Error('Input reset failed'))
+                return Promise.reject(failure)
             }
-            if (ended && buffered.length === 0) return Promise.resolve(null)
+            discarding = false
+        }
+        if (ended && buffered.length === 0) return Promise.resolve(null)
+        if (opensChatWindow && windowId === Number.MAX_SAFE_INTEGER)
+            return Promise.reject(new Error('Input arrival window exhausted'))
 
-            return new Promise((resolve, reject) => {
-                const owner: PendingRead = {
-                    resolve,
-                    reject,
-                    dispose: () => signal?.removeEventListener('abort', cancel),
-                }
-                const cancel = (): void => {
-                    if (pending !== owner) return
-                    discardUntilNextRead()
-                }
-                pending = owner
-                signal?.addEventListener('abort', cancel, { once: true })
-                try {
-                    lines.setPrompt(prompt)
-                    lines.prompt()
+        return new Promise((resolve, reject) => {
+            const owner: PendingRead = {
+                resolve,
+                reject,
+                dispose: () => signal?.removeEventListener('abort', cancel),
+            }
+            const cancel = (): void => {
+                if (pending !== owner) return
+                discardUntilNextRead()
+            }
+            pending = owner
+            signal?.addEventListener('abort', cancel, { once: true })
+            try {
+                if (opensChatWindow) windowId += 1
+                lines.setPrompt(prompt)
+                lines.prompt()
+                if (pending === owner) {
                     const next = buffered.shift()
                     if (next !== undefined) finish(owner, next)
-                } catch (error) {
-                    fail(owner, error)
                 }
-            })
-        },
+            } catch (error) {
+                fail(owner, error)
+            }
+        })
+    }
+
+    return {
+        readLine: (prompt, options): Promise<string | null> =>
+            read(prompt, options).then((submission) => submission?.line ?? null),
+        readChatSubmission: (prompt, options): Promise<ChatSubmission | null> =>
+            read(prompt, options, true),
         discardUntilNextRead,
         subscribeInterrupt: (listener): (() => void) => {
             if (!closed && !ended) interrupts.add(listener)

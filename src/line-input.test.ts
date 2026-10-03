@@ -188,6 +188,131 @@ const nodeInputFixture = (isInteractive = false) => {
     return { stream, input }
 }
 
+test('chat submissions preserve startup arrival identity across later prompts', async () => {
+    for (const isInteractive of [false, true]) {
+        const { stream, input } = nodeInputFixture(isInteractive)
+        stream.write('  startup one  \nstartup two\n')
+
+        assert.deepEqual(await input.readChatSubmission!(CHAT_PROMPT), {
+            line: '  startup one  ',
+            windowId: 0,
+        })
+        assert.deepEqual(await input.readChatSubmission!(CHAT_PROMPT), {
+            line: 'startup two',
+            windowId: 0,
+        })
+        const fresh = input.readChatSubmission!(CHAT_PROMPT)
+        stream.write('fresh\n')
+        assert.deepEqual(await fresh, { line: 'fresh', windowId: 3 })
+        input.close()
+    }
+})
+
+test('chat submission identity is assigned at arrival and retained during active work', async () => {
+    for (const isInteractive of [false, true]) {
+        const { stream, input } = nodeInputFixture(isInteractive)
+        const first = input.readChatSubmission!(CHAT_PROMPT)
+        stream.write('/rerun 1\n /rerun\t1 \n')
+        assert.deepEqual(await first, { line: '/rerun 1', windowId: 1 })
+        stream.write('during work\n')
+
+        assert.deepEqual(await input.readChatSubmission!(CHAT_PROMPT), {
+            line: ' /rerun\t1 ',
+            windowId: 1,
+        })
+        stream.write('after next prompt\n')
+        assert.deepEqual(await input.readChatSubmission!(CHAT_PROMPT), {
+            line: 'during work',
+            windowId: 1,
+        })
+        assert.deepEqual(await input.readChatSubmission!(CHAT_PROMPT), {
+            line: 'after next prompt',
+            windowId: 2,
+        })
+
+        const fresh = input.readChatSubmission!(CHAT_PROMPT)
+        stream.write('/rerun 1\n')
+        assert.deepEqual(await fresh, { line: '/rerun 1', windowId: 5 })
+        input.close()
+    }
+})
+
+test('approval and chat share ownership while only chat reads advance arrival windows', async () => {
+    const { stream, input } = nodeInputFixture()
+    const first = input.readChatSubmission!(CHAT_PROMPT)
+    await assert.rejects(input.readLine('approval> '), /Input already has an owner/)
+    stream.write('task\nyes\n')
+    assert.deepEqual(await first, { line: 'task', windowId: 1 })
+    assert.equal(await input.readLine('approval> '), 'yes')
+
+    const approval = input.readLine('approval> ')
+    await assert.rejects(input.readChatSubmission!(CHAT_PROMPT), /Input already has an owner/)
+    stream.write('/rerun 1\n')
+    assert.equal(await approval, '/rerun 1')
+    stream.write('while working\n')
+    assert.deepEqual(await input.readChatSubmission!(CHAT_PROMPT), {
+        line: 'while working',
+        windowId: 1,
+    })
+
+    const fresh = input.readChatSubmission!(CHAT_PROMPT)
+    stream.write('fresh\n')
+    assert.deepEqual(await fresh, { line: 'fresh', windowId: 3 })
+    input.close()
+})
+
+test('chat window opens before synchronous input received while writing its prompt', async () => {
+    const stream = new PassThrough()
+    let promptCount = 0
+    const output = new Writable({
+        write(_chunk, _encoding, callback) {
+            promptCount += 1
+            if (promptCount === 1) stream.write('during prompt\nsecond in batch\n')
+            if (promptCount === 3) stream.write('fresh prompt\n')
+            callback()
+        },
+    })
+    const input = createNodeLineInput({ input: stream, output, isInteractive: false })
+    assert.deepEqual(await input.readChatSubmission!(CHAT_PROMPT), {
+        line: 'during prompt',
+        windowId: 1,
+    })
+    assert.deepEqual(await input.readChatSubmission!(CHAT_PROMPT), {
+        line: 'second in batch',
+        windowId: 1,
+    })
+    assert.deepEqual(await input.readChatSubmission!(CHAT_PROMPT), {
+        line: 'fresh prompt',
+        windowId: 3,
+    })
+    input.close()
+})
+
+test('input received during a prompt does not overtake previously buffered submissions', async () => {
+    const stream = new PassThrough()
+    let prompted = false
+    const output = new Writable({
+        write(_chunk, _encoding, callback) {
+            if (!prompted) {
+                prompted = true
+                stream.write('prompt arrival\n')
+            }
+            callback()
+        },
+    })
+    const input = createNodeLineInput({ input: stream, output, isInteractive: false })
+    stream.write('startup arrival\n')
+    assert.deepEqual(await input.readChatSubmission!(CHAT_PROMPT), {
+        line: 'startup arrival',
+        windowId: 0,
+    })
+    assert.deepEqual(await input.readChatSubmission!(CHAT_PROMPT), {
+        line: 'prompt arrival',
+        windowId: 1,
+    })
+    input.close()
+})
+
 test('cancellation releases read ownership and discards partial and later buffered input', async () => {
     for (const isInteractive of [false, true]) {
         const { stream, input } = nodeInputFixture(isInteractive)
