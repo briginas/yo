@@ -145,8 +145,9 @@ adapter lacking arrival identities rejects rerun locally; ordinary tasks and
 inspection remain available. These controls follow pi's session-owned submission
 and terminal-action separation within yo's sequential, in-memory scope. See the
 [rerun design](openspec/changes/rerun-settled-runs/design.md) and
-[verification](openspec/changes/rerun-settled-runs/verification.md); PTY checks,
-final verification, and result acceptance remain pending.
+[verification](openspec/changes/rerun-settled-runs/verification.md). Integrated
+demonstration, real local PTY checks, and final verification are complete;
+completed-result acceptance remains pending before spec synchronization/archive.
 
 ## Current draft and migration boundary
 
@@ -154,8 +155,8 @@ final verification, and result acceptance remain pending.
 is an imported, unapproved Milestone 5 draft. It has proposal, design, deltas,
 and unchecked tasks. Cancellation is complete and recorded in the current specs
 and [archive](openspec/changes/archive/2026-10-02-cancel-active-runs/verification.md).
-Explicit rerun must be separately planned, approved, implemented, and verified
-first, then validation's assumptions and deltas must be reviewed
+Explicit rerun is implemented and verified, awaiting completed-result acceptance
+and specification closure. Then validation's assumptions and deltas must be reviewed
 against their settled contracts. Migrating these documents does not authorize
 `run_validation`, its proposed permission policy, or any runtime process work.
 

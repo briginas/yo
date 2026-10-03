@@ -159,16 +159,19 @@ try {
                       readLine: (prompt, options) => {
                           const result = native.readLine(prompt, options)
                           process.stdout.write(prompt)
-                          if (prompt === PATCH_APPROVAL_PROMPT) {
-                              approvals += 1
-                              process.stdout.write('[waiting for explicit input]\n')
-                              const gate = approvals === 1 ? approvalWaiting : freshApproval
-                              gate.resolve()
-                          } else {
-                              prompts += 1
-                              if (prompts === 6) freshPrompt.resolve()
-                              send(lines.shift() ?? '/exit')
-                          }
+                          assert.equal(prompt, PATCH_APPROVAL_PROMPT)
+                          approvals += 1
+                          process.stdout.write('[waiting for explicit input]\n')
+                          const gate = approvals === 1 ? approvalWaiting : freshApproval
+                          gate.resolve()
+                          return result
+                      },
+                      readChatSubmission: (prompt, options) => {
+                          const result = native.readChatSubmission!(prompt, options)
+                          process.stdout.write(prompt)
+                          prompts += 1
+                          if (prompts === 6) freshPrompt.resolve()
+                          send(lines.shift() ?? '/exit')
                           return result
                       },
                   },

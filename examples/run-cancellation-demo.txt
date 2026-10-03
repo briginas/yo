@@ -2,7 +2,7 @@ Deterministic faux interactive demo; native readline, local fixture, no OAuth or
 yo> /runs
 Session runs:
 No runs yet.
-Inspect: /run N | List: /runs
+Inspect: /run N | List: /runs | Rerun: /rerun N
 yo> Read answer.ts
 Run #1: Read answer.ts | start=15:00:00
 state: run=1 starting elapsed=0.000s
@@ -40,11 +40,11 @@ Patches:
 - (none)
 Session runs:
 - #1 Read answer.ts | cancelled | start=15:00:00 elapsed=0.150s | reason=aborted
-Inspect: /run N | List: /runs
+Inspect: /run N | List: /runs | Rerun: /rerun N
 yo> /runs
 Session runs:
 - #1 Read answer.ts | cancelled | start=15:00:00 elapsed=0.150s | reason=aborted
-Inspect: /run N | List: /runs
+Inspect: /run N | List: /runs | Rerun: /rerun N
 yo> /run 1
 Run #1: Read answer.ts | start=15:00:00
 Events:
@@ -119,7 +119,7 @@ Patches:
 Session runs:
 - #1 Read answer.ts | cancelled | start=15:00:00 elapsed=0.150s | reason=aborted
 - #2 Patch answer.ts | cancelled | start=15:00:00 elapsed=0.025s | reason=aborted
-Inspect: /run N | List: /runs
+Inspect: /run N | List: /runs | Rerun: /rerun N
 yo> /run 2
 Run #2: Patch answer.ts | start=15:00:00
 Events:
@@ -202,13 +202,13 @@ Session runs:
 - #1 Read answer.ts | cancelled | start=15:00:00 elapsed=0.150s | reason=aborted
 - #2 Patch answer.ts | cancelled | start=15:00:00 elapsed=0.025s | reason=aborted
 - #3 Patch answer.ts | completed | start=15:00:00 elapsed=0.050s | reason=final_answer
-Inspect: /run N | List: /runs
+Inspect: /run N | List: /runs | Rerun: /rerun N
 yo> /runs
 Session runs:
 - #1 Read answer.ts | cancelled | start=15:00:00 elapsed=0.150s | reason=aborted
 - #2 Patch answer.ts | cancelled | start=15:00:00 elapsed=0.025s | reason=aborted
 - #3 Patch answer.ts | completed | start=15:00:00 elapsed=0.050s | reason=final_answer
-Inspect: /run N | List: /runs
+Inspect: /run N | List: /runs | Rerun: /rerun N
 yo> /run 1
 Run #1: Read answer.ts | start=15:00:00
 Events:

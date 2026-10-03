@@ -14,12 +14,12 @@ record human acceptance of a completed rerun result or authorize the later
 allowlisted-validation draft. Spec synchronization and archive still follow
 completed-result acceptance.
 
-CLI rerun is enabled and groups 1–4 are implemented, scoped-checked, and
-agent-reviewed. Groups 1–3 below retain their historical checkpoint scope; group 4
-records integrated CLI execution, native streams, and usage checks. Task 5.1, the
-faux rerun demonstration, is next. The real local PTY scenario and final full-suite
-review also remain pending. No physical-keyboard, live-provider, completed-result
-acceptance, or spec synchronization is claimed.
+CLI rerun is enabled and groups 1–5 are implemented, checked, and agent-reviewed.
+Earlier sections retain historical checkpoint scope; tasks 5.1–5.3 record the
+integrated demonstration, real local PTY evidence, full checks, and final
+requirement review. Completed-result acceptance is the next boundary. No
+physical-keyboard, live-provider, human acceptance, or spec synchronization is
+claimed.
 
 ## Group 1 staged checks and review
 
@@ -610,3 +610,129 @@ do not prove arbitrary timing races or held-cleanup behavior; focused tests
 record those separate boundaries. Full repository checks and requirement review
 remain task 5.3. Completed-result acceptance, spec synchronization/archive, and
 the validation draft remain separate and unapproved by this verification.
+
+## Task 5.3: final regression and requirement review
+
+On 2026-10-03 the final review covered the implemented CLI control, native input,
+catalog, observation provenance, actual conversation/loop, cancellation, and
+current-byte patch consent. This reuses pi's session-owned submission,
+presentation separation, and abort-and-wait pattern within yo's sequential,
+in-memory scope. No runtime capability, dependency, tool, or permission changed
+in this task.
+
+### Findings and regression demonstrations
+
+The first full suite passed **568 tests**, build, formatting, strict specification
+validation, and diff checks. Additional runs of all three existing demonstrations
+used Python `subprocess.run(..., capture_output=True, timeout=20)` so an input
+regression could not hang verification indefinitely.
+
+- Observation demo exited **0**; its captured output was stale only because the
+  six command hints lacked the already implemented `/rerun N` usage.
+- Cancellation demo initially exited **13** with Node's unsettled top-level await
+  warning at `modelWaiting`. Its controlled-stream wrapper instrumented only
+  `readLine`; `runChatInput` now prefers native `readChatSubmission`, so scripted
+  chat input and prompt gates were bypassed. The wrapper now instruments that
+  additive path for chat while `readLine` retains exclusive patch approval
+  instrumentation. Both delegate to the same native reader. The `--tty` branch
+  still uses the native reader directly and is unchanged.
+- After the fix, cancellation demo exited **0** with its existing assertions:
+  held model/outer cleanup, repeated Ctrl+C, partial/late affirmative discard,
+  fresh consent applying 42 → 43, no late answer, and identical frozen source
+  inspections. Its captured output also changed only in six usage hints.
+- Rerun demo exited **0** and matched its existing captured transcript byte for
+  byte. Both older transcripts were regenerated from actual output; prompt/input
+  bytes were preserved. A second bounded run of all three matched every committed
+  transcript exactly.
+
+The examples are outside the build's `src` include. Separate strict checking of
+the edited cancellation demo passed with:
+
+```bash
+./node_modules/.bin/tsc --ignoreConfig --noEmit --module ESNext --moduleResolution Bundler --target ES2024 --types node --strict --noUncheckedIndexedAccess --exactOptionalPropertyTypes --allowImportingTsExtensions --verbatimModuleSyntax --skipLibCheck examples/run-cancellation-demo.ts
+```
+
+The initial explicit-file TypeScript invocation returned `TS5112` because this
+version requires `--ignoreConfig` alongside file arguments in a project. The
+corrected command above passed; no type or runtime source fix was required.
+
+### Requirement-to-evidence review
+
+The following rows cover **all 12 requirements and 41 scenarios** in the
+[CLI delta](specs/cli-chat/spec.md) and
+[observation delta](specs/run-observation/spec.md). Scenario names identify the
+reviewed contract; the referenced adjacent test files contain the executable
+assertions and are included in the final full suite. Earlier group sections
+explain the assertions, faux transport, gates, and bounds in detail.
+
+| Delta requirement                                                   | Scenarios reviewed                                                                                                                                                           | Evidence and conclusion                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| CLI: Sequential input ownership                                     | Exit token must be exact; Active patch approval; Cancel approval and continue; Command-like approval input                                                                   | `line-input.test.ts`, `cli-app.test.ts`, `terminal-approval.test.ts`, `cli-cancellation.test.ts`, `cli-rerun-native-input.test.ts`, and `cli-rerun-cancellation.test.ts` prove exact exit/whitespace/EOF rules, one shared owner, settlement before chat reads, late cancelled-input discard, and `/rerun 1` consumed only as denial at approval. The repaired cancellation demo preserves these assertions; rerun demo and task 5.2 PTY exercise command denial and fresh recovery.                               |
+| CLI: Fresh budgets and recoverable turn failure                     | Failed turn followed by another task; Rerun after budget exhaustion; Failure without explicit request                                                                        | `cli-app.test.ts` checks ordinary transport/budget recovery; `cli-rerun-execution.test.ts` starts a genuine exhausted source and observes ten fresh rerun requests plus separate 5,000 ms tool timers. `cli-rerun-cancellation.test.ts` holds cleanup and checks no new request/prompt/retry until explicit input. Source review of `runtime/tool-dispatcher.ts` confirms review awaits outside the separate preparation/application timers; existing patch tests exercise their unchanged consent/lifecycle path. |
+| CLI: Precisely recognized rerun command                             | Valid command variants; Malformed reserved input; Other tokens remain ordinary                                                                                               | `rerun-command.test.ts` and `cli-rerun.test.ts` cover every listed malformed form, safe-integer bounds, spaces/tabs, lookalikes and exact ordinary whitespace. Invalid reserved input stays local without tasks, transcript additions, numbers, or calls; native/demo/PTY inputs exercise normalized variants.                                                                                                                                                                                                     |
+| CLI: Settled current-session rerun source                           | Every returned terminal outcome is eligible; Invalid source is local; Full task survives lossy preview                                                                       | `chat-runs.test.ts` proves independent session catalogs, unknown/unsettled rejection and immutable full tasks; `cli-rerun.test.ts` checks no number consumption and rejection despite display settlement. `cli-rerun-execution.test.ts` uses real returned completed/transport-failed/cancelled/exhausted outcomes. Long Unicode/whitespace and redacted/control-containing tasks execute exactly while safe previews remain bounded. No cross-session lookup exists.                                              |
+| CLI: Rerun uses current conversation and workspace                  | Intervening turns are retained; Files change before a rerun; Rerun of a rerun                                                                                                | `cli-rerun-execution.test.ts` compares whole requests and suffixes with intervening correction and direct source-3 selection; commands/action fields are absent. `cli-rerun-workspace.test.ts` forces a new read of externally changed bytes while historical results occur once. Rerun demo asserts the same task/context/read boundaries.                                                                                                                                                                        |
+| CLI: One attempt per rerun action                                   | Duplicate delivery during active work; Buffered duplicate after settlement; Deliberate later attempt; Mixed buffered input and EOF; Reader cannot establish arrival identity | `chat-runs.test.ts` proves atomic persistent receipts; `line-input.test.ts` assigns identity at ingress, preserves startup/buffered windows, and shares ownership. `cli-rerun-native-input.test.ts` exercises held work, normalized duplicates, fresh prompts, repeated ordinary tasks, ordered inspection/exit and partial EOF drain in both input modes. `cli-rerun.test.ts` checks legacy rejection without fabricated identity. Demo/PTY assert two suppressed duplicates, fresh windows and five attempts.    |
+| CLI: Rerun preserves cancellation and patch boundaries              | Prior approval does not authorize a rerun patch; Cancelled review followed by rerun; Cancellation during new work; Noninteractive rerun                                      | `cli-rerun-workspace.test.ts` verifies applied bytes persist, separately prepared current-base complete diffs, fresh yes/denial and non-TTY denial without a read. `cli-rerun-cancellation.test.ts` rejects late source consent, holds rerun cleanup, compares distinct signals, and retains committed completion in races. Demo/PTY add real tools and approval ownership; no old proposal/signal/consent is replayed.                                                                                            |
+| Observation: Session-local sequential runs                          | Consecutive tasks retain distinct records; A new chat starts empty; Inspection does not consume a run number; Accepted rerun is a separate record                            | `chat-runs.test.ts`, `cli-observation.test.ts`, `cli-rerun.test.ts`, and native/demo assertions check one allocator, increasing ordinary/rerun IDs, session reset, separate evidence, and no numbers for inspection/rejection/duplicates. `cli-app.ts` awaits each controller settlement before the next submission.                                                                                                                                                                                               |
+| Observation: Inspection commands are local and precisely recognized | Valid command variants; Malformed reserved commands stay local; Other input is preserved                                                                                     | `observation-command.test.ts` and `cli-observation.test.ts` cover existing grammar, every malformed inspection form and ordinary-token preservation. `cli-app.ts` routes inspection independently before rerun; inspection invokes no turn or clock. The observation regression demo preserves this behavior with updated hints.                                                                                                                                                                                   |
+| Observation: Safe rerun provenance is visible                       | Linked attempt from start to inspection; Link is direct and stable; Ordinary runs and plain output                                                                           | `run-observation.test.ts` and `observation-session.test.ts` prove creation-before-synchronous-events and detached immutable direct source/policy allowlists with raw fields excluded. `terminal-observation.test.ts` checks header/result/list/inspection labels, unchanged ordinary output, frozen links through chains, and durable non-TTY text. Demo/PTY show all four surfaces.                                                                                                                               |
+| Observation: Source evidence remains immutable through rerun        | Source before and after rerun; Source with applied patch and cancelled result; Late callbacks across attempts                                                                | `cli-rerun-cancellation.test.ts` compares full source snapshots and inspections with applied-patch/cancelled evidence retained while the new run shows only new evidence. `cli-rerun-observation.test.ts`, `run-observation.test.ts`, `observation-session.test.ts`, and `terminal-observation.test.ts` check late source/rerun callbacks, distinct association, immutable linkage and no clock resampling. Demo/PTY assert four identical source inspections.                                                     |
+| Observation: Rerun display does not control execution               | Lossy task display; Display consumers fail; Inspection remains local                                                                                                         | `cli-rerun.test.ts` proves full exact tasks survive redacted/truncated previews. `cli-rerun-observation.test.ts` reaches rendering/projection/observer/fallback/clock/diagnostic faults and compares requests, results and final session with matching controls; receipt count, source identity and consent remain execution-owned. `cli-observation.test.ts` checks inspection request/transcript/clock invariance; existing observation tests preserve sanitization and bounds.                                  |
+
+Self-review traced parsing → catalog receipt/reservation → fresh controller →
+observation creation → current conversation/turn → trusted settlement → frozen
+display. No scenario was dropped or narrowed. The catalog stores tasks/outcome
+pairs and numeric receipts, while display stores only safe previews and fixed
+provenance. Runtime conversation, tool registry, patch application, and provider
+contracts are reused. Review found only the demonstration-wrapper regression and
+stale help transcripts above; the task needed no runtime correction.
+
+### Final checks and acceptance scope
+
+The full runtime suite and build passed before the demo-only fix; no `src` file
+changed. The edited example then passed its separate strict check and bounded
+regression run. Formatting/specification/diff checks were refreshed after the
+documentation updates:
+
+```bash
+npm test
+npm run build
+npm run format:check
+npm run spec:check
+git diff --check
+```
+
+- **568 tests passed, 0 failed**, including nested cases; 27 suites, no cancelled,
+  skipped, or todo tests.
+- Strict TypeScript checking and CLI bundling passed. The edited example's
+  separate strict check above also passed.
+- Formatting and diff checks passed. **72 relative links** and the scenario
+  matrix were checked against the actual files and delta headings.
+- Strict OpenSpec validation: **7 items passed, 0 failed**. Existing informational
+  long-requirement notices are structural advice, not runtime or acceptance proof.
+- Observation, cancellation and rerun demonstrations each exited **0** within
+  their 20-second bound and matched the regenerated/existing captured output.
+
+The implemented result for human acceptance is explicit `/rerun N` of any
+settled current-session attempt, exact task/current conversation, present-byte
+reads and newly prepared patch consent, fresh budgets/controller, linked safe
+display, one attempt per arrival-window action, deliberate later repeats, and
+unchanged source evidence. Inspection and rejected actions stay local. This
+includes full-suite and deterministic/native-stream evidence plus the previously
+recorded task 5.2 **real local PTY with faux provider** evidence.
+
+The demo fix affects only controlled-stream instrumentation, so task 5.2's
+unchanged TTY path was not rerun here. No fresh PTY claim is made by task 5.3.
+Physical keyboard, terminal-emulator UX, live OAuth/model/network behavior, and
+arbitrary timing races remain outside the recorded coverage; focused held-cleanup
+and race tests provide their separate controlled evidence. Rerun does not force
+the model to reread every historical file. Original-context snapshots, branching,
+persistence, rollback, automatic retries, parallel runs, new tools/providers and
+allowlisted validation remain deferred.
+
+Tasks 1.1–5.3 are checked and agent-reviewed. Task 6.1 awaits an explicit human
+acceptance message covering this completed result; passing checks and prior
+implementation authorization do not supply it. Current specs are unchanged,
+the change remains active, and synchronization/archive and validation-draft
+approval have not been inferred.

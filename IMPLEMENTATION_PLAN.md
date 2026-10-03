@@ -54,8 +54,8 @@ separation within yo's sequential scope.
 The user explicitly accepted the verified result and authorized closure with
 “it's ok. go” on 2026-10-02. Only verified cancellation deltas were synchronized;
 the archive preserves earlier staged evidence and its coverage limits.
-The explicit rerun planning artifacts below are prepared; groups 1–4 are
-implemented, scoped-checked, and agent-reviewed. The user authorized the remaining rerun implementation
+The explicit rerun planning artifacts below are prepared; groups 1–5 are
+implemented, checked, and agent-reviewed. The user authorized the remaining rerun implementation
 tasks with one subagent and commit per task; completed-result acceptance remains
 separate.
 
@@ -89,9 +89,11 @@ separate.
    isolation. Local help and [usage](CONTRIBUTING.md#chat-commands-and-rerun) describe
    these controls. Tasks 1.1–4.7 are checked after scoped checks and agent review;
    the consolidated [group 4 evidence](openspec/changes/rerun-settled-runs/verification.md#group-4-cli-execution-usage-and-review)
-   records results and limits. The next candidate is task 5.1: the repeatable faux
-   rerun demonstration. Group 5 still requires that demonstration, real local PTY
-   checks, and final full-suite/requirement review. Groups 5–6 remain unchecked;
+   records results and limits. Group 5 verifies the repeatable faux rerun demonstration,
+   real local PTY scenario, 568-test full suite, and all delta requirements/scenarios;
+   [final evidence](openspec/changes/rerun-settled-runs/verification.md#task-53-final-regression-and-requirement-review)
+   includes the repaired cancellation-demo wrapper and regenerated old transcripts.
+   Tasks 1.1–5.3 are checked. The next boundary is task 6.1, human acceptance;
    completed-result acceptance is required before synchronization or archive.
 2. **Allowlisted validation:** the imported
    [proposal](openspec/changes/allowlisted-validation/proposal.md),
@@ -112,7 +114,7 @@ separate.
 - The verified harness may write its OAuth store at `~/.yo/auth.json` and apply
   one exact workspace patch only after explicit terminal consent.
 - There is no current process/validation tool, API-key fallback, persistent
-  session, JSONL, cross-session history, rerun, TUI,
+  session, JSONL, cross-session history, TUI,
   project runtime configuration, device-code login, multi-provider support,
   skills, MCP, or subagents.
 - Draft requirements do not grant capabilities. Each new behavior needs reviewed

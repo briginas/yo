@@ -134,8 +134,9 @@ through the existing turn path, with exact-task/current-context execution,
 fresh budgets and consent, native buffered-action deduplication, display-failure
 isolation, and command help. These groups are scoped-checked and agent-reviewed;
 see [evidence](openspec/changes/rerun-settled-runs/verification.md) and
-[usage](CONTRIBUTING.md#chat-commands-and-rerun). Group 5 integrated demonstration,
-PTY checks, and final verification are next, beginning with task 5.1.
+[usage](CONTRIBUTING.md#chat-commands-and-rerun). Group 5's integrated demonstration,
+real local PTY scenario, 568-test full suite, and requirement review are verified;
+see [final evidence](openspec/changes/rerun-settled-runs/verification.md#task-53-final-regression-and-requirement-review).
 Implementation approval does not record acceptance of the completed result;
 spec synchronization and archive still follow that acceptance. Validation remains
 a later unapproved draft.
@@ -150,8 +151,8 @@ retains the completed [inspection change evidence](openspec/changes/archive/2026
 
 After separate planning and approval, later milestones may:
 
-1. Complete explicit rerun's integrated demonstration and verification, then
-   obtain completed-result acceptance before specification synchronization.
+1. Obtain acceptance of the verified explicit rerun result before specification
+   synchronization and archive.
 2. Add Milestone 5 allowlisted validation and show test/build evidence in event
    feeds and result cards.
 3. Consider append-only JSONL session history, richer terminal presentation,

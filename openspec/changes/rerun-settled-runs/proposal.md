@@ -54,10 +54,10 @@ the remaining rerun implementation tasks, one subagent and commit per task.
 Groups 1–4 are implemented, scoped-checked, and agent-reviewed in
 [verification.md](verification.md). CLI rerun is enabled through the existing
 turn path and documented in [the development guide](../../../CONTRIBUTING.md#chat-commands-and-rerun).
-Group 5 integrated demonstration, PTY checks, and final verification are next,
-beginning with task 5.1. This
-approval does not record human acceptance of the completed rerun result; that
-acceptance remains required before spec synchronization and archive.
+Group 5 adds the checked integrated demonstration, real local PTY evidence, and
+final full-suite/requirement review. The completed result awaits human acceptance.
+Implementation approval does not record that acceptance, which remains required
+before spec synchronization and archive.
 
 Defer original-context snapshots, context selectors, branching, continuation of
 an old loop, automatic retry, parallel runs, persistence, cross-session lookup,

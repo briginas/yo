@@ -43,7 +43,7 @@ spec synchronization and archive. Record evidence in this change's
 
 - [x] 5.1 Add `examples/run-rerun-demo.ts` and its captured transcript using a temporary fixture and faux provider; run it to verify an inspected cancelled/failed source, intervening context/file change, linked rerun, buffered duplicate suppression, fresh deliberate repeat, new patch consent, and unchanged source evidence without OAuth/network.
 - [x] 5.2 Exercise the integrated scenario through a real local PTY for fresh-prompt identity, active duplicate input, patch approval ownership, and Ctrl+C recovery; record commands, assertions, output, and PTY/physical-keyboard/live-provider coverage limits in `verification.md` and verify no broader coverage is claimed.
-- [ ] 5.3 Run `npm test`, `npm run build`, `npm run format:check`, `npm run spec:check`, and `git diff --check`; resolve relevant findings and record the final results plus a requirement-to-evidence review in `verification.md`, then present the implemented scope and limits for human acceptance.
+- [x] 5.3 Run `npm test`, `npm run build`, `npm run format:check`, `npm run spec:check`, and `git diff --check`; resolve relevant findings and record the final results plus a requirement-to-evidence review in `verification.md`, then present the implemented scope and limits for human acceptance.
 
 ## 6. Closure after explicit result acceptance
 
