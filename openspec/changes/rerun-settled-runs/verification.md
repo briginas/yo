@@ -495,3 +495,118 @@ Task 5.1 is scoped-checked and agent-reviewed; task 5.2 is next. This evidence i
 controlled-stream integrated demonstration, not real PTY, physical-keyboard,
 live-provider, or final full-suite verification. No completed-result acceptance,
 spec synchronization, archive, or validation-draft approval is inferred.
+
+## Task 5.2: integrated scenario through a real local PTY
+
+On 2026-10-03, [the Python driver](../../../examples/verify-rerun-pty.py)
+executed `node examples/run-rerun-demo.ts --tty` through `pty.fork()` on the
+local macOS host. It uses only Python's standard library and the existing demo;
+no runtime code or dependency changed. The master descriptor is a real terminal,
+and `tcgetpgrp(master) == child_pid` confirms the child owns its foreground
+process group. The demo itself rejects `--tty` unless both native stdin and
+stdout are TTYs. This exercises real Node readline and the trusted CLI controller,
+following pi's session-owned input and abort-and-wait boundary in yo's smaller
+sequential scope.
+
+### Reproduction and terminal sequence
+
+From the repository root:
+
+```bash
+python3 examples/verify-rerun-pty.py /private/tmp/yo-rerun-pty.log
+python3 examples/verify-rerun-pty.py /private/tmp/yo-rerun-pty-repeat.log
+```
+
+Both completed with exit code **0**. The driver saves the raw PTY bytes to the
+specified local log; omitting the argument uses the system temporary directory.
+It waits for terminal markers and prompts rather than sleeping to time input.
+Each expectation has a 15-second failure bound. ANSI control removal and CR
+normalization are used only for matching output, never for input identity.
+
+1. At the first real `yo>` prompt, submit the exact task with its surrounding
+   spaces. At `SOURCE_REVIEW`, send terminal byte `0x03`, not `kill(SIGINT)` or
+   an injected interrupt callback. Wait for `Run #1 result: cancelled`, the
+   `aborted` stop reason, and the next prompt. The complete 42 → 43 diff was
+   shown; approval and the patch result settle aborted without application.
+2. Inspect `/run 1`, await its next prompt, and submit the corrective turn.
+   Run 2 performs the existing trusted fixture edit to 44 with the marker.
+3. At prompt 4, send `/rerun 1` and the equivalent `" /rerun\t1 "` in one
+   terminal write. At the active `RERUN_READ_WAIT` marker, send ` /rerun  1`.
+   Return releases the demo's passive gate while native readline retains the
+   line. Run 3 settles, then **two** duplicate diagnostics identify existing
+   Run #3 without a new request or number.
+4. After those diagnostics and a fresh prompt, inspect runs 1 and 3. Submit
+   a fresh `/rerun 1`, which creates Run 4. At `FRESH_REVIEW_DENY`, enter
+   `/rerun 1` as the approval response. It denies the new complete 44 → 45
+   proposal and is consumed by approval; no queued rerun follows settlement.
+5. Inspect run 1 again, then submit a deliberate fresh `/rerun 1` for Run 5.
+   At `FRESH_REVIEW_APPROVE`, only the new `yes` applies its separately prepared
+   complete 44 → 45 diff. Inspect `/runs`, `/run 1`, and `/run 5`, then `/exit`.
+
+### Assertions and observed output
+
+The driver checks two duplicate diagnostics, exactly three complete patch
+previews (42 → 43 once, 44 → 45 twice), denial/application answers, absence of
+Run #6, the demo's final executable assertion marker, and normal child exit.
+Because it exits through the demo, all existing integrated assertions run on
+the actual PTY input: arrival windows **`[4, 4, 4, 9, 11]`**, exact tasks/current
+conversation and suffix accounting, request counts **`[2, 1, 2, 3, 3]`**, five
+distinct signals/fresh budgets, current-file reads, aborted/denied/approved
+decisions, one application, final bytes 45 plus marker, four identical source
+inspections, direct source labels, and owned listener/fixture cleanup.
+
+The driver printed:
+
+```text
+PTY: Ctrl+C byte cancelled source review; fresh chat prompt recovered.
+PTY: normalized batch and active-work duplicates drained as two Run #3 receipts.
+PTY: fresh prompts allocated Runs #4/#5; command-like denial stayed approval input; new yes applied.
+PTY PASS: child exit 0; demo assertions passed; three complete diffs; two duplicates; no Run #6.
+Raw PTY output: /private/tmp/yo-rerun-pty.log
+```
+
+The raw terminal output contains the cancelled source result, linked completed
+results for runs 3–5, both `Rerun action already accepted as Run #3.` diagnostics,
+the three full diffs before their approval prompts, and:
+
+```text
+[VERIFIED: exact source task/current transcript; changed-file reads; five fresh attempts; two suppressed duplicates; denial owns command input; new full-diff yes; immutable source inspections]
+```
+
+### Checks, review, and limits
+
+Self-review checked sequential marker matching, actual terminal/foreground
+ownership, the Ctrl+C byte path, batch versus active input, prompt boundaries,
+the child exit/assertion gate, raw-output retention, and failure cleanup of the
+child/PTY. An initial driver expectation combined cancellation and stop reason
+on one line; it was corrected to match their existing separate output lines.
+No demo or runtime defect was found. Parent review checked the driver sequence,
+Ctrl+C byte, markers, and assertions and found no issues.
+
+Scoped regression/check commands:
+
+```bash
+node --test src/cli-rerun-native-input.test.ts src/cli-rerun-workspace.test.ts src/cli-rerun-cancellation.test.ts src/line-input.test.ts src/terminal-approval.test.ts
+npm run build
+npm run format:check
+npm run spec:check
+git diff --check
+git diff --no-index --check /dev/null examples/verify-rerun-pty.py
+```
+
+- **61 focused tests passed, 0 failed**, including nested cases.
+- Build, Python syntax compilation without generating cache files, formatting,
+  tracked/untracked diff checks, and the new relative link check passed.
+- Strict OpenSpec validation passed **7 items, 0 failed**; its informational
+  notices do not prove runtime conformance or human acceptance.
+- The untracked-file `--no-index --check` produced no whitespace diagnostics;
+  its exit code 1 denotes the new file's difference from `/dev/null`.
+
+This is **real local PTY evidence with a faux provider**. It does not claim
+physical-keyboard operation, terminal-emulator UX coverage, process-signal
+cancellation coverage, live model/OAuth/network behavior, every source outcome
+in a PTY, or final full-suite verification. The deterministic gate and clock
+do not prove arbitrary timing races or held-cleanup behavior; focused tests
+record those separate boundaries. Full repository checks and requirement review
+remain task 5.3. Completed-result acceptance, spec synchronization/archive, and
+the validation draft remain separate and unapproved by this verification.
