@@ -15,9 +15,10 @@ allowlisted-validation draft. Spec synchronization and archive still follow
 completed-result acceptance.
 
 CLI rerun is not yet enabled. Group 1 checks cover pure contracts; group 2 below
-adds native-stream input evidence. Observation integration, actual rerun model
-requests, changed-file/patch rerun, PTY, physical-keyboard, and live-provider
-verification remain outside these staged checks.
+adds native-stream input evidence; group 3 covers ordinary CLI identity and safe
+linked observation. Actual CLI rerun model requests, changed-file/patch rerun,
+PTY, physical-keyboard, and live-provider verification remain outside these
+staged checks.
 
 ## Group 1 staged checks and review
 
@@ -258,3 +259,65 @@ Task 3.3 is scoped-checked and agent-reviewed. Group 3 consolidation (3.4) and
 CLI rerun routing/execution (group 4) remain pending. These formatter tests do
 not claim an enabled CLI command, new PTY/physical-keyboard evidence, live
 provider verification, full-suite verification, or human result acceptance.
+
+## Group 3 allocator migration and display authority review
+
+Tasks 3.1–3.3 are committed as `993596f`, `99b4981`, and `25b0f6b`. Task 3.4
+consolidates their contracts; the individual 3.2/3.3 checks above remain historical
+stage evidence rather than current pending-task status.
+
+`src/cli-app.ts` now creates one trusted catalog per chat. Ordinary input reserves
+its exact task and increasing ID before controller creation or observation;
+inspection, invalid inspection, whitespace, EOF, and exact `/exit` reserve none.
+Repeated ordinary tasks remain distinct. Observation has no allocator:
+`begin(id, task, rerun?)` uses the supplied identity, including nonconsecutive
+IDs exercised in its tests.
+
+The deferred controller is installed as `active` before observation clocks,
+diagnostics, or header callbacks. Observation saves the record and binds its
+observer before runtime invocation, so synchronous `run_started` and
+`model_requested` events belong to the reserved run. Feed rows preserve run,
+step, and call association; terminal output uses local call numbers. Returned
+runtime settlement updates conversation and catalog before display settlement,
+answer fallback, and result output. Unexpected invocation exceptions retain the
+safe `ChatTurnError` exit and display-only `cli_turn_error`; they do not invent
+catalog settlement or retry. Old callbacks cannot update settled or later runs.
+
+Full tasks, source eligibility, and numeric action receipts remain catalog-owned.
+The 3.2/3.3 display contract passes only safe previews and detached frozen direct
+source/policy provenance; display never selects a task or grants execution,
+budget, permission, or consent authority. Record roots are shallow-frozen to
+protect provenance replacement, not recursively frozen display structures.
+Clock/projection failures preserve catalog eligibility and receipts in composed
+unit tests; CLI display/diagnostic failures preserve ordinary execution and
+transcript. Combined CLI rerun acceptance under failure remains group 4 work.
+
+Review confirmed the reservation/controller/observation/event/settlement order
+and absence of catalog lookup or reservation in observation and formatting.
+The earlier 3.2 review fix froze record roots after initially freezing only the
+nested provenance; no additional code fix was needed. This follows pi's trusted
+`AgentSession.prompt` and abort-and-wait ownership in
+`../pi/packages/coding-agent/src/core/agent-session.ts`, within yo's sequential
+in-memory scope. Pi's branches, queues, persistence, and automatic retry remain
+deferred. This task corrects stale maps/proposal stage descriptions.
+
+On 2026-10-03:
+
+- `node --test src/cli-observation.test.ts src/cli-cancellation.test.ts src/observation-session.test.ts src/run-observation.test.ts src/terminal-observation.test.ts src/terminal-renderer.test.ts src/chat-runs.test.ts`:
+  **120 passed, 0 failed**, including nested CLI cancellation and approval cases.
+- `npm run build`: passed strict TypeScript checking and CLI bundling.
+- `npm run format:check`: passed after scoped documentation formatting.
+- `npm run spec:check`: **7 items passed, 0 failed**; structural validation does
+  not prove runtime conformance or human acceptance.
+- `git diff --check`: passed. **64 local links** in affected maps, change artifacts,
+  current chat/observation specs, and the development guide were checked.
+- Agent review covered ordinary numbering, inspection consuming no numbers,
+  synchronous/reentrant callback association, repeated-call ordering, direct
+  source chains, late callbacks, source evidence, and provenance replacement.
+
+Tasks 3.1–3.4 are implemented, scoped-checked, and agent-reviewed. CLI `/rerun`
+is still not routed and continues ordinary input handling at this stage; group 4
+is next. These controlled-stream, faux-runtime, and projection tests are not
+integrated CLI rerun, PTY, physical-keyboard, live-provider, or full-suite evidence.
+Main specs remain unchanged. Completed-result acceptance and validation-draft
+approval have not been inferred; synchronization/archive remain pending.

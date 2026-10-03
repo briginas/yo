@@ -127,10 +127,11 @@ The [explicit rerun proposal](openspec/changes/rerun-settled-runs/proposal.md),
 boundary. Planning was requested on 2026-10-03 and the user selected current
 conversation context. The subsequent “ok. continue” initially authorized group 1;
 the later “выполняй задачи, считая, что я аппрувнул каждую” authorizes the remaining
-rerun implementation tasks, one subagent and commit per task. Groups 1–2 provide
-the pure parser/catalog, action receipts, and input-arrival identity, with scoped
-checks and [evidence](openspec/changes/rerun-settled-runs/verification.md). CLI rerun
-is not yet enabled; group 3 execution identity and observation provenance is next.
+rerun implementation tasks, one subagent and commit per task. Groups 1–3 provide
+the pure parser/catalog, action receipts, input-arrival identity, execution-owned
+run numbering, and safe observation provenance, with scoped checks and
+[evidence](openspec/changes/rerun-settled-runs/verification.md). CLI rerun is not yet
+enabled; group 4 command routing and execution is next.
 Implementation approval does not record acceptance of the completed result;
 spec synchronization and archive still follow that acceptance. Validation remains
 a later unapproved draft.

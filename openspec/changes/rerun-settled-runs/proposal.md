@@ -51,8 +51,8 @@ The user's “делай” on 2026-10-03 authorized preparing this proposal and
 requirement deltas, and tasks. The subsequent “ok. continue” authorized group 1
 initially. The later “выполняй задачи, считая, что я аппрувнул каждую” authorizes
 the remaining rerun implementation tasks, one subagent and commit per task.
-Groups 1–2 are implemented and scoped-checked in [verification.md](verification.md);
-CLI rerun is not yet enabled. Group 3 is the next implementation candidate. This
+Groups 1–3 are implemented and scoped-checked in [verification.md](verification.md);
+CLI rerun is not yet enabled. Group 4 is the next implementation candidate. This
 approval does not record human acceptance of the completed rerun result; that
 acceptance remains required before spec synchronization and archive.
 

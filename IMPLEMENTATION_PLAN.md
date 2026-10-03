@@ -54,7 +54,7 @@ separation within yo's sequential scope.
 The user explicitly accepted the verified result and authorized closure with
 “it's ok. go” on 2026-10-02. Only verified cancellation deltas were synchronized;
 the archive preserves earlier staged evidence and its coverage limits.
-The explicit rerun planning artifacts below are prepared; groups 1–2 are
+The explicit rerun planning artifacts below are prepared; groups 1–3 are
 scoped-checked. The user subsequently authorized the remaining rerun implementation
 tasks with one subagent and commit per task; completed-result acceptance remains
 separate.
@@ -78,8 +78,12 @@ separate.
    rerun implementation tasks, one subagent and commit per task. Group 2 adds
    trusted input-arrival identity with one shared reader and passes 52 focused
    input/approval/cancellation tests plus build, formatting, and diff checks.
-   Tasks 1.1–2.4 are checked; CLI rerun is not yet enabled. The next candidate is
-   group 3: execution identity and safe observation provenance. Groups 3–6 remain
+   Group 3 moves ordinary run numbering to the trusted catalog and adds immutable
+   safe source/policy provenance to observation and all four display surfaces.
+   It passes 120 focused CLI/cancellation/observation/catalog tests plus build,
+   formatting, strict OpenSpec validation, diff checks, and agent review.
+   Tasks 1.1–3.4 are checked; CLI rerun is not yet enabled. The next candidate is
+   group 4: explicit rerun through the existing turn path. Groups 4–6 remain
    unchecked; completed-result acceptance is still required before synchronization
    or archive. Later integration must still verify source immutability, changed
    files, terminal source outcomes,
