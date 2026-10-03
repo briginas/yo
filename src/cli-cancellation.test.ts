@@ -139,25 +139,58 @@ test('non-TTY interruption waits for cleanup, ignores repeats, then permits insp
     }
 })
 
-test('controller is registered before synchronous initial events', async () => {
-    let requests = 0
-    const state = await fixture(['Task', '/exit'], async () => {
-        requests += 1
-        return { type: 'final_answer', model: null, content: 'Unused' }
-    })
-    state.dependencies.writeStatus = (value) => {
-        state.statuses.push(value)
-        if (value.includes('run_started')) state.interrupt()
-    }
-    try {
-        const result = await state.start()
-        assert.equal(requests, 0)
-        assert.equal(result.session?.status, 'aborted')
-        assert.equal(result.session?.stopReason, 'aborted')
-        assert.match(state.output[0]!, /cancelled/)
-        assert.equal(state.counts().disposed, 1)
-    } finally {
-        await state.cleanup()
+test('controller is registered before initial clock, diagnostic, header, and event callbacks', async (context) => {
+    for (const trigger of ['clock', 'diagnostic', 'header', 'event'] as const) {
+        await context.test(trigger, async () => {
+            let requests = 0,
+                interrupted = false
+            const state = await fixture(['Task', '/exit'], async () => {
+                requests += 1
+                return { type: 'final_answer', model: null, content: 'Unused' }
+            })
+            const interruptOnce = () => {
+                if (interrupted) return
+                interrupted = true
+                state.interrupt()
+            }
+            state.dependencies.observationClocks = {
+                wallTime: () => {
+                    if (trigger === 'clock') interruptOnce()
+                    if (trigger === 'diagnostic') throw new Error('private clock failure')
+                    return 100
+                },
+                monotonicTime: () => 100,
+            }
+            state.dependencies.writeError = (value) => {
+                state.errors.push(value)
+                if (trigger === 'diagnostic') interruptOnce()
+            }
+            state.dependencies.writeStatus = (value) => {
+                state.statuses.push(value)
+                if (
+                    (trigger === 'header' && value.startsWith('Run #1:')) ||
+                    (trigger === 'event' && value.includes('run_started'))
+                )
+                    interruptOnce()
+            }
+            state.dependencies.runTurn = (options) => {
+                assert.equal(options.signal?.aborted, trigger !== 'event')
+                return runConversationTurn(options)
+            }
+            try {
+                const result = await state.start()
+                assert.equal(interrupted, true)
+                assert.equal(result.exitCode, 0)
+                assert.equal(requests, 0)
+                assert.equal(result.session?.status, 'aborted')
+                assert.equal(result.session?.stopReason, 'aborted')
+                assert.match(state.output[0]!, /Run #1 result: cancelled/)
+                assert.deepEqual(state.counts(), { reads: 2, closes: 1, disposed: 1 })
+                assert.doesNotMatch([...state.output, ...state.errors].join(''), /private/)
+            } finally {
+                await state.cleanup()
+            }
+        })
     }
 })
 

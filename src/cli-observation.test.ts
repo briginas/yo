@@ -72,6 +72,54 @@ test('CLI prepares record and callback before invoking a synchronously emitting 
     }
 })
 
+test('ordinary repeated tasks keep increasing numbers across empty and rejected inspection input', async () => {
+    const task = '  Same task 🧩  '
+    const requests: ModelRequest[] = []
+    const state = await fixture(
+        [
+            '/runs',
+            '/run 1',
+            '/run 0',
+            '  ',
+            task,
+            '/run 99',
+            '/run 1',
+            '/runs extra',
+            task,
+            '/exit',
+        ],
+        async (request) => {
+            requests.push(structuredClone(request))
+            return { type: 'final_answer', model: null, content: 'Answer.' }
+        }
+    )
+    try {
+        const result = await runCli(['--cwd', state.workspace], state.dependencies)
+        assert.equal(result.exitCode, 0)
+        assert.equal(requests.length, 2)
+        assert.deepEqual(
+            requests[1]?.messages.filter((message) => message.role === 'user'),
+            [
+                { role: 'user', content: task },
+                { role: 'user', content: task },
+            ]
+        )
+        assert.deepEqual(
+            state.statuses
+                .filter((text) => text.startsWith('Run #'))
+                .map((text) => /^Run #(\d+):/.exec(text)?.[1]),
+            ['1', '2']
+        )
+        assert.match(state.output[0]!, /No runs yet/)
+        assert.match(state.output[1]!, /Run #1 is unavailable/)
+        assert.match(state.output.at(-1)!, /Run #2 result: completed/)
+        assert.doesNotMatch(state.output.join(''), /Run #3|#3 Same task/)
+        assert.deepEqual(state.errors, [])
+    } finally {
+        await rm(state.workspace, { recursive: true, force: true })
+    }
+})
+
 test('multiple turns produce ordered session list and safe errors without modifying model messages', async () => {
     const requests: ModelRequest[] = []
     let time = 100

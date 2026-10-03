@@ -11,6 +11,7 @@ import { createFileCredentialStore } from './auth/file-credential-store.ts'
 import { OPENAI_CODEX_PROVIDER_ID, type CredentialStore } from './auth/credential.ts'
 import { parseCliCommand, USAGE } from './cli-command.ts'
 import { parseObservationCommand } from './observation-command.ts'
+import { createChatRunCatalog } from './chat-runs.ts'
 import { createObservationSession, type ObservationClocks } from './observation-session.ts'
 import {
     createTerminalObservationView,
@@ -309,6 +310,7 @@ const runChat = async ({
         onRuntimeEvent: renderer.onEvent,
         diagnose: (diagnostic) => writeError(formatObservationDiagnostic(diagnostic)),
     })
+    const runs = createChatRunCatalog()
     const clearProgress = (): void => {
         try {
             statusOutput.clearProgress()
@@ -372,6 +374,9 @@ const runChat = async ({
                     }
                     return
                 }
+                const reservation = runs.reserveTask(task)
+                if (reservation.type !== 'accepted') throw new ChatTurnError()
+                const run = reservation.run
                 // Invocation is deferred so control exists before even synchronous run events.
                 const controller = createRunController((signal) =>
                     runTurn({
@@ -390,7 +395,7 @@ const runChat = async ({
                     })
                 )
                 active = controller
-                const observed = observations.begin(task)
+                const observed = observations.begin(run.id, run.task)
                 try {
                     let result: Awaited<ReturnType<typeof runConversationTurn>>
                     try {
@@ -402,6 +407,7 @@ const runChat = async ({
                     const session = result.turn.session
                     conversation = result.conversation
                     lastSession = session
+                    runs.settle(run.id, session)
                     observations.settle(observed.id, session, () =>
                         renderer.finishAnswer(session.finalAnswer)
                     )

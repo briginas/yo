@@ -31,7 +31,10 @@ export type ObservationSessionOptions = Readonly<{
     projectEvent?: typeof projectRunEvent
 }>
 export type ObservationSession = Readonly<{
-    begin: (task: string) => Readonly<{ id: RunIdentity; onEvent: RunEventObserver }>
+    begin: (
+        id: RunIdentity,
+        task: string
+    ) => Readonly<{ id: RunIdentity; onEvent: RunEventObserver }>
     observerFor: (id: RunIdentity) => RunEventObserver
     settle: (id: RunIdentity, session: SettledSession, beforeResult?: () => void) => void
     fail: (id: RunIdentity) => void
@@ -46,7 +49,6 @@ export const createObservationSession = ({
     projectEvent = projectRunEvent,
 }: ObservationSessionOptions): ObservationSession => {
     let history: ObservationHistory = []
-    let nextId = 1
     let lastSample: ClockSample = { wallTimeMs: 0, monotonicTimeMs: 0 }
     const report = (diagnostic: ObservationDiagnostic): void => {
         try {
@@ -151,8 +153,7 @@ export const createObservationSession = ({
             }
         })
     return {
-        begin: (task) => {
-            const id = nextId++
+        begin: (id, task) => {
             const time = sample()
             const record = {
                 ...createRunRecord(id, task, time.value),

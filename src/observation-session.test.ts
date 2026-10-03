@@ -63,7 +63,7 @@ test('reentrant cancellation during header or event writes remains visible while
                 onRuntimeEvent: () => undefined,
                 diagnose: (diagnostic) => diagnostics.push(diagnostic),
             })
-            const run = session.begin('Task')
+            const run = session.begin(1, 'Task')
             if (trigger === 'event') run.onEvent(model)
             const settlement = cleanup.then(() =>
                 session.settle(run.id, {
@@ -115,7 +115,7 @@ test('reentrant cancellation from runtime observers preserves feed order and lat
             },
             diagnose: (diagnostic) => diagnostics.push(diagnostic),
         })
-        const run = session.begin('Task')
+        const run = session.begin(1, 'Task')
         assert.doesNotThrow(() =>
             run.onEvent({
                 type: 'model_responded',
@@ -168,7 +168,7 @@ test('clock diagnostics cannot overwrite nested cancellation with an older proje
             }
         },
     })
-    const run = session.begin('Task')
+    const run = session.begin(1, 'Task')
     failSample = true
     run.onEvent(model)
     const requested = session.getHistory()[0]!
@@ -189,7 +189,7 @@ test('clock diagnostics cannot overwrite nested cancellation with an older proje
     const settled = session.getHistory()[0]!
     const before = structuredClone(settled)
     assert.equal(settled.result?.outcome, 'aborted')
-    const fresh = session.begin('Fresh task')
+    const fresh = session.begin(2, 'Fresh task')
     run.onEvent(model)
     run.onEvent({ type: 'run_cancellation_requested' })
     session.settle(run.id, complete)
@@ -221,7 +221,7 @@ test('settlement clock diagnostics cannot reopen committed completion or CLI fai
                 session.observerFor(1)({ type: 'run_cancellation_requested' })
             },
         })
-        const run = session.begin('Task')
+        const run = session.begin(1, 'Task')
         run.onEvent(model)
         failSample = true
         if (outcome === 'completed') session.settle(run.id, complete)
@@ -240,7 +240,7 @@ test('settlement clock diagnostics cannot reopen committed completion or CLI fai
     }
 })
 
-test('saves record and prepares identity-bound observer before synchronous runtime events', () => {
+test('saves explicit identities and binds synchronous events without allocating numbers', () => {
     let elapsed = 100
     const messages: string[] = []
     const diagnostics: ObservationDiagnostic[] = []
@@ -253,12 +253,13 @@ test('saves record and prepares identity-bound observer before synchronous runti
         onRuntimeEvent: () => undefined,
         diagnose: (diagnostic) => diagnostics.push(diagnostic),
     })
-    const first = session.begin('First')
+    const first = session.begin(41, 'First')
+    assert.equal(first.id, 41)
     assert.equal(session.getHistory()[0]?.summary.id, first.id)
     const runtime = (onEvent: (event: RunEventSnapshot) => void) => {
         onEvent(started)
         onEvent(model)
-        assert.deepEqual(messages, ['1:run_started', '1:model_requested'])
+        assert.deepEqual(messages, ['41:run_started', '41:model_requested'])
     }
     runtime(first.onEvent)
     assert.equal(Object.isFrozen(model), true)
@@ -274,8 +275,12 @@ test('saves record and prepares identity-bound observer before synchronous runti
     assert.equal(session.getHistory()[0]?.summary.status, 'running')
     session.settle(first.id, complete)
     const settled = session.getHistory()[0]
-    const second = session.begin('Second')
-    assert.equal(second.id, 2)
+    const second = session.begin(73, 'Second')
+    assert.equal(second.id, 73)
+    assert.deepEqual(
+        session.getHistory().map((record) => record.summary.id),
+        [41, 73]
+    )
     first.onEvent(model)
     session.settle(first.id, { status: 'failed', stopReason: 'transport_error', finalAnswer: null })
     assert.equal(session.getHistory()[0], settled)
@@ -295,7 +300,7 @@ test('diagnoses absent records while treating settled records as ordinary late g
         },
         diagnose: (value) => diagnostics.push(value),
     })
-    const run = session.begin('Task')
+    const run = session.begin(1, 'Task')
     session.observerFor(999)(model)
     session.settle(999, complete)
     session.fail(999)
@@ -338,7 +343,7 @@ test('isolates projection, answer observer, display, and diagnostic failures ind
                   }
                 : {}),
         })
-        const run = session.begin('Task')
+        const run = session.begin(1, 'Task')
         assert.doesNotThrow(() => run.onEvent(model))
         assert.equal(answerEvents, 1)
         assert.equal(displayEvents, failure === 'projection' || failure === 'diagnostic' ? 0 : 1)
@@ -370,7 +375,7 @@ test('start and settled rendering failures do not lose records or prevent finali
         onRuntimeEvent: () => undefined,
         diagnose: (value) => diagnostics.push(value),
     })
-    const run = session.begin('Task')
+    const run = session.begin(1, 'Task')
     assert.equal(session.getHistory().length, 1)
     session.settle(run.id, complete)
     assert.equal(session.getHistory()[0]?.result?.outcome, 'completed')
@@ -385,7 +390,7 @@ test('unexpected CLI turn failure settles partial evidence without inventing tra
         onRuntimeEvent: () => undefined,
         diagnose: () => undefined,
     })
-    const run = session.begin('Task')
+    const run = session.begin(1, 'Task')
     run.onEvent(model)
     time = 15
     session.fail(run.id)
@@ -415,7 +420,7 @@ test('clock failure uses the last sampled time and does not prevent settlement',
         onRuntimeEvent: () => undefined,
         diagnose: (value) => diagnostics.push(value),
     })
-    const run = session.begin('Task')
+    const run = session.begin(1, 'Task')
     fail = true
     run.onEvent(model)
     session.settle(run.id, complete)
@@ -436,7 +441,7 @@ test('initial clock failure still creates the record before runtime and marks ti
         onRuntimeEvent: () => undefined,
         diagnose: () => undefined,
     })
-    const run = session.begin('Task')
+    const run = session.begin(1, 'Task')
     assert.equal(session.getHistory()[0]?.timingAvailable, false)
     run.onEvent(started)
     session.settle(run.id, complete)
@@ -483,7 +488,7 @@ test('cancellation settlement and next-run identity survive observation and cloc
                   }
                 : {}),
         })
-        const run = session.begin('Cancelled task')
+        const run = session.begin(1, 'Cancelled task')
         failClock = failure === 'clock'
         assert.doesNotThrow(() => run.onEvent({ type: 'run_cancellation_requested' }))
         assert.deepEqual(delivered, [{ type: 'run_cancellation_requested' }])
@@ -502,7 +507,7 @@ test('cancellation settlement and next-run identity survive observation and cloc
         assert.equal(settled.result?.stopReason, 'aborted')
         assert.equal(settled.timingAvailable, failure !== 'clock')
         assert.equal(settled.summary.elapsedMs, failure === 'clock' ? 0 : 50)
-        const second = session.begin('Fresh task')
+        const second = session.begin(2, 'Fresh task')
         assert.equal(second.id, 2)
         run.onEvent({ type: 'run_cancellation_requested' })
         run.onEvent(model)
