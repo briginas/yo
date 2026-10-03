@@ -19,8 +19,9 @@ Earlier sections retain historical checkpoint scope; tasks 5.1–5.3 record the
 integrated demonstration, real local PTY evidence, full checks, and final
 requirement review. Task 6.1 records acceptance of the bounded verified scope
 under explicit standing human approval, rather than from automated checks or
-agent review. No personal human review of the completed checks, physical-keyboard
-or live-provider coverage, or completed spec synchronization is claimed.
+agent review. Task 6.2 below records specification synchronization; archive
+remains separate. No personal human review of the completed checks,
+physical-keyboard or live-provider coverage is claimed.
 
 ## Group 1 staged checks and review
 
@@ -792,3 +793,58 @@ On 2026-10-03, documentation-only checks passed:
   advance approval, absence of fabricated later acceptance/personal review, or
   bounded scope and validation exclusion. Only task 6.1 is marked complete;
   synchronization and archive remain pending.
+
+## Task 6.2: verified specification synchronization
+
+On 2026-10-03, the apply/sync-specs workflow resolved the repository root and
+exactly two delta paths from the pinned CLI's status response. One valid
+`instructions specs --change rerun-settled-runs --json` snapshot was read before
+main-spec writes. Its observable-behavior rule was applied only to the two
+verified capabilities, under the standing human approval recorded in task 6.1.
+
+The merge updates two requirements and adds five in
+[CLI chat](../../specs/cli-chat/spec.md); it updates two and adds three in
+[run observation](../../specs/run-observation/spec.md). This records the already
+verified exact-task/current-context execution, arrival-window receipts, fresh
+budgets/controller/complete-diff consent, immutable source evidence, and safe
+display provenance. It follows pi's session-owned submission and presentation
+separation without adding any harness capability.
+
+| Current specification | Requirements before → after | Scenarios before → after |
+| --------------------- | --------------------------- | ------------------------ |
+| CLI chat              | 7 → 12                      | 16 → 37                  |
+| Run observation       | 18 → 21                     | 44 → 54                  |
+| Combined              | 25 → 33                     | 60 → 91                  |
+
+Agent review and a comparison against Git HEAD confirmed all **12 delta
+requirements / 41 delta scenarios** match the resulting main blocks, every
+one of the **60 original scenarios** remains verbatim, and all unaffected
+requirement blocks retain their text and order. Each main spec has one
+`Requirements` section and no delta operation headers. Titles and entire Purpose
+sections remain unchanged, as required by sync-specs. Run observation's Purpose
+still contains the historical Milestone 4/deferred-cancellation-and-rerun wording;
+the synchronized requirements describe current behavior. Updating that
+introduction is outside this merge and was not done silently.
+
+Documentation-only checks:
+
+- `npm run openspec -- validate --specs --strict --no-interactive`: **5 passed,
+  0 failed**.
+- `npm run openspec -- validate rerun-settled-runs --type change --strict --no-interactive`:
+  the active rerun change is valid against the synchronized main specs.
+- `npm run format:check` and `git diff --check`: passed.
+- **88 local link paths and 15 heading fragments** in maps, the guide, active
+  rerun artifacts, and affected current specs resolve.
+- `npm run spec:check`: **6 passed, 1 failed**. The sole failure is the later,
+  unapproved `allowlisted-validation` draft: its CLI-chat MODIFIED block for
+  `Fresh budgets and recoverable turn failure` omits the now-current scenarios
+  `Rerun after budget exhaustion` and `Failure without explicit request`.
+  This is the draft's required rebase/review dependency, not a failed current
+  spec or rerun delta. The draft remains untouched and unapproved; no current
+  scenario was removed to make the global check pass. Informational
+  long-requirement notices remain structural advice.
+
+Only the two current specifications, this evidence, and task 6.2's checkbox are
+changed. No runtime, dependency, permission, draft, or project-map change is made,
+and no fresh runtime/PTY/live-provider check is claimed. Task 6.3 remains pending;
+the accepted change is still active.
