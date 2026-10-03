@@ -411,3 +411,57 @@ scripted arrival identities; this is not native arrival-window, PTY, physical
 keyboard, live-provider, cancellation-race, or full-suite evidence. Tasks 4.4
 onward remain pending; these checks do not imply human result acceptance or
 synchronize current specifications.
+
+## Task 4.4: cancellation, fresh review, and immutable source evidence
+
+On 2026-10-03, `src/cli-rerun-cancellation.test.ts` exercises the CLI's trusted
+process-interrupt callback, actual conversation/agent loop, terminal approver,
+and real workspace tools. No production change was needed. Explicit promise
+gates hold input delivery, transport cleanup, and outer settlement without timer
+sleeps. This follows pi's abort-and-wait boundary and yo's exact per-proposal
+consent.
+
+- Source review cancellation yields exactly one aborted patch result and one
+  aborted approval decision. Rerun prepares a distinct proposal and displays its
+  complete diff. A late `yes` delivered to the cancelled read while new review
+  waits changes neither current bytes nor pending settlement. Only fresh `yes`
+  applies the new proposal. The old response never enters model messages.
+- An interrupted rerun remains active while its transport cleanup gate is held:
+  no new prompt, result card, invocation, or request starts. Repeated interrupts
+  produce one request event. After cleanup, the late answer is discarded, the
+  attempt settles cancelled, and idle input schedules no automatic retry. An
+  explicitly requested rerun of that cancelled attempt has a new non-aborted
+  signal and a direct source link to it.
+- Completion already committed before the final-answer callback or a held outer
+  promise survives subsequent cancellation. The CLI still awaits outer settlement,
+  displays completed, and delivers the answer once without invented cancellation
+  evidence.
+- A real source patch applies before cancellation during the next model request.
+  Source inspection retains both the applied trail and cancelled result. A later
+  rerun reads those applied bytes and completes with only its own read evidence.
+  Source inspections before/after are byte-for-byte equal with fixed clocks;
+  source messages, events, results, and conversation also remain deeply equal.
+  The ordinary completed source and cancelled rerun receive the same inspection
+  comparisons in the cleanup/arbitration scenarios.
+
+Checks and self-review:
+
+- `node --test src/cli-rerun-cancellation.test.ts`: **6 passed, 0 failed**.
+- `node --test src/cli-rerun-cancellation.test.ts src/cli-rerun-workspace.test.ts src/cli-rerun-execution.test.ts src/cli-rerun.test.ts src/cli-cancellation.test.ts src/terminal-approval.test.ts src/runtime/patch-cancellation.test.ts src/runtime/run-controller.test.ts src/runtime/agent-loop-cancellation.test.ts`:
+  **119 passed, 0 failed**, including nested cases.
+- `npm run build`, `npm run format:check`, and `git diff --check`: passed.
+- Self-review checked real runtime outcomes, fresh signals/budgets, sole call
+  accounting, full-preview-before-consent ordering, source inspection equality,
+  one shared input owner, signal-listener disposal, and settlement before fixture
+  removal. The initial test expectation for the displayed patch trail was corrected
+  from `approval_requested` to its actual `waiting` label.
+
+Parent review checked gates, assertions, source immutability, and the applied-patch
+plus cancelled-source scenario and found no issues. Task 4.4 is scoped-checked
+and reviewed; its commit remains with the parent. Refreshed apply instructions
+confirm **16/25** tasks complete, with task 4.5 next. The
+input adapter delivers controlled arrival identities and cancelled-read replies;
+these tests do not claim native buffering, PTY, physical keyboard, live-provider,
+or full-suite evidence. Task 4.5 onward remains pending. Current specifications
+and the unapproved validation draft are unchanged; human result acceptance is
+still separate.
