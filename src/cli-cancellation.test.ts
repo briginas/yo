@@ -218,7 +218,12 @@ test('native readline Ctrl+C cancels approval and discards late consent until th
             reads += 1
             const result = native.readLine(prompt, options)
             if (prompt === PATCH_APPROVAL_PROMPT) approval.resolve()
-            if (reads === 3 && prompt === CHAT_PROMPT) nextPrompt.resolve()
+            return result
+        },
+        readChatSubmission: (prompt, options) => {
+            reads += 1
+            const result = native.readChatSubmission!(prompt, options)
+            if (reads === 3) nextPrompt.resolve()
             return result
         },
         subscribeInterrupt: (listener) => {
@@ -310,8 +315,8 @@ test('idle native Ctrl+C exits without allocating a run', async () => {
     state.dependencies.isInteractive = true
     state.dependencies.createLineInput = () => ({
         ...native,
-        readLine: (prompt, options) => {
-            const result = native.readLine(prompt, options)
+        readChatSubmission: (prompt, options) => {
+            const result = native.readChatSubmission!(prompt, options)
             ready.resolve()
             return result
         },

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { PassThrough, Writable } from 'node:stream'
 import { test } from 'node:test'
 
-import { createNodeLineInput, type LineInput } from './line-input.ts'
+import { CHAT_PROMPT, createNodeLineInput, type LineInput } from './line-input.ts'
 import { createTerminalPatchApprover, PATCH_APPROVAL_PROMPT } from './terminal-approval.ts'
 import type { PatchApprovalView } from './runtime/patch-contracts.ts'
 
@@ -138,6 +138,9 @@ test('cancellation aborts pending approval, discards late input, and preserves f
     controller.abort()
     stream.write('s\nyes\n')
     assert.equal(await decision, 'aborted')
+    const nextTask = input.readChatSubmission!(CHAT_PROMPT)
+    stream.write('fresh task\n')
+    assert.deepEqual(await nextTask, { line: 'fresh task', windowId: 1 })
     const nextApproval = approve({ ...request, id: 'proposal-2' })
     stream.write('y\n')
     assert.equal(await nextApproval, 'approved')

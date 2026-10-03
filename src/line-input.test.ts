@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { getEventListeners } from 'node:events'
 import { PassThrough, Readable, Writable } from 'node:stream'
 import { test } from 'node:test'
 
@@ -672,4 +673,125 @@ test('discard releases a pending owner and clears queued input even after EOF', 
     ended.input.discardUntilNextRead!()
     assert.equal(await ended.input.readLine(CHAT_PROMPT), null)
     ended.input.close()
+})
+
+test('cancelled chat reads discard partial text and late envelopes before fresh shared reads', async () => {
+    for (const isInteractive of [false, true]) {
+        const { stream, input } = nodeInputFixture(isInteractive)
+        const controller = new AbortController()
+        const cancelled = assert.rejects(
+            input.readChatSubmission!(CHAT_PROMPT, { signal: controller.signal }),
+            LineReadAbortedError
+        )
+        stream.write('old partial')
+        controller.abort()
+        stream.write('\nlate task\nlate partial')
+        await cancelled
+        assert.equal(getEventListeners(controller.signal, 'abort').length, 0)
+
+        const fresh = input.readChatSubmission!(CHAT_PROMPT)
+        await assert.rejects(input.readLine('approval> '), /Input already has an owner/)
+        stream.write('  fresh task  \n')
+        assert.deepEqual(await fresh, { line: '  fresh task  ', windowId: 2 })
+        const approval = input.readLine('approval> ')
+        stream.write('yes\n')
+        assert.equal(await approval, 'yes')
+        const next = input.readChatSubmission!(CHAT_PROMPT)
+        stream.write('next task\n')
+        assert.deepEqual(await next, { line: 'next task', windowId: 3 })
+        input.close()
+    }
+})
+
+test('active cancellation clears buffered envelopes and partial text without another input owner', async () => {
+    for (const isInteractive of [false, true]) {
+        const { stream, input } = nodeInputFixture(isInteractive)
+        const accepted = input.readChatSubmission!(CHAT_PROMPT)
+        stream.write('task\nqueued task\nold partial')
+        assert.deepEqual(await accepted, { line: 'task', windowId: 1 })
+        input.discardUntilNextRead!()
+        input.discardUntilNextRead!()
+        stream.write('\nlate task\nlate partial')
+        const fresh = input.readChatSubmission!(CHAT_PROMPT)
+        stream.write('fresh\n')
+        assert.deepEqual(await fresh, { line: 'fresh', windowId: 2 })
+        stream.end('queued after recovery\nfinal partial')
+        await new Promise<void>((resolve) => setImmediate(resolve))
+        input.discardUntilNextRead!()
+        assert.equal(await input.readChatSubmission!(CHAT_PROMPT), null)
+        assert.equal(await input.readLine('approval> '), null)
+        input.close()
+    }
+})
+
+test('settled chat and approval owners cannot cancel each other through old signals', async () => {
+    for (const isInteractive of [false, true]) {
+        const { stream, input } = nodeInputFixture(isInteractive)
+        const chatController = new AbortController()
+        const chat = input.readChatSubmission!(CHAT_PROMPT, { signal: chatController.signal })
+        stream.write('task\n')
+        assert.deepEqual(await chat, { line: 'task', windowId: 1 })
+        assert.equal(getEventListeners(chatController.signal, 'abort').length, 0)
+
+        const approvalController = new AbortController()
+        const approval = input.readLine('approval> ', { signal: approvalController.signal })
+        chatController.abort()
+        stream.write('yes\n')
+        assert.equal(await approval, 'yes')
+        assert.equal(getEventListeners(approvalController.signal, 'abort').length, 0)
+        const nextChat = input.readChatSubmission!(CHAT_PROMPT)
+        approvalController.abort()
+        stream.write('fresh\n')
+        assert.deepEqual(await nextChat, { line: 'fresh', windowId: 2 })
+        input.close()
+    }
+})
+
+test('input failure releases envelope ownership and removes buffered or partial submissions', async () => {
+    for (const isInteractive of [false, true]) {
+        for (const hasPendingOwner of [false, true]) {
+            const { stream, input } = nodeInputFixture(isInteractive)
+            const controller = new AbortController()
+            const failure = new Error('native input failure')
+            const pending = hasPendingOwner
+                ? assert.rejects(
+                      input.readChatSubmission!(CHAT_PROMPT, { signal: controller.signal }),
+                      failure
+                  )
+                : undefined
+            stream.write(hasPendingOwner ? 'partial' : 'buffered task\npartial')
+            stream.emit('error', failure)
+            await pending
+            assert.equal(getEventListeners(controller.signal, 'abort').length, 0)
+            await assert.rejects(input.readChatSubmission!(CHAT_PROMPT), failure)
+            await assert.rejects(input.readLine('approval> '), failure)
+            assert.equal(stream.listenerCount(isInteractive ? 'keypress' : 'data'), 0)
+            assert.equal(stream.listenerCount('error'), 0)
+            input.close()
+            assert.equal(await input.readChatSubmission!(CHAT_PROMPT), null)
+        }
+    }
+})
+
+test('explicit close settles envelope ownership and drops buffered and partial submissions', async () => {
+    for (const isInteractive of [false, true]) {
+        for (const hasPendingOwner of [false, true]) {
+            const { stream, input } = nodeInputFixture(isInteractive)
+            const controller = new AbortController()
+            const pending = hasPendingOwner
+                ? input.readChatSubmission!(CHAT_PROMPT, { signal: controller.signal })
+                : undefined
+            stream.write(hasPendingOwner ? 'partial' : 'buffered task\npartial')
+            input.close()
+            input.close()
+            if (pending !== undefined) assert.equal(await pending, null)
+            assert.equal(getEventListeners(controller.signal, 'abort').length, 0)
+            controller.abort()
+            stream.write('\nlate task\n')
+            assert.equal(await input.readChatSubmission!(CHAT_PROMPT), null)
+            assert.equal(await input.readLine('approval> '), null)
+            assert.equal(stream.listenerCount(isInteractive ? 'keypress' : 'data'), 0)
+            assert.equal(stream.listenerCount('error'), 0)
+        }
+    }
 })
