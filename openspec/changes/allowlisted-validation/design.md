@@ -3,12 +3,19 @@
 ## Context
 
 **Unapproved imported draft.** See [proposal](proposal.md) for motivation and
-scope. This migration adds no runtime behavior. Cancellation and explicit rerun
-are prerequisite projects, not capabilities supplied by this change. Before
-implementation, rebase these deltas against their completed specifications and
-confirm the validation permission model and the first bounded leaf.
+scope. Migration and the limited CLI delta repair add no runtime behavior.
+Cancellation and explicit rerun are implemented in their own archived changes,
+with settled contracts in the [current CLI spec](../../specs/cli-chat/spec.md).
+The CLI budget delta now retains their cancellation, explicit-rerun, and
+no-automatic-retry text and both rerun scenarios; only the proposed validation
+120-second timeout differs from that current budget block. See the
+[preparation evidence](tasks.md#limited-cli-delta-repair-2026-10-03).
+Before implementation, complete the broader compatibility review and confirm
+the validation permission model and the first bounded leaf.
 
-The currently implemented runtime has these relevant properties:
+The following imported runtime inventory and design assumptions still need that
+broader review, including the historical generic `Promise.race` timeout claims.
+The limited CLI repair does not verify or update those claims:
 
 - `ToolCall.name` is an open string and `arguments` is `unknown` until the
   dispatcher performs closed lookup and strict Zod validation;
@@ -21,8 +28,9 @@ The currently implemented runtime has these relevant properties:
   abort-and-settle application semantics;
 - the agent loop executes tool calls sequentially, records one result per call,
   and continues within a fixed model-step budget;
-- the CLI retains session-local observation records and supports `/runs` and
-  `/run N`; terminal summaries are bounded and raw tool results are not streamed;
+- the CLI retains session-local observation records and supports `/runs`,
+  `/run N`, and explicit `/rerun N`; terminal summaries are bounded and raw tool
+  results are not streamed;
 - evidence records authorized tools, files, and patch outcomes;
 - the CLI default per-tool timeout is five seconds, which is intentionally
   suitable for bounded reads but too short for repository tests and builds;

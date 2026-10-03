@@ -12,13 +12,26 @@ separate fixed 120-second timeout. Patch review time SHALL be excluded as
 specified in approval-gated patching. Transport failure and budget exhaustion
 SHALL end only the current turn, retain its structured messages, report its
 sanitized outcome, and return to input. Workspace setup and input failures SHALL
-terminate the chat with cleanup. Cancellation and explicit rerun SHALL follow their separately approved
-contracts; validation SHALL integrate with their settled behavior.
+terminate the chat with cleanup. User cancellation SHALL settle only the current turn, retain its structured
+evidence, and return to input after cleanup. An explicitly accepted rerun SHALL
+start a new bounded turn under these same rules; no automatic rerun or transport
+retry SHALL occur.
 
 #### Scenario: Failed turn followed by another task
 
 - **WHEN** transport failure or budget exhaustion ends a task
 - **THEN** a later task can run with a reset budget in the same conversation
+
+#### Scenario: Rerun after budget exhaustion
+
+- **WHEN** the user explicitly reruns a settled budget-exhausted turn
+- **THEN** the new attempt starts with all ten model requests and its own tool timeout budget
+- **AND** the earlier attempt's step count and stop reason remain unchanged
+
+#### Scenario: Failure without explicit request
+
+- **WHEN** a turn fails, is cancelled, or exhausts its budget and no rerun command is submitted
+- **THEN** no new attempt or model request is scheduled
 
 ### Requirement: Workspace mutation remains separately approved
 

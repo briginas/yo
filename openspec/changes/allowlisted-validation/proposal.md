@@ -7,9 +7,13 @@ executable test/build evidence. This imports the existing Milestone 5 draft into
 OpenSpec so future validation work has one planning source.
 
 **Status: unapproved draft; implementation is not authorized.** The user approved
-documentation migration only. Cancellation and explicit rerun must first be
-specified, implemented, and verified separately; this change must then be
-reviewed against their settled contracts before any implementation leaf starts.
+documentation migration and the limited CLI delta repair only. Cancellation and
+explicit rerun are implemented and verified in their own archived changes;
+their settled contracts live in the [current CLI spec](../../specs/cli-chat/spec.md).
+The repair preserves those contracts and the two previously omitted rerun
+scenarios while retaining the proposed validation timeout. Full compatibility
+review and explicit validation-scope approval remain prerequisites before any
+implementation leaf starts; see the [preparation evidence](tasks.md#limited-cli-delta-repair-2026-10-03).
 
 ## What Changes
 
@@ -56,5 +60,6 @@ Future implementation touches internal validation modules, dispatcher, loop,
 conversation, provider definitions, system prompt, terminal/observation/evidence
 formatting, and their tests. Raw process operations stay out of the public runtime
 barrel. No dependency addition is planned; Node process APIs are the proposed
-execution mechanism. This migration changes documentation only; main specs and
-the running four-tool registry continue to describe the implemented behavior.
+execution mechanism. Migration and the limited CLI delta repair change
+documentation only; main specs and the running four-tool registry continue to
+describe the implemented behavior.

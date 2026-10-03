@@ -8,7 +8,7 @@ review the result, and record evidence before completing each leaf.
 
 ## 0. Prerequisite review gate
 
-- [ ] 0.1 Verify cancellation and explicit rerun are implemented and checked in their own changes; link their settled contracts and rebase these deltas, with a reviewed compatibility diff.
+- [ ] 0.1 Complete the broader compatibility review against implemented cancellation and explicit rerun, including remaining design assumptions and all deltas, with a reviewed compatibility diff. Their settled contracts are linked and the limited CLI budget-block repair is recorded below; that repair does not complete this gate.
 - [ ] 0.2 Review the imported permission policy, trusted script effects, platform process support, and cancellation integration with the user; record explicit approval of scope and first bounded leaf before code changes. Documentation-migration approval does not satisfy this task.
 
 ## 1. Contracts, catalog, and pure output bounds (11.1)
@@ -51,3 +51,39 @@ review the result, and record evidence before completing each leaf.
 - [ ] 7.1 Run focused checks, all tests, build, formatting, strict OpenSpec validation, and diff checks; review the full change for process safety, secrets, capability drift, and unrelated changes, recording results.
 - [ ] 7.2 Complete a manually reviewed ChatGPT OAuth-backed flow in a disposable trusted workspace: inspect, approve one patch, request a selected validation, and check exact evidence. Record actual review and any platform or live-verification limitation without inventing acceptance.
 - [ ] 7.3 After implementation checks and result review, synchronize only verified deltas, archive this change, and update PRD, IMPLEMENTATION_PLAN, and README; validate spec consistency and local links. Do not mark draft requirements implemented merely because artifacts exist.
+
+## Limited CLI delta repair (2026-10-03)
+
+The user explicitly requested “делай. коммить после” on the reported global
+`spec:check` failure caused by two omitted rerun scenarios. This authorizes this
+documentation repair and its commit only; it does not approve the validation
+feature, process policy, or an implementation leaf.
+
+`Fresh budgets and recoverable turn failure` in the
+[CLI delta](specs/cli-chat/spec.md) now retains the
+[current requirement](../../specs/cli-chat/spec.md), including settled
+cancellation, explicit rerun, no automatic retry, and all three scenarios.
+`Rerun after budget exhaustion` and `Failure without explicit request` are
+restored verbatim. The only requirement-text change remains the already proposed
+5,000 ms read/patch timeout plus a separate fixed 120-second validation timeout.
+The other CLI requirement, other deltas, current specs, archives, config, and
+runtime remain unchanged.
+
+This is a limited preparation fix, not a completed compatibility review. Task
+0.1 remains unchecked; its broader design/delta review, including historical
+generic-timeout assumptions, is still pending. Task 0.2 and every implementation
+task remain unchecked. Checks and review of this repair are recorded below.
+
+Verification and review of this documentation repair:
+
+- Exact comparison of the modified budget requirement against the current main
+  requirement confirms that only the already proposed timeout distinction
+  differs; all three current scenarios are retained and both restored scenarios
+  match verbatim. The other CLI requirement and delta preamble are unchanged.
+- `npm run spec:check`: **6 passed, 0 failed** (five current specifications and
+  the validation draft), with existing informational long-requirement notices.
+- `npm run format:check` and `git diff --check`: passed. Local-link review checks
+  **84 links and 17 heading fragments** across the seven edited Markdown files.
+- The parent reviewed the bounded diff and found no issues. All **22** task
+  checkboxes remain unchecked. No runtime tests were rerun for this
+  documentation-only change, and no new runtime or feature acceptance is claimed.

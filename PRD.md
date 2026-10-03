@@ -141,11 +141,13 @@ are complete. See [usage](CONTRIBUTING.md#chat-commands-and-rerun).
 The [validation draft](openspec/changes/allowlisted-validation/proposal.md),
 [design](openspec/changes/allowlisted-validation/design.md), and
 [tasks](openspec/changes/allowlisted-validation/tasks.md) remain unapproved.
-The next planning candidate is to rebase and review this draft against the
+The next planning candidate is the broader compatibility review against the
 verified cancellation/rerun contracts before proposing an implementation leaf.
-Its stale CLI delta currently fails the global specification check; current specs
-pass strict validation. Neither draft completeness nor rerun approval authorizes
-validation or process execution.
+The [limited CLI delta repair](openspec/changes/allowlisted-validation/tasks.md#limited-cli-delta-repair-2026-10-03)
+restores its missing rerun scenarios and settled cancellation/rerun text; global
+strict specification validation now passes. Remaining design assumptions,
+product/platform review, and validation implementation stay pending. The user's
+repair approval does not authorize validation or process execution.
 Old milestone requirements and plans have been removed; the OpenSpec archive
 retains the completed [inspection change evidence](openspec/changes/archive/2026-10-02-inspect-settled-runs/verification.md).
 
@@ -153,7 +155,7 @@ retains the completed [inspection change evidence](openspec/changes/archive/2026
 
 After separate planning and approval, later milestones may:
 
-1. Rebase and review the unapproved Milestone 5 allowlisted-validation draft,
+1. Complete compatibility review of the unapproved Milestone 5 allowlisted-validation draft,
    then confirm a bounded implementation leaf before adding test/build execution
    and evidence in event feeds and result cards.
 2. Consider append-only JSONL session history, richer terminal presentation,

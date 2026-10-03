@@ -93,24 +93,28 @@ and [task 6.3](openspec/changes/archive/2026-10-03-rerun-settled-runs/verificati
 record synchronization and archival checks; [usage](CONTRIBUTING.md#chat-commands-and-rerun)
 describes the implemented controls.
 
-## Next planning candidate: rebase and review the validation draft
+## Next planning candidate: compatibility review of the validation draft
 
 The imported allowlisted-validation
 [proposal](openspec/changes/allowlisted-validation/proposal.md),
 [design](openspec/changes/allowlisted-validation/design.md),
 [deltas](openspec/changes/allowlisted-validation/specs/allowlisted-validation/spec.md),
 and [tasks](openspec/changes/allowlisted-validation/tasks.md) remain unapproved.
-Rebase and review their assumptions and deltas against the now-current
-cancellation/rerun contracts before proposing or confirming an implementation
-leaf. Pure contracts/catalog/output bounds (former 11.1) remain a later
+Complete the broader review of their assumptions and deltas against the
+now-current cancellation/rerun contracts before proposing or confirming an
+implementation leaf. Pure contracts/catalog/output bounds (former 11.1) remain a later
 implementation candidate, not an authorized next task.
 
-The global `npm run spec:check` currently passes the five current specs and fails
-only this draft: its `Fresh budgets and recoverable turn failure` modification
-omits the current `Rerun after budget exhaustion` and `Failure without explicit
-request` scenarios. The draft was left untouched at rerun closure; those
-implemented scenarios must remain intact during its future rebase/review.
-Artifact completeness and standing rerun approval do not authorize validation.
+The [limited CLI delta repair](openspec/changes/allowlisted-validation/tasks.md#limited-cli-delta-repair-2026-10-03)
+restores `Rerun after budget exhaustion` and `Failure without explicit request`
+verbatim, together with the current settled cancellation/rerun and no-auto-retry
+text. Only the existing proposed read/patch versus validation timeout distinction
+remains in that budget block. Global `npm run spec:check` now passes the five
+current specs and this draft. Task 0.1 remains unchecked: remaining design
+assumptions and the full compatibility diff still require review. Product/platform
+approval and all validation implementation tasks also remain pending.
+The user authorized this documentation repair and its commit; that approval
+and artifact completeness do not authorize validation.
 The draft proposes exactly `test` and `build`, with outcomes in observation;
 npm scripts are trusted process code, not a filesystem/network sandbox.
 

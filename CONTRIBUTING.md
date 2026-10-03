@@ -161,14 +161,16 @@ and unchecked tasks. Cancellation is complete and recorded in the current specs
 and [archive](openspec/changes/archive/2026-10-02-cancel-active-runs/verification.md).
 Explicit rerun is implemented, verified, synchronized, and
 [archived](openspec/changes/archive/2026-10-03-rerun-settled-runs/verification.md).
-The next planning candidate is to rebase and review validation against the
-settled cancellation/rerun contracts before proposing a bounded implementation
-leaf. The global `npm run spec:check` currently passes all five current specs
-and fails only this draft: its CLI-chat modification omits `Rerun after budget
-exhaustion` and `Failure without explicit request`. Preserve these current
-scenarios during future draft review. The draft remains untouched and unapproved.
-Migrating these documents does not authorize
-`run_validation`, its proposed permission policy, or any runtime process work.
+The [limited CLI delta repair](openspec/changes/allowlisted-validation/tasks.md#limited-cli-delta-repair-2026-10-03)
+restores `Rerun after budget exhaustion` and `Failure without explicit request`
+verbatim and preserves the current settled cancellation/rerun and no-auto-retry
+contract. Global `npm run spec:check` now passes all five current specs and this
+draft. The next planning candidate remains the broader compatibility review,
+including historical design assumptions, followed by product/platform review
+before proposing a bounded implementation leaf. Task 0.1 and every validation
+implementation task remain unchecked. The user's documentation-repair approval
+does not authorize `run_validation`, its proposed permission policy, or any
+runtime process work.
 
 Already implemented behavior was imported directly into main specs as a baseline,
 not as fictional feature changes. The former milestone requirements and plans
